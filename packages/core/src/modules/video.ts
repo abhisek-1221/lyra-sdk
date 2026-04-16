@@ -4,6 +4,7 @@
 
 import type { HttpClient } from "../http.js";
 import type { Video } from "../types.js";
+import type { YTThumbnails } from "../types-internal.js";
 import { NotFoundError } from "../errors.js";
 import {
   parseDuration,
@@ -25,7 +26,7 @@ interface YTVideoResource {
     channelId: string;
     channelTitle: string;
     publishedAt: string;
-    thumbnails: Record<string, { url: string; width: number; height: number }>;
+    thumbnails: YTThumbnails;
   };
   statistics: {
     viewCount?: string;
@@ -194,7 +195,7 @@ function mapVideo(item: YTVideoResource, channelName: string): Video {
     durationFmt: formatDurationClock(duration),
     published: formatDate(item.snippet.publishedAt),
     publishedAt: new Date(item.snippet.publishedAt),
-    thumbnails: item.snippet.thumbnails as unknown as Video["thumbnails"],
+    thumbnails: item.snippet.thumbnails as YTThumbnails as Video["thumbnails"],
   };
 }
 

@@ -4,6 +4,7 @@
 
 import type { HttpClient } from "../http.js";
 import type { Channel, RecentVideo } from "../types.js";
+import type { YTThumbnails } from "../types-internal.js";
 import { NotFoundError } from "../errors.js";
 import {
   parseDuration,
@@ -24,7 +25,7 @@ interface YTChannelResource {
     title: string;
     customUrl?: string;
     country?: string;
-    thumbnails: Record<string, { url: string; width: number; height: number }>;
+    thumbnails: YTThumbnails;
   };
   statistics: {
     subscriberCount?: string;
@@ -45,7 +46,7 @@ interface YTPlaylistItemResource {
     title: string;
     publishedAt: string;
     resourceId: { videoId: string };
-    thumbnails: Record<string, { url: string; width: number; height: number }>;
+    thumbnails: YTThumbnails;
   };
 }
 
@@ -120,7 +121,8 @@ export async function getChannel(
     totalViewsFmt: formatNumber(views),
     videoCount: parseInt(item.statistics.videoCount ?? "0", 10),
     country: item.snippet.country,
-    thumbnails: item.snippet.thumbnails as unknown as Channel["thumbnails"],
+    thumbnails: item.snippet
+      .thumbnails as YTThumbnails as Channel["thumbnails"],
     uploadsPlaylistId: item.contentDetails.relatedPlaylists.uploads,
   };
 }

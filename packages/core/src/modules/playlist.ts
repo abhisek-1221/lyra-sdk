@@ -13,6 +13,7 @@
 
 import type { HttpClient } from "../http.js";
 import type { Playlist, PlaylistInfo, PlaylistVideo } from "../types.js";
+import type { YTThumbnails } from "../types-internal.js";
 import { NotFoundError } from "../errors.js";
 import {
   parseDuration,
@@ -31,7 +32,7 @@ interface YTPlaylistResource {
   snippet: {
     title: string;
     description: string;
-    thumbnails: Record<string, { url: string; width: number; height: number }>;
+    thumbnails: YTThumbnails;
   };
 }
 
@@ -57,7 +58,7 @@ interface YTVideoResource {
     description: string;
     channelTitle: string;
     publishedAt: string;
-    thumbnails: Record<string, { url: string; width: number; height: number }>;
+    thumbnails: YTThumbnails;
   };
   statistics: {
     viewCount?: string;
@@ -118,7 +119,7 @@ export async function getPlaylistInfo(
     title: item.snippet.title,
     description: item.snippet.description,
     thumbnails: item.snippet
-      .thumbnails as unknown as PlaylistInfo["thumbnails"],
+      .thumbnails as YTThumbnails as PlaylistInfo["thumbnails"],
   };
 }
 
@@ -268,7 +269,7 @@ async function getVideoDetails(
         likes,
         likesFmt: formatNumber(likes),
         thumbnails: item.snippet
-          .thumbnails as unknown as PlaylistVideo["thumbnails"],
+          .thumbnails as YTThumbnails as PlaylistVideo["thumbnails"],
       };
     }),
   );

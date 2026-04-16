@@ -1,0 +1,17 @@
+# Development / local scripts (not published)
+scripts/
+*.ts
+
+# Test files (not published)
+tests/
+
+# Config files (not needed by consumers)
+tsconfig.json
+vitest.config.ts
+tsup.config.ts
+
+# Source (only compiled dist/ is needed)
+src/
+
+# Documentation (optional - kept in dist/ by build)
+*.md
