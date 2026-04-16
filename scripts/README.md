@@ -20,14 +20,18 @@ Test scripts for the lyra-sdk package. These scripts demonstrate how to use the 
 
 ## Running Scripts
 
-**Important:** Scripts require environment variables to be loaded. You can do this by:
+**Important:** Scripts require environment variables to be loaded. Use this pattern:
 
 ```bash
-# Option 1: Source the .env file (recommended for development)
-source .env && npx tsx scripts/<script-name>.ts
+# Load .env and run script in one command
+export $(cat .env | grep -v '^#' | xargs) && npx tsx scripts/<script-name>.ts
+```
 
-# Option 2: Use dotenv-cli if installed
-npx dotenv-cli -- npx tsx scripts/<script-name>.ts
+Or alternatively:
+
+```bash
+# Set the variable directly
+YOUTUBE_API_KEY=your_key_here npx tsx scripts/<script-name>.ts
 ```
 
 ## Available Scripts
