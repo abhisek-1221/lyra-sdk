@@ -1,0 +1,21 @@
+{
+  "name": "sdk-examples",
+  "version": "0.1.0",
+  "description": "Test package to verify lyra-sdk functionality",
+  "type": "module",
+  "scripts": {
+    "test": "tsx src/client.ts && tsx src/utils.ts && tsx src/video.ts && tsx src/playlist.ts && tsx src/channel.ts",
+    "test:client": "tsx src/client.ts",
+    "test:utils": "tsx src/utils.ts",
+    "test:video": "tsx src/video.ts",
+    "test:playlist": "tsx src/playlist.ts",
+    "test:channel": "tsx src/channel.ts"
+  },
+  "dependencies": {
+    "lyra-sdk": "^1.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0"
+  }
+}
