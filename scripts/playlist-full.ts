@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { yt } from "../packages/core/src/index.js";
 
 const apiKey = process.env.YOUTUBE_API_KEY;
