@@ -1,6 +1,6 @@
 {
   "name": "lyra-sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "YouTube Data API v3 in a few lines. No boilerplate, no pagination headaches.",
   "author": "",
   "license": "MIT",
@@ -62,9 +62,12 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "release": "standard-version",
+    "release:dry": "standard-version --dry-run"
   },
   "devDependencies": {
+    "standard-version": "^9.5.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
