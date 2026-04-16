@@ -1,0 +1,72 @@
+{
+  "name": "lyra-sdk",
+  "version": "0.1.0",
+  "description": "YouTube Data API v3 in a few lines. No boilerplate, no pagination headaches.",
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./url": {
+      "import": {
+        "types": "./dist/url.d.ts",
+        "default": "./dist/url.js"
+      },
+      "require": {
+        "types": "./dist/url.d.cts",
+        "default": "./dist/url.cjs"
+      }
+    },
+    "./fmt": {
+      "import": {
+        "types": "./dist/fmt.d.ts",
+        "default": "./dist/fmt.js"
+      },
+      "require": {
+        "types": "./dist/fmt.d.cts",
+        "default": "./dist/fmt.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "youtube",
+    "youtube-api",
+    "youtube-data-api",
+    "playlist",
+    "video",
+    "channel"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
