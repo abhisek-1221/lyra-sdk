@@ -22,50 +22,45 @@ import type { YTOptions } from "./types.js";
  */
 export function yt(apiKey: string, options?: YTOptions): YTClient {
   if (!apiKey) {
-    throw new Error(
-      "lyra-sdk: API key is required. Get one at https://console.cloud.google.com",
-    );
+    throw new Error("lyra-sdk: API key is required. Get one at https://console.cloud.google.com");
   }
   return new YTClient(apiKey, options);
 }
 
 export { YTClient } from "./client.js";
-
+export {
+  AuthError,
+  InvalidURLError,
+  NotFoundError,
+  QuotaError,
+  YTError,
+} from "./errors.js";
+export { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
 export type {
-  Video,
-  VideoTitle,
   Channel,
-  RecentVideo,
+  ParsedURL,
   Playlist,
   PlaylistInfo,
   PlaylistVideo,
-  ParsedURL,
-  Thumbnails,
+  RecentVideo,
   Thumbnail,
+  Thumbnails,
+  Video,
+  VideoTitle,
   YTOptions,
 } from "./types.js";
 
 export {
-  YTError,
-  NotFoundError,
-  QuotaError,
-  InvalidURLError,
-  AuthError,
-} from "./errors.js";
-
-export { parseURL, isVideoURL, isPlaylistURL } from "./modules/url.js";
-
-export {
-  parseDuration,
   formatDuration,
   formatDurationClock,
+  parseDuration,
 } from "./utils/duration.js";
 
-export { formatNumber, formatDate, relativeTime } from "./utils/format.js";
+export { formatDate, formatNumber, relativeTime } from "./utils/format.js";
 
 export {
-  extractVideoId,
-  extractPlaylistId,
   extractChannelId,
+  extractPlaylistId,
   extractUsername,
+  extractVideoId,
 } from "./utils/url-patterns.js";

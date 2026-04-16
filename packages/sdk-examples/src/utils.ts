@@ -1,67 +1,46 @@
 import {
-  parseURL,
-  isVideoURL,
-  isPlaylistURL,
-  parseDuration,
+  extractChannelId,
+  extractPlaylistId,
+  extractUsername,
+  extractVideoId,
+  formatDate,
   formatDuration,
   formatDurationClock,
   formatNumber,
-  formatDate,
+  isPlaylistURL,
+  isVideoURL,
+  parseDuration,
+  parseURL,
   relativeTime,
-  extractVideoId,
-  extractPlaylistId,
-  extractChannelId,
-  extractUsername,
 } from "lyra-sdk";
 
 console.log("=== Testing URL Utilities ===\n");
 
 // parseURL tests
 console.log("parseURL:");
-console.log(
-  "  watch URL:",
-  parseURL("https://www.youtube.com/watch?v=dQw4w9WgXcQ").type,
-);
+console.log("  watch URL:", parseURL("https://www.youtube.com/watch?v=dQw4w9WgXcQ").type);
 console.log("  short URL:", parseURL("https://youtu.be/dQw4w9WgXcQ").type);
-console.log(
-  "  playlist URL:",
-  parseURL("https://www.youtube.com/playlist?list=PLxxx").type,
-);
-console.log(
-  "  channel URL:",
-  parseURL("https://www.youtube.com/channel/UCxxx").type,
-);
+console.log("  playlist URL:", parseURL("https://www.youtube.com/playlist?list=PLxxx").type);
+console.log("  channel URL:", parseURL("https://www.youtube.com/channel/UCxxx").type);
 
 // isVideoURL / isPlaylistURL
 console.log("\nisVideoURL / isPlaylistURL:");
 console.log("  isVideoURL(youtu.be):", isVideoURL("https://youtu.be/abc"));
-console.log(
-  "  isVideoURL(playlist):",
-  isVideoURL("https://www.youtube.com/playlist?list=PLxxx"),
-);
+console.log("  isVideoURL(playlist):", isVideoURL("https://www.youtube.com/playlist?list=PLxxx"));
 console.log(
   "  isPlaylistURL(playlist):",
-  isPlaylistURL("https://www.youtube.com/playlist?list=PLxxx"),
+  isPlaylistURL("https://www.youtube.com/playlist?list=PLxxx")
 );
 console.log("  isPlaylistURL(video):", isPlaylistURL("https://youtu.be/abc"));
 
 // extract functions
-console.log(
-  "\nextractVideoId:",
-  extractVideoId("https://youtu.be/dQw4w9WgXcQ"),
-);
+console.log("\nextractVideoId:", extractVideoId("https://youtu.be/dQw4w9WgXcQ"));
 console.log(
   "extractPlaylistId:",
-  extractPlaylistId("https://www.youtube.com/playlist?list=PLtest123"),
+  extractPlaylistId("https://www.youtube.com/playlist?list=PLtest123")
 );
-console.log(
-  "extractChannelId:",
-  extractChannelId("https://www.youtube.com/channel/UCtest123"),
-);
-console.log(
-  "extractUsername:",
-  extractUsername("https://www.youtube.com/@MrBeast"),
-);
+console.log("extractChannelId:", extractChannelId("https://www.youtube.com/channel/UCtest123"));
+console.log("extractUsername:", extractUsername("https://www.youtube.com/@MrBeast"));
 
 console.log("\n=== Testing Duration Utilities ===\n");
 

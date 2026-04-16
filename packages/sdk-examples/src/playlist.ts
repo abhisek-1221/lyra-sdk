@@ -1,5 +1,7 @@
 import { config } from "dotenv";
+
 config();
+
 import { yt } from "lyra-sdk";
 
 const client = yt(process.env.YOUTUBE_API_KEY!);
@@ -25,11 +27,7 @@ console.log("\n--- Full playlist with all details ---");
 const playlist = await client.playlist(playlistId);
 console.log("Title:", playlist.title);
 console.log("Video Count:", playlist.videoCount);
-console.log(
-  "Total Duration:",
-  playlist.totalDuration,
-  `seconds (${playlist.totalDurationFmt})`,
-);
+console.log("Total Duration:", playlist.totalDuration, `seconds (${playlist.totalDurationFmt})`);
 console.log("\nVideos:");
 for (const v of playlist.videos) {
   console.log(`  - ${v.title} (${v.durationFmt})`);

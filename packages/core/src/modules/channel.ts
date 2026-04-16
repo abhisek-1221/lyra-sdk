@@ -2,17 +2,17 @@
 // lyra-sdk — Channel module
 // ---------------------------------------------------------------------------
 
+import { NotFoundError } from "../errors.js";
 import type { HttpClient } from "../http.js";
 import type { Channel, RecentVideo } from "../types.js";
 import type { YTThumbnails } from "../types-internal.js";
-import { NotFoundError } from "../errors.js";
 import {
-  parseDuration,
-  formatDurationClock,
-  formatNumber,
-  relativeTime,
   extractChannelId,
   extractUsername,
+  formatDurationClock,
+  formatNumber,
+  parseDuration,
+  relativeTime,
 } from "../utils/index.js";
 
 // ---------------------------------------------------------------------------
@@ -64,17 +64,13 @@ interface YTVideoStatsResource {
  * Resolve a channel URL, `@username`, bare channel ID, or `/c/custom` URL
  * into a channel ID that YouTube's API can consume.
  */
-async function resolveChannelId(
-  http: HttpClient,
-  input: string,
-): Promise<string> {
+async function resolveChannelId(http: HttpClient, input: string): Promise<string> {
   if (/^UC[\w-]{22}$/.test(input)) return input;
 
   const fromUrl = extractChannelId(input);
   if (fromUrl) return fromUrl;
 
-  const username =
-    extractUsername(input) ?? (input.startsWith("@") ? input.slice(1) : null);
+  const username = extractUsername(input) ?? (input.startsWith("@") ? input.slice(1) : null);
   if (username) {
     return searchChannelId(http, username);
   }
@@ -92,10 +88,7 @@ async function resolveChannelId(
  *
  * Accepts a channel ID, `@username`, or channel URL.
  */
-export async function getChannel(
-  http: HttpClient,
-  urlOrId: string,
-): Promise<Channel> {
+export async function getChannel(http: HttpClient, urlOrId: string): Promise<Channel> {
   const channelId = await resolveChannelId(http, urlOrId);
 
   const data = await http.get<YTChannelListResponse>("channels", {
@@ -121,8 +114,7 @@ export async function getChannel(
     totalViewsFmt: formatNumber(views),
     videoCount: parseInt(item.statistics.videoCount ?? "0", 10),
     country: item.snippet.country,
-    thumbnails: item.snippet
-      .thumbnails as YTThumbnails as Channel["thumbnails"],
+    thumbnails: item.snippet.thumbnails as YTThumbnails as Channel["thumbnails"],
     uploadsPlaylistId: item.contentDetails.relatedPlaylists.uploads,
   };
 }
@@ -133,31 +125,25 @@ export async function getChannel(
 export async function getChannelVideos(
   http: HttpClient,
   urlOrId: string,
-  options: { limit?: number } = {},
+  options: { limit?: number } = {}
 ): Promise<RecentVideo[]> {
   const limit = Math.min(options.limit ?? 5, 50);
   const channel = await getChannel(http, urlOrId);
 
-  const playlistData = await http.get<{ items: YTPlaylistItemResource[] }>(
-    "playlistItems",
-    {
-      part: "snippet",
-      playlistId: channel.uploadsPlaylistId,
-      maxResults: limit.toString(),
-    },
-  );
+  const playlistData = await http.get<{ items: YTPlaylistItemResource[] }>("playlistItems", {
+    part: "snippet",
+    playlistId: channel.uploadsPlaylistId,
+    maxResults: limit.toString(),
+  });
 
   const items = playlistData.items ?? [];
   if (items.length === 0) return [];
 
   const videoIds = items.map((i) => i.snippet.resourceId.videoId).join(",");
-  const videoStats = await http.get<{ items: YTVideoStatsResource[] }>(
-    "videos",
-    {
-      part: "statistics,contentDetails",
-      id: videoIds,
-    },
-  );
+  const videoStats = await http.get<{ items: YTVideoStatsResource[] }>("videos", {
+    part: "statistics,contentDetails",
+    id: videoIds,
+  });
 
   const statsMap = new Map((videoStats.items ?? []).map((v) => [v.id, v]));
 
@@ -178,10 +164,7 @@ export async function getChannelVideos(
       likesFmt: formatNumber(likes),
       duration,
       durationFmt: formatDurationClock(duration),
-      thumbnail:
-        item.snippet.thumbnails?.high?.url ??
-        item.snippet.thumbnails?.default?.url ??
-        "",
+      thumbnail: item.snippet.thumbnails?.high?.url ?? item.snippet.thumbnails?.default?.url ?? "",
       uploadAge: relativeTime(publishedAt),
       publishedAt,
     };
@@ -192,10 +175,7 @@ export async function getChannelVideos(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-async function searchChannelId(
-  http: HttpClient,
-  query: string,
-): Promise<string> {
+async function searchChannelId(http: HttpClient, query: string): Promise<string> {
   const data = await http.get<{
     items: Array<{ snippet: { channelId: string } }>;
   }>("search", {

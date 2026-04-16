@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+
 config();
 
 import { yt } from "../packages/core/src/index.js";
@@ -19,11 +20,7 @@ async function main() {
 
   console.log("Name:", channel.name);
   console.log("Username:", channel.username);
-  console.log(
-    "Subscribers:",
-    channel.subscribers,
-    `(${channel.subscribersFmt})`,
-  );
+  console.log("Subscribers:", channel.subscribers, `(${channel.subscribersFmt})`);
   console.log("Total Views:", channel.totalViews, `(${channel.totalViewsFmt})`);
   console.log("Video Count:", channel.videoCount);
   if (channel.country) console.log("Country:", channel.country);

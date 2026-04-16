@@ -2,16 +2,16 @@
 // lyra-sdk — Video module
 // ---------------------------------------------------------------------------
 
+import { NotFoundError } from "../errors.js";
 import type { HttpClient } from "../http.js";
 import type { Video } from "../types.js";
 import type { YTThumbnails } from "../types-internal.js";
-import { NotFoundError } from "../errors.js";
 import {
-  parseDuration,
+  extractVideoId,
+  formatDate,
   formatDurationClock,
   formatNumber,
-  formatDate,
-  extractVideoId,
+  parseDuration,
 } from "../utils/index.js";
 
 // ---------------------------------------------------------------------------
@@ -63,10 +63,7 @@ function resolveId(urlOrId: string): string {
  * Resolves the channel name via an additional channels.list call so the
  * consumer never has to think about channel IDs.
  */
-export async function getVideo(
-  http: HttpClient,
-  urlOrId: string,
-): Promise<Video> {
+export async function getVideo(http: HttpClient, urlOrId: string): Promise<Video> {
   const id = resolveId(urlOrId);
 
   const data = await http.get<YTVideoListResponse>("videos", {
@@ -88,10 +85,7 @@ export async function getVideo(
  * Internally batches into chunks of 50 (YouTube API max per request) and
  * runs them in parallel.
  */
-export async function getVideos(
-  http: HttpClient,
-  urlsOrIds: string[],
-): Promise<Video[]> {
+export async function getVideos(http: HttpClient, urlsOrIds: string[]): Promise<Video[]> {
   const ids = urlsOrIds.map(resolveId);
   const chunks = chunkArray(ids, 50);
 
@@ -100,32 +94,24 @@ export async function getVideos(
       http.get<YTVideoListResponse>("videos", {
         part: "snippet,statistics,contentDetails",
         id: chunk.join(","),
-      }),
-    ),
+      })
+    )
   );
 
   const allItems = results.flatMap((r) => r.items ?? []);
 
-  const channelIds = Array.from(
-    new Set(allItems.map((i) => i.snippet.channelId)),
-  );
+  const channelIds = Array.from(new Set(allItems.map((i) => i.snippet.channelId)));
   const channelNames = await resolveChannelNames(http, channelIds);
 
   return allItems.map((item) =>
-    mapVideo(
-      item,
-      channelNames.get(item.snippet.channelId) ?? "Unknown Channel",
-    ),
+    mapVideo(item, channelNames.get(item.snippet.channelId) ?? "Unknown Channel")
   );
 }
 
 /**
  * Lightweight title-only lookup. Uses `snippet` part only (1 quota unit).
  */
-export async function getVideoTitle(
-  http: HttpClient,
-  urlOrId: string,
-): Promise<string> {
+export async function getVideoTitle(http: HttpClient, urlOrId: string): Promise<string> {
   const id = resolveId(urlOrId);
 
   const data = await http.get<YTVideoListResponse>("videos", {
@@ -141,7 +127,7 @@ export async function getVideoTitle(
  */
 export async function getVideoTitles(
   http: HttpClient,
-  urlsOrIds: string[],
+  urlsOrIds: string[]
 ): Promise<Record<string, string>> {
   const ids = urlsOrIds.map(resolveId);
   const chunks = chunkArray(ids, 50);
@@ -151,8 +137,8 @@ export async function getVideoTitles(
       http.get<YTVideoListResponse>("videos", {
         part: "snippet",
         id: chunk.join(","),
-      }),
-    ),
+      })
+    )
   );
 
   const map: Record<string, string> = {};
@@ -199,10 +185,7 @@ function mapVideo(item: YTVideoResource, channelName: string): Video {
   };
 }
 
-async function resolveChannelName(
-  http: HttpClient,
-  channelId: string,
-): Promise<string> {
+async function resolveChannelName(http: HttpClient, channelId: string): Promise<string> {
   const data = await http.get<YTChannelSnippetResponse>("channels", {
     part: "snippet",
     id: channelId,
@@ -212,7 +195,7 @@ async function resolveChannelName(
 
 async function resolveChannelNames(
   http: HttpClient,
-  channelIds: string[],
+  channelIds: string[]
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (channelIds.length === 0) return map;
@@ -221,14 +204,11 @@ async function resolveChannelNames(
 
   const results = await Promise.all(
     chunks.map((chunk) =>
-      http.get<{ items: Array<{ id: string; snippet: { title: string } }> }>(
-        "channels",
-        {
-          part: "snippet",
-          id: chunk.join(","),
-        },
-      ),
-    ),
+      http.get<{ items: Array<{ id: string; snippet: { title: string } }> }>("channels", {
+        part: "snippet",
+        id: chunk.join(","),
+      })
+    )
   );
 
   for (const r of results) {

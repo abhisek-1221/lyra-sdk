@@ -1,9 +1,5 @@
-import { describe, it, expect } from "vitest";
-import {
-  parseDuration,
-  formatDuration,
-  formatDurationClock,
-} from "../src/utils/duration";
+import { describe, expect, it } from "vitest";
+import { formatDuration, formatDurationClock, parseDuration } from "../src/utils/duration";
 
 describe("parseDuration", () => {
   it("parses hours, minutes and seconds", () => {

@@ -1,5 +1,7 @@
 import { config } from "dotenv";
+
 config();
+
 import { yt } from "lyra-sdk";
 
 console.log("=== Testing Client Factory ===\n");
@@ -13,21 +15,18 @@ const parsed = client.url.parse("https://youtu.be/dQw4w9WgXcQ");
 console.log("✓ client.url.parse() works:", parsed.type);
 
 // Test url.isVideo
-console.log(
-  "✓ client.url.isVideo() works:",
-  client.url.isVideo("https://youtu.be/abc"),
-);
+console.log("✓ client.url.isVideo() works:", client.url.isVideo("https://youtu.be/abc"));
 
 // Test url.isPlaylist
 console.log(
   "✓ client.url.isPlaylist() works:",
-  client.url.isPlaylist("https://www.youtube.com/playlist?list=PLxxx"),
+  client.url.isPlaylist("https://www.youtube.com/playlist?list=PLxxx")
 );
 
 // Test url.extractVideoId
 console.log(
   "✓ client.url.extractVideoId() works:",
-  client.url.extractVideoId("https://youtu.be/abc"),
+  client.url.extractVideoId("https://youtu.be/abc")
 );
 
 // Test error on missing API key

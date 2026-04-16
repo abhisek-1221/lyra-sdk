@@ -1,20 +1,21 @@
 import { config } from "dotenv";
+
 config();
 
 import {
-  parseURL,
-  isVideoURL,
-  isPlaylistURL,
-  parseDuration,
+  extractChannelId,
+  extractPlaylistId,
+  extractUsername,
+  extractVideoId,
+  formatDate,
   formatDuration,
   formatDurationClock,
   formatNumber,
-  formatDate,
+  isPlaylistURL,
+  isVideoURL,
+  parseDuration,
+  parseURL,
   relativeTime,
-  extractVideoId,
-  extractPlaylistId,
-  extractChannelId,
-  extractUsername,
 } from "../packages/core/src/index.js";
 
 console.log("=== URL Utilities ===\n");
@@ -36,20 +37,15 @@ const testUrls = [
 console.log("parseURL tests:");
 for (const url of testUrls) {
   const result = parseURL(url);
-  console.log(
-    `  ${url || "(empty)"}: ${result.isValid ? result.type : result.error}`,
-  );
+  console.log(`  ${url || "(empty)"}: ${result.isValid ? result.type : result.error}`);
 }
 
 console.log("\nisVideoURL / isPlaylistURL:");
 console.log("  isVideoURL(youtu.be):", isVideoURL("https://youtu.be/abc"));
-console.log(
-  "  isVideoURL(playlist):",
-  isVideoURL("https://www.youtube.com/playlist?list=PLxxx"),
-);
+console.log("  isVideoURL(playlist):", isVideoURL("https://www.youtube.com/playlist?list=PLxxx"));
 console.log(
   "  isPlaylistURL(playlist):",
-  isPlaylistURL("https://www.youtube.com/playlist?list=PLxxx"),
+  isPlaylistURL("https://www.youtube.com/playlist?list=PLxxx")
 );
 console.log("  isPlaylistURL(video):", isPlaylistURL("https://youtu.be/abc"));
 
@@ -111,9 +107,7 @@ for (const tc of durationTests) {
 console.log("\nformatDuration / formatDurationClock:");
 const secondsTests = [0, 45, 90, 3661, 90061];
 for (const sec of secondsTests) {
-  console.log(
-    `  ${sec}s → ${formatDuration(sec)} / ${formatDurationClock(sec)}`,
-  );
+  console.log(`  ${sec}s → ${formatDuration(sec)} / ${formatDurationClock(sec)}`);
 }
 
 console.log("\n=== Format Utilities ===\n");

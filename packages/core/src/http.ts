@@ -40,10 +40,7 @@ export class HttpClient {
    * @param path  - API path *without* leading slash, e.g. `"videos"`
    * @param params - Query parameters (the `key` param is injected automatically)
    */
-  async get<T = unknown>(
-    path: string,
-    params: Record<string, string> = {},
-  ): Promise<T> {
+  async get<T = unknown>(path: string, params: Record<string, string> = {}): Promise<T> {
     const url = this.buildUrl(path, params);
     let lastError: Error | undefined;
 

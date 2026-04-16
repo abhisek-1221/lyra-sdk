@@ -16,7 +16,7 @@
  */
 export function extractVideoId(url: string): string | null {
   const match = url.match(
-    /(?:v=|\/(?:embed|shorts|v)\/|youtu\.be\/|\/e\/|watch\?v=|\/watch\?.+&v=)([^&?/\n\s]+)/,
+    /(?:v=|\/(?:embed|shorts|v)\/|youtu\.be\/|\/e\/|watch\?v=|\/watch\?.+&v=)([^&?/\n\s]+)/
   );
   return match?.[1] ?? null;
 }
@@ -36,9 +36,7 @@ export function extractPlaylistId(url: string): string | null {
  * those are handled by the channel module, not here.
  */
 export function extractChannelId(url: string): string | null {
-  const match = url.match(
-    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/channel\/([^/\n\s]+)/,
-  );
+  const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/channel\/([^/\n\s]+)/);
   return match?.[1] ?? null;
 }
 
@@ -46,8 +44,6 @@ export function extractChannelId(url: string): string | null {
  * Extract an `@username` handle from a YouTube URL.
  */
 export function extractUsername(url: string): string | null {
-  const match = url.match(
-    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/@([^/\n\s]+)/,
-  );
+  const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/@([^/\n\s]+)/);
   return match?.[1] ?? null;
 }

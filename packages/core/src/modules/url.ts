@@ -3,18 +3,9 @@
 // ---------------------------------------------------------------------------
 
 import type { ParsedURL } from "../types.js";
-import {
-  extractVideoId,
-  extractPlaylistId,
-  extractChannelId,
-} from "../utils/url-patterns.js";
+import { extractChannelId, extractPlaylistId, extractVideoId } from "../utils/url-patterns.js";
 
-const YOUTUBE_HOSTS = new Set([
-  "youtube.com",
-  "www.youtube.com",
-  "m.youtube.com",
-  "youtu.be",
-]);
+const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"]);
 
 /**
  * Parse any YouTube URL into a structured result.

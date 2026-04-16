@@ -1,12 +1,12 @@
 export {
-  parseDuration,
   formatDuration,
   formatDurationClock,
+  parseDuration,
 } from "./duration.js";
-export { formatNumber, formatDate, relativeTime } from "./format.js";
+export { formatDate, formatNumber, relativeTime } from "./format.js";
 export {
-  extractVideoId,
-  extractPlaylistId,
   extractChannelId,
+  extractPlaylistId,
   extractUsername,
+  extractVideoId,
 } from "./url-patterns.js";

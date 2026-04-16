@@ -1,16 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  extractVideoId,
-  extractPlaylistId,
   extractChannelId,
+  extractPlaylistId,
   extractUsername,
+  extractVideoId,
 } from "../src/utils/url-patterns";
 
 describe("extractVideoId", () => {
   it("extracts from standard watch URL", () => {
-    expect(extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(
-      "dQw4w9WgXcQ",
-    );
+    expect(extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
   });
 
   it("extracts from short URL", () => {
@@ -18,35 +16,27 @@ describe("extractVideoId", () => {
   });
 
   it("extracts from embed URL", () => {
-    expect(extractVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ")).toBe(
-      "dQw4w9WgXcQ",
-    );
+    expect(extractVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
   });
 
   it("extracts from shorts URL", () => {
-    expect(extractVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toBe(
-      "dQw4w9WgXcQ",
-    );
+    expect(extractVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
   });
 
   it("returns null for non-video URL", () => {
-    expect(
-      extractVideoId("https://www.youtube.com/playlist?list=PLxxx"),
-    ).toBeNull();
+    expect(extractVideoId("https://www.youtube.com/playlist?list=PLxxx")).toBeNull();
   });
 });
 
 describe("extractPlaylistId", () => {
   it("extracts from playlist URL", () => {
-    expect(
-      extractPlaylistId("https://www.youtube.com/playlist?list=PLtest123"),
-    ).toBe("PLtest123");
+    expect(extractPlaylistId("https://www.youtube.com/playlist?list=PLtest123")).toBe("PLtest123");
   });
 
   it("extracts from watch URL with list param", () => {
-    expect(
-      extractPlaylistId("https://www.youtube.com/watch?v=abc&list=PLtest123"),
-    ).toBe("PLtest123");
+    expect(extractPlaylistId("https://www.youtube.com/watch?v=abc&list=PLtest123")).toBe(
+      "PLtest123"
+    );
   });
 
   it("returns null when no list param", () => {
@@ -56,9 +46,7 @@ describe("extractPlaylistId", () => {
 
 describe("extractChannelId", () => {
   it("extracts from channel URL", () => {
-    expect(extractChannelId("https://www.youtube.com/channel/UCtest123")).toBe(
-      "UCtest123",
-    );
+    expect(extractChannelId("https://www.youtube.com/channel/UCtest123")).toBe("UCtest123");
   });
 
   it("returns null for non-channel URL", () => {

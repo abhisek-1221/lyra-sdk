@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parseURL, isVideoURL, isPlaylistURL } from "../src/modules/url";
+import { describe, expect, it } from "vitest";
+import { isPlaylistURL, isVideoURL, parseURL } from "../src/modules/url";
 
 describe("parseURL", () => {
   it("parses standard video URL", () => {
@@ -33,9 +33,7 @@ describe("parseURL", () => {
   });
 
   it("parses video URL with playlist ID", () => {
-    const result = parseURL(
-      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOei",
-    );
+    const result = parseURL("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOei");
     expect(result.isValid).toBe(true);
     expect(result.type).toBe("video");
     expect(result.videoId).toBe("dQw4w9WgXcQ");
@@ -44,7 +42,7 @@ describe("parseURL", () => {
 
   it("parses pure playlist URL", () => {
     const result = parseURL(
-      "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf",
+      "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"
     );
     expect(result).toEqual({
       isValid: true,
@@ -54,9 +52,7 @@ describe("parseURL", () => {
   });
 
   it("parses channel URL", () => {
-    const result = parseURL(
-      "https://www.youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA",
-    );
+    const result = parseURL("https://www.youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA");
     expect(result.isValid).toBe(true);
     expect(result.type).toBe("channel");
     expect(result.channelId).toBe("UCX6OQ3DkcsbYNE6H8uQQuVA");
@@ -93,17 +89,13 @@ describe("isVideoURL", () => {
   });
 
   it("returns false for playlist URLs", () => {
-    expect(isVideoURL("https://www.youtube.com/playlist?list=PLxxx")).toBe(
-      false,
-    );
+    expect(isVideoURL("https://www.youtube.com/playlist?list=PLxxx")).toBe(false);
   });
 });
 
 describe("isPlaylistURL", () => {
   it("returns true for playlist URLs", () => {
-    expect(isPlaylistURL("https://www.youtube.com/playlist?list=PLxxx")).toBe(
-      true,
-    );
+    expect(isPlaylistURL("https://www.youtube.com/playlist?list=PLxxx")).toBe(true);
   });
 
   it("returns false for video URLs", () => {

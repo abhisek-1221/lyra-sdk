@@ -1,5 +1,7 @@
 import { config } from "dotenv";
+
 config();
+
 import { yt } from "lyra-sdk";
 
 const client = yt(process.env.YOUTUBE_API_KEY!);
