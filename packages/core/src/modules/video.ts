@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from "../http.js";
-import type { Video, VideoTitle } from "../types.js";
+import type { Video } from "../types.js";
 import { NotFoundError } from "../errors.js";
 import {
   parseDuration,
