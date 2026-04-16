@@ -8,34 +8,12 @@
 // ---------------------------------------------------------------------------
 
 import { HttpClient } from "./http.js";
-
-import type {
-  Channel,
-  Playlist,
-  PlaylistInfo,
-  RecentVideo,
-  Video,
-  YTOptions,
-} from "./types.js";
-
-import {
-  getVideo,
-  getVideos,
-  getVideoTitle,
-  getVideoTitles,
-} from "./modules/video.js";
 import { getChannel, getChannelVideos } from "./modules/channel.js";
-import {
-  getPlaylist,
-  getPlaylistInfo,
-  getPlaylistVideoIds,
-} from "./modules/playlist.js";
-import { parseURL, isVideoURL, isPlaylistURL } from "./modules/url.js";
-import {
-  extractVideoId,
-  extractPlaylistId,
-  extractChannelId,
-} from "./utils/url-patterns.js";
+import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "./modules/playlist.js";
+import { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
+import { getVideo, getVideos, getVideoTitle, getVideoTitles } from "./modules/video.js";
+import type { Channel, Playlist, PlaylistInfo, RecentVideo, Video, YTOptions } from "./types.js";
+import { extractChannelId, extractPlaylistId, extractVideoId } from "./utils/url-patterns.js";
 
 /**
  * The main client class.
@@ -87,10 +65,7 @@ export class YTClient {
   }
 
   /** Fetch recent uploads for a channel. */
-  async channelVideos(
-    urlOrId: string,
-    options?: { limit?: number },
-  ): Promise<RecentVideo[]> {
+  async channelVideos(urlOrId: string, options?: { limit?: number }): Promise<RecentVideo[]> {
     return getChannelVideos(this.http, urlOrId, options);
   }
 

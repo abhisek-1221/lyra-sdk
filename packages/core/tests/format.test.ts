@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { formatNumber, formatDate, relativeTime } from "../src/utils/format";
+import { describe, expect, it } from "vitest";
+import { formatDate, formatNumber, relativeTime } from "../src/utils/format";
 
 describe("formatNumber", () => {
   it("compacts millions", () => {

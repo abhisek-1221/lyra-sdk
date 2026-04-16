@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+
 config();
 
 import { yt } from "../packages/core/src/index.js";

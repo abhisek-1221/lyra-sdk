@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+
 config();
 
 import { yt } from "../packages/core/src/index.js";
@@ -19,17 +20,13 @@ async function main() {
 
   console.log("Title:", playlist.title);
   console.log("Video Count:", playlist.videoCount);
-  console.log(
-    "Total Duration:",
-    playlist.totalDuration,
-    `seconds (${playlist.totalDurationFmt})`,
-  );
+  console.log("Total Duration:", playlist.totalDuration, `seconds (${playlist.totalDurationFmt})`);
   console.log("\nFirst 5 videos:");
 
   for (const video of playlist.videos.slice(0, 5)) {
     console.log(`  - ${video.title}`);
     console.log(
-      `    Duration: ${video.durationFmt} | Views: ${video.viewsFmt} | Likes: ${video.likesFmt}`,
+      `    Duration: ${video.durationFmt} | Views: ${video.viewsFmt} | Likes: ${video.likesFmt}`
     );
   }
 

@@ -11,16 +11,16 @@
 // Every public function accepts either a playlist URL or a bare playlist ID.
 // ---------------------------------------------------------------------------
 
+import { NotFoundError } from "../errors.js";
 import type { HttpClient } from "../http.js";
 import type { Playlist, PlaylistInfo, PlaylistVideo } from "../types.js";
 import type { YTThumbnails } from "../types-internal.js";
-import { NotFoundError } from "../errors.js";
 import {
-  parseDuration,
+  extractPlaylistId,
   formatDuration,
   formatDurationClock,
   formatNumber,
-  extractPlaylistId,
+  parseDuration,
 } from "../utils/index.js";
 
 // ---------------------------------------------------------------------------
@@ -100,10 +100,7 @@ function resolvePlaylistId(urlOrId: string): string {
  *
  * Costs 1 quota unit. Use when you only need the playlist's info card.
  */
-export async function getPlaylistInfo(
-  http: HttpClient,
-  urlOrId: string,
-): Promise<PlaylistInfo> {
+export async function getPlaylistInfo(http: HttpClient, urlOrId: string): Promise<PlaylistInfo> {
   const id = resolvePlaylistId(urlOrId);
 
   const data = await http.get<YTPlaylistListResponse>("playlists", {
@@ -118,8 +115,7 @@ export async function getPlaylistInfo(
     id: item.id,
     title: item.snippet.title,
     description: item.snippet.description,
-    thumbnails: item.snippet
-      .thumbnails as YTThumbnails as PlaylistInfo["thumbnails"],
+    thumbnails: item.snippet.thumbnails as YTThumbnails as PlaylistInfo["thumbnails"],
   };
 }
 
@@ -139,10 +135,7 @@ export async function getPlaylistInfo(
  * console.log(pl.videoCount)        // 142
  * ```
  */
-export async function getPlaylist(
-  http: HttpClient,
-  urlOrId: string,
-): Promise<Playlist> {
+export async function getPlaylist(http: HttpClient, urlOrId: string): Promise<Playlist> {
   const id = resolvePlaylistId(urlOrId);
 
   const [info, videoIds] = await Promise.all([
@@ -167,10 +160,7 @@ export async function getPlaylist(
  * Useful when you want to process IDs yourself (e.g. pass them to
  * a transcription pipeline).
  */
-export async function getPlaylistVideoIds(
-  http: HttpClient,
-  urlOrId: string,
-): Promise<string[]> {
+export async function getPlaylistVideoIds(http: HttpClient, urlOrId: string): Promise<string[]> {
   const id = resolvePlaylistId(urlOrId);
   return getAllVideoIds(http, id);
 }
@@ -185,10 +175,7 @@ export async function getPlaylistVideoIds(
  * YouTube limits each page to 50 items and provides a `nextPageToken`.
  * We loop until there are no more pages.
  */
-async function getAllVideoIds(
-  http: HttpClient,
-  playlistId: string,
-): Promise<string[]> {
+async function getAllVideoIds(http: HttpClient, playlistId: string): Promise<string[]> {
   const ids: string[] = [];
   let pageToken: string | undefined;
 
@@ -202,10 +189,7 @@ async function getAllVideoIds(
       params.pageToken = pageToken;
     }
 
-    const page = await http.get<YTPlaylistItemsResponse>(
-      "playlistItems",
-      params,
-    );
+    const page = await http.get<YTPlaylistItemsResponse>("playlistItems", params);
 
     if (!page.items?.length) break;
 
@@ -229,7 +213,7 @@ async function getAllVideoIds(
  */
 async function getVideoDetails(
   http: HttpClient,
-  videoIds: string[],
+  videoIds: string[]
 ): Promise<{ videos: PlaylistVideo[]; totalDuration: number }> {
   if (videoIds.length === 0) {
     return { videos: [], totalDuration: 0 };
@@ -242,8 +226,8 @@ async function getVideoDetails(
       http.get<YTVideoListResponse>("videos", {
         part: "snippet,statistics,contentDetails",
         id: chunk.join(","),
-      }),
-    ),
+      })
+    )
   );
 
   let totalDuration = 0;
@@ -268,10 +252,9 @@ async function getVideoDetails(
         viewsFmt: formatNumber(views),
         likes,
         likesFmt: formatNumber(likes),
-        thumbnails: item.snippet
-          .thumbnails as YTThumbnails as PlaylistVideo["thumbnails"],
+        thumbnails: item.snippet.thumbnails as YTThumbnails as PlaylistVideo["thumbnails"],
       };
-    }),
+    })
   );
 
   return { videos, totalDuration };

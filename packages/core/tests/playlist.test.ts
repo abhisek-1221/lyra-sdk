@@ -1,10 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { HttpClient } from "../src/http";
-import {
-  getPlaylist,
-  getPlaylistInfo,
-  getPlaylistVideoIds,
-} from "../src/modules/playlist";
+import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "../src/modules/playlist";
 
 // ---------------------------------------------------------------------------
 // Mocked HttpClient
@@ -21,7 +17,7 @@ function createMockHttp(responses: Record<string, unknown>): HttpClient {
         throw new Error(`Unmocked request: ${key}`);
       }
       return res;
-    },
+    }
   );
 
   return http;
@@ -79,10 +75,7 @@ const PLAYLIST_ITEMS_PAGE1 = {
 };
 
 const PLAYLIST_ITEMS_PAGINATED_PAGE1 = {
-  items: [
-    { contentDetails: { videoId: "vid1" } },
-    { contentDetails: { videoId: "vid2" } },
-  ],
+  items: [{ contentDetails: { videoId: "vid1" } }, { contentDetails: { videoId: "vid2" } }],
   nextPageToken: "PAGE2_TOKEN",
 };
 
@@ -148,10 +141,7 @@ describe("getPlaylistInfo", () => {
   it("extracts playlist ID from URL", async () => {
     const http = createMockHttp({ playlists: PLAYLIST_INFO_RESPONSE });
 
-    const info = await getPlaylistInfo(
-      http,
-      "https://www.youtube.com/playlist?list=PLtest123",
-    );
+    const info = await getPlaylistInfo(http, "https://www.youtube.com/playlist?list=PLtest123");
 
     expect(info.id).toBe("PLtest123");
     expect(http.get).toHaveBeenCalledWith("playlists", {
@@ -163,9 +153,7 @@ describe("getPlaylistInfo", () => {
   it("throws NotFoundError for missing playlist", async () => {
     const http = createMockHttp({ playlists: { items: [] } });
 
-    await expect(getPlaylistInfo(http, "PLnotfound")).rejects.toThrow(
-      "not found",
-    );
+    await expect(getPlaylistInfo(http, "PLnotfound")).rejects.toThrow("not found");
   });
 });
 
@@ -183,14 +171,14 @@ describe("getPlaylistVideoIds", () => {
     let callCount = 0;
 
     vi.spyOn(http, "get").mockImplementation(
-      async (path: string, params?: Record<string, string>) => {
+      async (path: string, _params?: Record<string, string>) => {
         if (path === "playlistItems") {
           callCount++;
           if (callCount === 1) return PLAYLIST_ITEMS_PAGINATED_PAGE1;
           return PLAYLIST_ITEMS_PAGINATED_PAGE2;
         }
         throw new Error(`Unexpected path: ${path}`);
-      },
+      }
     );
 
     const ids = await getPlaylistVideoIds(http, "PLtest123");
@@ -202,10 +190,7 @@ describe("getPlaylistVideoIds", () => {
   it("extracts playlist ID from watch URL with list param", async () => {
     const http = createMockHttp({ playlistItems: PLAYLIST_ITEMS_PAGE1 });
 
-    const ids = await getPlaylistVideoIds(
-      http,
-      "https://youtube.com/watch?v=xyz&list=PLtest123",
-    );
+    const ids = await getPlaylistVideoIds(http, "https://youtube.com/watch?v=xyz&list=PLtest123");
 
     expect(ids).toEqual(["vid1", "vid2", "vid3"]);
   });
@@ -216,13 +201,12 @@ describe("getPlaylist", () => {
     const http = new HttpClient({ apiKey: "test-key" });
 
     vi.spyOn(http, "get").mockImplementation(
-      async (path: string, params?: Record<string, string>) => {
+      async (path: string, _params?: Record<string, string>) => {
         if (path === "playlists") return PLAYLIST_INFO_RESPONSE;
         if (path === "playlistItems") return PLAYLIST_ITEMS_PAGE1;
-        if (path === "videos")
-          return makeVideoDetailsResponse(["vid1", "vid2", "vid3"]);
+        if (path === "videos") return makeVideoDetailsResponse(["vid1", "vid2", "vid3"]);
         throw new Error(`Unexpected path: ${path}`);
-      },
+      }
     );
 
     const playlist = await getPlaylist(http, "PLtest123");
