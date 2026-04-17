@@ -28,7 +28,6 @@ export function yt(apiKey: string, options?: YTOptions): YTClient {
 }
 
 export { YTClient } from "./client.js";
-export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 export {
   AuthError,
   InvalidURLError,
@@ -36,6 +35,7 @@ export {
   QuotaError,
   YTError,
 } from "./errors.js";
+export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 export { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
 export type {
   Channel,
