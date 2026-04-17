@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/abhisek-1221/lyra-sdk/compare/v1.0.0...v1.1.0) (2026-04-17)
+
+
+### Features
+
+* add husky and biome configuration ([4e9b45c](https://github.com/abhisek-1221/lyra-sdk/commit/4e9b45cba4b233bdf85b2ba2191938d3d7fd9ccf))
+* add sdk-examples ([02fde88](https://github.com/abhisek-1221/lyra-sdk/commit/02fde88ffb7a914cc2307b6b23073a918fdcc0b9))
+* **core:** add playlist query types ([ae18b52](https://github.com/abhisek-1221/lyra-sdk/commit/ae18b52f52192bcf798ca3ed6b1e378f7d23ca14))
+* **core:** add playlistQuery method to YTClient ([9e8d87f](https://github.com/abhisek-1221/lyra-sdk/commit/9e8d87f2611dd4eaf4d0cf8e93a1ae7cd9c8fcf8))
+* **core:** add unit tests for PlaylistQueryBuilder ([07a461f](https://github.com/abhisek-1221/lyra-sdk/commit/07a461fe0f0c681e8a8359fc65d1441e0370148d))
+* **core:** export new types and PlaylistQueryBuilder ([5c90c88](https://github.com/abhisek-1221/lyra-sdk/commit/5c90c88a103bd61b43a33f1451adf246a89f7c0a))
+* **core:** implement PlaylistQueryBuilder class ([6017494](https://github.com/abhisek-1221/lyra-sdk/commit/6017494c2709a409e3c39f5fa47b71a4c8ada51d))
+* **script:** add playlist-query integration script ([345b91f](https://github.com/abhisek-1221/lyra-sdk/commit/345b91fc92543e11313dda3da9b3ba69f9f2ca3e))
+
 ## 1.0.0 (2026-04-16)
 
 
