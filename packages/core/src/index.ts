@@ -28,6 +28,7 @@ export function yt(apiKey: string, options?: YTOptions): YTClient {
 }
 
 export { YTClient } from "./client.js";
+export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 export {
   AuthError,
   InvalidURLError,
@@ -41,8 +42,12 @@ export type {
   ParsedURL,
   Playlist,
   PlaylistInfo,
+  PlaylistQueryResult,
   PlaylistVideo,
+  PlaylistVideoFilters,
   RecentVideo,
+  SortField,
+  SortOrder,
   Thumbnail,
   Thumbnails,
   Video,
