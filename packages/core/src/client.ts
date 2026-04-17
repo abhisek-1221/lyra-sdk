@@ -10,6 +10,7 @@
 import { HttpClient } from "./http.js";
 import { getChannel, getChannelVideos } from "./modules/channel.js";
 import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "./modules/playlist.js";
+import { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 import { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
 import { getVideo, getVideos, getVideoTitle, getVideoTitles } from "./modules/video.js";
 import type { Channel, Playlist, PlaylistInfo, RecentVideo, Video, YTOptions } from "./types.js";
@@ -91,6 +92,22 @@ export class YTClient {
   /** Fetch all video IDs in a playlist. Auto-paginates. */
   async playlistVideoIds(urlOrId: string): Promise<string[]> {
     return getPlaylistVideoIds(this.http, urlOrId);
+  }
+
+  /**
+   * Create a playlist query builder for filtering, sorting, and slicing.
+   *
+   * ```ts
+   * const result = await client.playlistQuery("PLxxx")
+   *   .filterByViews({ min: 10_000 })
+   *   .sortBy("views", "desc")
+   *   .between(1, 10)
+   *   .execute();
+   * ```
+   */
+  playlistQuery(urlOrId: string): PlaylistQueryBuilder {
+    const id = extractPlaylistId(urlOrId) ?? urlOrId;
+    return new PlaylistQueryBuilder(this.http, id);
   }
 
   // -----------------------------------------------------------------------

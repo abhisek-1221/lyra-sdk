@@ -116,6 +116,36 @@ export interface Playlist {
 }
 
 // ---------------------------------------------------------------------------
+// Playlist Query
+// ---------------------------------------------------------------------------
+
+export type SortField = "duration" | "views" | "likes";
+export type SortOrder = "asc" | "desc";
+
+export interface PlaylistSortOptions {
+  field: SortField;
+  order: SortOrder;
+}
+
+export interface PlaylistVideoFilters {
+  duration?: { min?: number; max?: number };
+  views?: { min?: number; max?: number };
+  likes?: { min?: number; max?: number };
+}
+
+export interface PlaylistQueryResult {
+  id: string;
+  title: string;
+  description: string;
+  thumbnails: Thumbnails;
+  videos: PlaylistVideo[];
+  videoCount: number;
+  originalCount: number;
+  totalDuration: number;
+  totalDurationFmt: string;
+}
+
+// ---------------------------------------------------------------------------
 // URL parsing
 // ---------------------------------------------------------------------------
 

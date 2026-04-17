@@ -1,6 +1,6 @@
 {
   "name": "lyra-sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "YouTube Data API v3 in a few lines. No boilerplate, no pagination headaches.",
   "author": "",
   "license": "MIT",

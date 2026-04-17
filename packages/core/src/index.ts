@@ -35,14 +35,19 @@ export {
   QuotaError,
   YTError,
 } from "./errors.js";
+export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 export { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
 export type {
   Channel,
   ParsedURL,
   Playlist,
   PlaylistInfo,
+  PlaylistQueryResult,
   PlaylistVideo,
+  PlaylistVideoFilters,
   RecentVideo,
+  SortField,
+  SortOrder,
   Thumbnail,
   Thumbnails,
   Video,
