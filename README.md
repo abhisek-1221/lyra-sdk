@@ -1,159 +1,200 @@
-# Turborepo starter
+# lyra-sdk
 
-This Turborepo starter is maintained by the Turborepo core team.
+A lightweight YouTube Data API v3 helper library for Node.js.
 
-## Using this example
+## Installation
 
-Run the following command:
-
-```sh
-npx create-turbo@latest
+```bash
+npm install lyra-sdk
 ```
 
-## What's inside?
+## Quick Start
 
-This Turborepo includes the following packages/apps:
+```typescript
+import { yt } from "lyra-sdk";
 
-### Apps and Packages
+const client = yt({ apiKey: process.env.YOUTUBE_API_KEY });
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+const video = await client.video("dQw4w9WgXcQ");
+console.log(video.title, video.viewsFmt);
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+const playlist = await client.playlist("PLM1l8oW3aPfKDlqG4kKSyA9kqGszKqVYZ");
+console.log(playlist.title, playlist.videoCount);
 ```
 
-Without global `turbo`, use your package manager:
+## Features
 
-```sh
-cd my-turborepo
-npx turbo build
-npm dlx turbo build
-npm exec turbo build
+- **Videos**: Fetch metadata, statistics, and duration for any YouTube video
+- **Playlists**: Get playlist info and all video IDs with pagination
+- **Channels**: Fetch channel metadata and statistics
+- **URL Utilities**: Parse and validate YouTube URLs
+- **Playlist Query Builder**: Filter, sort, and slice playlist videos
+
+## API Reference
+
+### Client Setup
+
+```typescript
+import { yt } from "lyra-sdk";
+
+const client = yt({
+  apiKey: "your-api-key", // or set YOUTUBE_API_KEY env var
+  language?: "en" | "es" | "ja" | ... // API hl parameter
+});
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Video Operations
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+```typescript
+// Get video by ID
+const video = await client.video("dQw4w9WgXcQ");
 
-```sh
-turbo build --filter=docs
+// Parse URL to get video ID
+const id = client.url.videoId("https://youtube.com/watch?v=dQw4w9WgXcQ");
+
+// Check if URL is a video
+const isVideo = client.url.isVideoURL("https://youtube.com/watch?v=...");
 ```
 
-Without global `turbo`:
+### Playlist Query Builder
 
-```sh
-npx turbo build --filter=docs
-npm exec turbo build --filter=docs
-npm exec turbo build --filter=docs
+The `playlistQuery()` method provides a fluent API for filtering, sorting, and slicing playlist videos:
+
+```typescript
+const result = await client
+  .playlistQuery("PLM1l8oW3aPfKDlqG4kKSyA9kqGszKqVYZ")
+  .filterByDuration({ min: 300 }) // Videos >= 5 minutes (seconds)
+  .filterByViews({ min: 100_000 }) // Videos with >= 100k views
+  .filterByLikes({ min: 1000 }) // Videos with >= 1k likes
+  .sortBy("views", "desc") // Sort by views descending
+  .between(1, 10) // Return first 10 results
+  .execute();
 ```
 
-### Develop
+#### Filter Methods
 
-To develop all apps and packages, run the following command:
+- `filterByDuration({ min?, max? })` - Filter by duration in seconds
+- `filterByViews({ min?, max? })` - Filter by view count
+- `filterByLikes({ min?, max? })` - Filter by like count
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+#### Sort Methods
 
-```sh
-cd my-turborepo
-turbo dev
+- `sortBy(field, order)` - Sort by "duration", "views", or "likes"; order is "asc" or "desc"
+
+#### Range Methods
+
+- `between(start, end)` - Return videos in range (1-indexed, inclusive)
+
+#### Response Shape
+
+```typescript
+interface PlaylistQueryResult {
+  id: string;
+  title: string;
+  description: string;
+  thumbnails: YTThumbnails;
+  videos: PlaylistVideo[];
+  videoCount: number; // Matched videos
+  originalCount: number; // Total videos in playlist
+  totalDuration: number; // Sum of durations (seconds)
+  totalDurationFmt: string;
+}
+
+interface PlaylistVideo {
+  id: string;
+  title: string;
+  description: string;
+  channelTitle: string;
+  publishedAt: Date;
+  duration: number; // Seconds
+  durationFmt: string; // e.g., "5:30"
+  views: number;
+  viewsFmt: string; // e.g., "1.2M"
+  likes: number;
+  likesFmt: string; // e.g., "45.6K"
+  thumbnails: YTThumbnails;
+}
 ```
 
-Without global `turbo`, use your package manager:
+### URL Utilities
 
-```sh
-cd my-turborepo
-npx turbo dev
-npm exec turbo dev
-npm exec turbo dev
+```typescript
+// Parse any YouTube URL
+const parsed = client.url.parse("https://youtube.com/watch?v=...&list=...");
+// { type: "video", id: "...", playlistId?: "..." }
+
+// Check URL types
+client.url.isVideoURL(url);
+client.url.isPlaylistURL(url);
+
+// Extract IDs
+client.url.extractVideoId(url);
+client.url.extractPlaylistId(url);
+client.url.extractChannelId(url);
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Formatting Utilities
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+```typescript
+import {
+  formatNumber,
+  formatDuration,
+  formatDurationClock,
+  relativeTime,
+} from "lyra-sdk";
 
-```sh
-turbo dev --filter=web
+formatNumber(1_234_567); // "1.23M"
+formatDuration(3661); // "1h 1m 1s"
+formatDurationClock(3661); // "1:00:01"
+relativeTime("2024-01-15T12:00:00Z"); // "3 months ago"
 ```
 
-Without global `turbo`:
+## Error Handling
 
-```sh
-npx turbo dev --filter=web
-npm exec turbo dev --filter=web
-npm exec turbo dev --filter=web
+```typescript
+import { YTError, QuotaError, NotFoundError, AuthError } from "lyra-sdk";
+
+try {
+  const video = await client.video("invalid-id");
+} catch (err) {
+  if (err instanceof NotFoundError) {
+    console.log("Video not found");
+  } else if (err instanceof QuotaError) {
+    console.log("API quota exceeded");
+  } else if (err instanceof YTError) {
+    console.log("YouTube API error:", err.message);
+  }
+}
 ```
 
-### Remote Caching
+## Scripts
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+Test scripts are located in the `scripts/` directory:
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+```bash
+# Get video info
+YOUTUBE_API_KEY=your-key npx tsx scripts/video.ts
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+# Get channel info
+YOUTUBE_API_KEY=your-key npx tsx scripts/channel.ts
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+# Get playlist info
+YOUTUBE_API_KEY=your-key npx tsx scripts/playlist.ts
 
-```sh
-cd my-turborepo
-turbo login
+# Get playlist videos (full)
+YOUTUBE_API_KEY=your-key npx tsx scripts/playlist-videos.ts
+
+# Parse YouTube URLs
+YOUTUBE_API_KEY=your-key npx tsx scripts/url-utils.ts
+
+# Run playlist query demo
+YOUTUBE_API_KEY=your-key npx tsx scripts/playlist-query.ts
 ```
 
-Without global `turbo`, use your package manager:
+## Environment Variables
 
-```sh
-cd my-turborepo
-npx turbo login
-npm exec turbo login
-npm exec turbo login
-```
+- `YOUTUBE_API_KEY` - Your YouTube Data API v3 key
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+## License
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-npm exec turbo link
-npm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+MIT
