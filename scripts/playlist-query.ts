@@ -12,7 +12,7 @@ if (!API_KEY) {
 
 const client = yt(API_KEY);
 
-const PLAYLIST_ID = "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf";
+const PLAYLIST_ID = "PLinedj3B30sBlBWRox2V2tg9QJ2zr4M3o";
 
 async function main() {
   console.log("=== Playlist Query Demo ===\n");
