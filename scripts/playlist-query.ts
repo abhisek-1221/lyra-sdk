@@ -1,14 +1,8 @@
-import { createRequire } from "node:module";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 
 config();
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-
-const { yt } = require("../packages/core/dist/index.cjs");
+import { yt } from "../packages/core/src/index.js";
 
 const API_KEY = process.env.YOUTUBE_API_KEY;
 if (!API_KEY) {
@@ -16,9 +10,9 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const client = yt({ apiKey: API_KEY });
+const client = yt(API_KEY);
 
-const PLAYLIST_ID = "PLM1l8oW3aPfKDlqG4kKSyA9kqGszKqVYZ";
+const PLAYLIST_ID = "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf";
 
 async function main() {
   console.log("=== Playlist Query Demo ===\n");
