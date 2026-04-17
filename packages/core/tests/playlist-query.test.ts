@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpClient } from "../src/http";
 import { PlaylistQueryBuilder } from "../src/modules/playlist-query";
 
