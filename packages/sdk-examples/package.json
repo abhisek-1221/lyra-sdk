@@ -9,13 +9,18 @@
     "test:utils": "tsx src/utils.ts",
     "test:video": "tsx src/video.ts",
     "test:playlist": "tsx src/playlist.ts",
-    "test:channel": "tsx src/channel.ts"
+    "test:channel": "tsx src/channel.ts",
+    "dev:express": "tsx watch src/api/express/index.ts",
+    "start:express": "tsx src/api/express/index.ts"
   },
   "dependencies": {
+    "dotenv": "^16.0.0",
+    "express": "^5.2.1",
     "lyra-sdk": "^1.0.0",
-    "dotenv": "^16.0.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "tsx": "^4.0.0"
   }
 }
