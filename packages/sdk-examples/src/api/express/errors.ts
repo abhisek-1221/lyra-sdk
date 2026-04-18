@@ -1,7 +1,19 @@
 import type { NextFunction, Request, Response } from "express";
 import { AuthError, InvalidURLError, NotFoundError, QuotaError, YTError } from "lyra-sdk";
+import { ZodError } from "zod";
 
 export function apiError(err: Error, _req: Request, res: Response, _next: NextFunction) {
+  if (err instanceof ZodError) {
+    res.status(400).json({
+      error: {
+        code: 400,
+        message: "Validation error",
+        details: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+      },
+    });
+    return;
+  }
+
   if (err instanceof NotFoundError) {
     res.status(404).json({ error: { code: 404, message: err.message } });
     return;
