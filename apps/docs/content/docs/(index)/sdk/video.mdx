@@ -1,7 +1,7 @@
 ---
 title: Video
 description: Fetch video details, titles, and batch data
-icon: PlayCircle
+icon: Play
 ---
 
 ## `client.video(urlOrId)`
@@ -20,7 +20,7 @@ const video = await client.video('https://youtu.be/dQw4w9WgXcQ')
 
 ### Response
 
-<TypeTable>
+
   | Property      | Type     | Description                                      |
   | -------------- | -------- | ------------------------------------------------ |
   | id             | string   | YouTube video ID                                 |
@@ -39,7 +39,7 @@ const video = await client.video('https://youtu.be/dQw4w9WgXcQ')
   | published      | string   | Formatted publish date (e.g. `"October 25, 2009"`)|
   | publishedAt    | string   | ISO 8601 timestamp                               |
   | thumbnails     | object   | Thumbnail map (default, medium, high, standard, maxres) |
-</TypeTable>
+
 
 ---
 
@@ -69,12 +69,12 @@ const { id, title } = await client.videoTitle('dQw4w9WgXcQ')
 
 ### Response
 
-<TypeTable>
+
   | Property | Type   | Description       |
   | -------- | ------ | ----------------- |
   | id       | string | YouTube video ID  |
   | title    | string | Video title       |
-</TypeTable>
+
 
 ---
 

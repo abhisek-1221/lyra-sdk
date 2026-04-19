@@ -4,10 +4,6 @@ description: Interactive REST API documentation for the Lyra Express server
 icon: Webhook
 ---
 
-import { APIPage } from '@/components/api-page'
-
-<APIPage />
-
 The Lyra Express API wraps all `lyra-sdk` functions behind REST endpoints. Start the server with:
 
 ```bash
@@ -19,3 +15,42 @@ All endpoints are available at `http://localhost:3000/api/`.
 <Callout title="Try it out">
   Use the interactive playground on each endpoint page to send real requests to your local server.
 </Callout>
+
+## Endpoints
+
+<Cards>
+  <Card title="Video" icon={<PlayIcon />} href="/docs/api-reference/video/getVideo">
+    Fetch video details, batch fetch, and title-only lookup.
+  </Card>
+  <Card title="Channel" icon={<UsersIcon />} href="/docs/api-reference/channel/getChannel">
+    Channel metadata and recent uploads.
+  </Card>
+  <Card title="Playlist" icon={<ListVideoIcon />} href="/docs/api-reference/operations/getPlaylist">
+    Full playlists, info, IDs, and filtered queries.
+  </Card>
+  <Card title="URL Utilities" icon={<LinkIcon />} href="/docs/api-reference/url/parseUrl">
+    Parse and extract IDs from YouTube URLs.
+  </Card>
+</Cards>
+
+## Error Responses
+
+All errors follow the same format:
+
+```json
+{
+  "error": {
+    "code": 404,
+    "message": "Video not found: INVALID_ID"
+  }
+}
+```
+
+| HTTP Status | Cause                                 |
+| ----------- | ------------------------------------- |
+| `400`       | Validation error (Zod) or invalid URL |
+| `401`       | Invalid YouTube API key               |
+| `404`       | Video/channel/playlist not found      |
+| `429`       | YouTube API quota exceeded            |
+| `502`       | YouTube API error                     |
+| `500`       | Internal server error                 |
