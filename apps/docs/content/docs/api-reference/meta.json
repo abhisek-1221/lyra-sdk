@@ -6,12 +6,12 @@
   "pages": [
     "index",
     "---Video---",
-    "...video",
+    "...(generated)/video",
     "---Channel---",
-    "...channel",
+    "...(generated)/channel",
     "---Playlist---",
-    "...playlist",
+    "...(generated)/playlist",
     "---URL---",
-    "...url"
+    "...(generated)/url"
   ]
 }
