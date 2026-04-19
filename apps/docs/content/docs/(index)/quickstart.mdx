@@ -1,108 +1,95 @@
 ---
 title: Quickstart
-description: Start building awesome documentation in under 5 minutes
+description: Install Lyra SDK and make your first request
 icon: Play
 ---
 
-## Setup your development environment
+## Prerequisites
 
-A minimum version of Node.js 22 is required. Note that Node.js 23.1 might have issues with the Next.js production build.
+- Node.js 18 or later
+- A YouTube Data API v3 key from the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 
-<Tabs groupId="package-manager" persist items={['npm', 'pnpm', 'yarn', 'bun']}>
-  ```bash tab="npm"
-  npx create-next-app -e https://github.com/techwithanirudh/fumadocs-starter
-  ```
-
-  ```bash tab="pnpm"
-  npx create-next-app -e https://github.com/techwithanirudh/fumadocs-starter --use-pnpm
-  ```
-
-  ```bash tab="yarn"
-  npx create-next-app -e https://github.com/techwithanirudh/fumadocs-starter --use-yarn
-  ```
-
-  ```bash tab="bun"
-  npx create-next-app -e https://github.com/techwithanirudh/fumadocs-starter --use-bun
-  ```
-</Tabs>
-
-The Fumadocs template should now be initialized. You can start development!
-
-### Start the development server
-
-Run the app in development mode and open [http://localhost:3000/docs](http://localhost:3000/docs) in your browser.
+## Installation
 
 <Tabs groupId="package-manager" persist items={['npm', 'pnpm', 'yarn', 'bun']}>
   ```bash tab="npm"
-  npm run dev
+  npm install lyra-sdk
   ```
 
   ```bash tab="pnpm"
-  pnpm run dev
+  pnpm add lyra-sdk
   ```
 
   ```bash tab="yarn"
-  yarn dev
+  yarn add lyra-sdk
   ```
 
   ```bash tab="bun"
-  bun run dev
+  bun add lyra-sdk
   ```
 </Tabs>
 
-### Add your content
+## Set up your API key
 
-Fumadocs uses MDX for documentation, allowing you to write Markdown combined with React components. Add your content inside the `content/docs` directory. The structure is similar to a standard Next.js app, making it easy to navigate and manage your files. To learn more about MDX, check out the [MDX page](/docs/essentials/markdown).
+Create a `.env` file in your project root:
 
-Create your first MDX file in the `docs` folder:
-
-```mdx title="content/docs/(index)/index.mdx"
----
-title: Hello World
----
-
-## Yo, what's up?
+```bash
+YOUTUBE_API_KEY=your_api_key_here
 ```
 
-The app organizes content by concerns, e.g., `content/docs/api-reference`, `content/docs/(index)`, `content/docs/changelog`, etc.
+<Callout type="warn" title="API Key Security">
+  Never commit your API key to source control. Use environment variables or a secrets manager.
+</Callout>
 
-## Deploy your changes
+## Make your first request
 
-This template works out-of-the-box with Vercel. You can deploy your documentation site with a single click.
+```ts
+import { yt } from 'lyra-sdk'
 
-You might need to make some changes, to deploy fully statically.
+const client = yt(process.env.YOUTUBE_API_KEY!)
 
-### Docker Deployment
-
-If you want to deploy your Fumadocs app using Docker with **Fumadocs MDX configured**, make sure to add the `source.config.ts` file to the `WORKDIR` in the Dockerfile.
-The following snippet is taken from the official [Next.js Dockerfile Example](https://github.com/vercel/next.js/blob/canary/examples/with-docker/Dockerfile):
-
-```zsh title="Dockerfile"
-WORKDIR /app
-
-# Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* source.config.ts ./  # [!code highlight]
+// Fetch a single video
+const video = await client.video('dQw4w9WgXcQ')
+console.log(`${video.title} — ${video.viewsFmt} views`)
 ```
 
-This ensures Fumadocs MDX can access your configuration file during builds.
+## Use URL utilities (no API key needed)
 
-## Update your docs
+The `lyra-sdk/url` subpath exports standalone helpers that don't require an API key:
 
-Add content directly in your files using MDX syntax and React components. You can use built-in components or create your own.
+```ts
+import { parseURL, isVideoURL, extractVideoId, formatDuration } from 'lyra-sdk/url'
+
+const result = parseURL('https://youtu.be/dQw4w9WgXcQ')
+// { isValid: true, type: 'video', videoId: 'dQw4w9WgXcQ' }
+
+isVideoURL('https://youtube.com/watch?v=dQw4w9WgXcQ') // true
+
+extractVideoId('https://youtu.be/dQw4w9WgXcQ') // 'dQw4w9WgXcQ'
+
+formatDuration(9347) // '2h 35m 47s'
+```
+
+## Use formatters (no API key needed)
+
+The `lyra-sdk/fmt` subpath exports formatting utilities:
+
+```ts
+import { formatNumber, formatDate, relativeTime, formatDurationClock } from 'lyra-sdk/fmt'
+
+formatNumber(1763613349)   // '1.8B'
+formatDate('2009-10-25T06:57:33.000Z') // 'October 25, 2009'
+relativeTime(new Date('2025-01-01'))    // '3 months ago'
+formatDurationClock(214)  // '3:34'
+```
+
+## Next steps
 
 <Cards>
-  <Card
-    title="Add Content With MDX"
-    icon={<FileIcon />}
-    href="/docs/essentials/markdown"
-  >
-    Add content to your docs with MDX syntax.
+  <Card title="SDK Reference" icon={<BookIcon />} href="/docs/sdk/video">
+    Explore every function the SDK offers.
   </Card>
-  <Card
-    title="Add Code Blocks"
-    icon={<CodeIcon />}
-    href="/docs/essentials/code"
-  >
-    Add code directly to your docs with syntax highlighting.
+  <Card title="API Reference" icon={<WebhookIcon />} href="/docs/api-reference">
+    Browse the REST API endpoints with interactive examples.
   </Card>
 </Cards>
