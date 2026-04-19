@@ -37,3 +37,6 @@ yarn-error.log*
 .DS_Store
 *.pem
 npm-test
+
+# Starter reference (not tracked)
+fumadocs-starter

@@ -1,57 +1,59 @@
-import { getPageImage, getPageMarkdownUrl, source } from '@/lib/source';
+import { getPageImage, getPageMarkdownUrl, source } from '@/lib/source'
+import * as Twoslash from 'fumadocs-twoslash/ui'
 import {
-  DocsBody,
-  DocsDescription,
   DocsPage,
-  DocsTitle,
   MarkdownCopyButton,
   ViewOptionsPopover,
-} from 'fumadocs-ui/layouts/docs/page';
-import { notFound } from 'next/navigation';
-import { getMDXComponents } from '@/components/mdx';
-import type { Metadata } from 'next';
-import { createRelativeLink } from 'fumadocs-ui/mdx';
-import { gitConfig } from '@/lib/shared';
+} from 'fumadocs-ui/layouts/notebook/page'
+import { notFound } from 'next/navigation'
+import { getMDXComponents } from '@/mdx-components'
+import type { Metadata } from 'next'
+import { createRelativeLink } from 'fumadocs-ui/mdx'
+import { gitConfig } from '@/lib/shared'
 
-export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
-  const params = await props.params;
-  const page = source.getPage(params.slug);
-  if (!page) notFound();
+export const revalidate = false
 
-  const MDX = page.data.body;
-  const markdownUrl = getPageMarkdownUrl(page).url;
+export default async function Page(
+  props: PageProps<'/docs/[[...slug]]'>
+) {
+  const params = await props.params
+  const page = source.getPage(params.slug)
+  if (!page) notFound()
+
+  const MDX = page.data.body
+  const markdownUrl = getPageMarkdownUrl(page).url
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
-      <div className="flex flex-row gap-2 items-center border-b pb-6">
+      <h1 className='break-all font-semibold text-[1.75em]'>
+        {page.data.title}
+      </h1>
+      <p className='mb-2 text-fd-muted-foreground text-lg'>
+        {page.data.description}
+      </p>
+      <div className='flex flex-row gap-2 items-center border-b pb-6'>
         <MarkdownCopyButton markdownUrl={markdownUrl} />
         <ViewOptionsPopover
           markdownUrl={markdownUrl}
           githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
         />
       </div>
-      <DocsBody>
+      <div className='prose flex-1 text-fd-foreground/90'>
         <MDX
           components={getMDXComponents({
-            // this allows you to link to other pages with relative file paths
+            ...Twoslash,
             a: createRelativeLink(source, page),
           })}
         />
-      </DocsBody>
+      </div>
     </DocsPage>
-  );
-}
-
-export async function generateStaticParams() {
-  return source.generateParams();
+  )
 }
 
 export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): Promise<Metadata> {
-  const params = await props.params;
-  const page = source.getPage(params.slug);
-  if (!page) notFound();
+  const params = await props.params
+  const page = source.getPage(params.slug)
+  if (!page) notFound()
 
   return {
     title: page.data.title,
@@ -59,5 +61,9 @@ export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): P
     openGraph: {
       images: getPageImage(page).url,
     },
-  };
+  }
+}
+
+export function generateStaticParams() {
+  return source.generateParams()
 }
