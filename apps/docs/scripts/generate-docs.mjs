@@ -15,7 +15,8 @@ const out = path.resolve(__dirname, '../content/docs/api-reference/(generated)')
 
 await rimraf(out, {
   filter(v) {
-    return !v.endsWith('meta.json')
+    const basename = path.basename(v)
+    return basename !== 'meta.json'
   },
 })
 
