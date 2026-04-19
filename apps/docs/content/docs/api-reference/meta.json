@@ -1,7 +1,24 @@
 {
   "title": "API Reference",
-  "description": "A demo for Fumadocs OpenAPI",
-  "root": true,
+  "description": "Interactive REST API documentation",
   "icon": "Webhook",
-  "pages": ["---API Reference---", "index", "...(generated)"]
+  "root": true,
+  "pages": [
+    "index",
+    "---Video---",
+    "operations/getVideo",
+    "videos/getVideos",
+    "operations/getVideoTitle",
+    "---Channel---",
+    "operations/getChannel",
+    "channel/getChannelVideos",
+    "---Playlist---",
+    "operations/getPlaylist",
+    "operations/getPlaylistInfo",
+    "playlist/getPlaylistIds",
+    "playlist/queryPlaylist",
+    "---URL---",
+    "url/parseUrl",
+    "url/extractUrl"
+  ]
 }

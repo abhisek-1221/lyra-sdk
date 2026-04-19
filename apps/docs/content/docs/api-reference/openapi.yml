@@ -1,746 +1,606 @@
 openapi: 3.1.0
 info:
-  title: Redocly Museum API
-  description: Imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.
-  version: 1.2.1
-  termsOfService: 'https://redocly.com/subscription-agreement/'
+  title: Lyra API
+  description: >
+    REST API that wraps all `lyra-sdk` functions. Test every endpoint in Postman.
+  version: 1.0.0
   contact:
-    email: team@redocly.com
-    url: 'https://redocly.com/docs/cli/'
-  license:
-    name: MIT
-    url: 'https://opensource.org/license/mit/'
+    name: Lyra SDK
+    url: https://github.com/abhiseksahoo/lyra
 servers:
-  - url: 'https://redocly.com/_mock/docs/openapi/museum-api'
-  - url: 'https://example.com/api/v1'
-  - url: '{protocol}://{domain}/api'
-    description: Custom Name
-    variables:
-      protocol:
-        enum:
-          - http
-          - https
-        default: http
-      domain:
-        description: Where your app run
-        default: fumadocs.vercel.app
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Video
+    description: Fetch video details and titles
+  - name: Channel
+    description: Fetch channel metadata and recent uploads
+  - name: Playlist
+    description: Fetch playlists, metadata, and filtered queries
+  - name: URL
+    description: Parse and extract IDs from YouTube URLs
 
 paths:
-  /museum-hours:
+  /api/video/{id}:
     get:
-      summary: Get museum hours
-      description: Get upcoming museum operating hours.
-      operationId: getMuseumHours
-      tags:
-        - Operations
+      tags: [Video]
+      summary: Get video by ID or URL
+      description: Fetch full video details by ID or URL.
+      operationId: getVideo
       parameters:
-        - $ref: '#/components/parameters/StartDate'
-        - $ref: '#/components/parameters/PaginationPage'
-        - $ref: '#/components/parameters/PaginationLimit'
-      responses:
-        '200':
-          description: Success.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MuseumHours'
-              examples:
-                default_example:
-                  $ref: '#/components/examples/GetMuseumHoursResponseExample'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /special-events:
-    post:
-      summary: Create special events
-      description: Creates a new special event for the museum.
-      operationId: createSpecialEvent
-      tags:
-        - Events
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SpecialEvent'
-            examples:
-              default_example:
-                $ref: '#/components/examples/CreateSpecialEventRequestExample'
-              secondary_example:
-                $ref: '#/components/examples/SecondaryCreateSpecialEventRequestExample'
-              tertiary_example:
-                $ref: '#/components/examples/TertiaryCreateSpecialEventRequestExample'
-      responses:
-        '201':
-          description: Created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SpecialEvent'
-              examples:
-                default_example:
-                  $ref: '#/components/examples/CreateSpecialEventResponseExample'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    get:
-      summary: List special events
-      description: Return a list of upcoming special events at the museum.
-      operationId: listSpecialEvents
-      tags:
-        - Events
-      parameters:
-        - $ref: '#/components/parameters/StartDate'
-        - $ref: '#/components/parameters/EndDate'
-        - $ref: '#/components/parameters/PaginationPage'
-        - $ref: '#/components/parameters/PaginationLimit'
-      responses:
-        '200':
-          description: Success.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SpecialEventCollection'
-              examples:
-                default_example:
-                  $ref: '#/components/examples/ListSpecialEventsResponseExample'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /special-events/{eventId}:
-    get:
-      summary: Get special event
-      description: Get details about a special event.
-      operationId: getSpecialEvent
-      tags:
-        - Events
-      parameters:
-        - $ref: '#/components/parameters/EventId'
-      responses:
-        '200':
-          description: Success.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SpecialEvent'
-              examples:
-                default_example:
-                  $ref: '#/components/examples/GetSpecialEventResponseExample'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    patch:
-      summary: Update special event
-      description: Update the details of a special event.
-      operationId: updateSpecialEvent
-      tags:
-        - Events
-      parameters:
-        - $ref: '#/components/parameters/EventId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SpecialEventFields'
-            examples:
-              default_example:
-                $ref: '#/components/examples/UpdateSpecialEventRequestExample'
-      responses:
-        '200':
-          description: Success.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SpecialEvent'
-              examples:
-                default_example:
-                  $ref: '#/components/examples/UpdateSpecialEventResponseExample'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    delete:
-      summary: Delete special event
-      description: Delete a special event from the collection. Allows museum to cancel planned events.
-      operationId: deleteSpecialEvent
-      tags:
-        - Events
-      parameters:
-        - $ref: '#/components/parameters/EventId'
-        - name: test
-          in: cookie
+        - name: id
+          in: path
+          required: true
+          description: YouTube video ID or URL
           schema:
             type: string
       responses:
-        '204':
-          description: Success - no content.
+        '200':
+          description: Video details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-  /tickets:
+        '429':
+          $ref: '#/components/responses/QuotaExceeded'
+
+  /api/videos:
+    get:
+      tags: [Video]
+      summary: Get multiple videos
+      description: Batch fetch multiple videos by comma-separated IDs.
+      operationId: getVideos
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Comma-separated video IDs
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of video objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Video'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/video/{id}/title:
+    get:
+      tags: [Video]
+      summary: Get video title
+      description: Lightweight title-only lookup (1 quota unit).
+      operationId: getVideoTitle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: YouTube video ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video title
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  title:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/channel/{id}:
+    get:
+      tags: [Channel]
+      summary: Get channel metadata
+      description: Fetch channel metadata by ID, @username, or URL.
+      operationId: getChannel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Channel ID, @username, or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Channel details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/channel/{id}/videos:
+    get:
+      tags: [Channel]
+      summary: Get channel videos
+      description: Fetch recent uploads for a channel.
+      operationId: getChannelVideos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Channel ID, @username, or URL
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Max videos to return (1-50, default 5)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+      responses:
+        '200':
+          description: Array of recent videos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecentVideo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}:
+    get:
+      tags: [Playlist]
+      summary: Get full playlist
+      description: Fetch complete playlist with all videos, stats, and total duration.
+      operationId: getPlaylist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Full playlist with videos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}/info:
+    get:
+      tags: [Playlist]
+      summary: Get playlist info
+      description: Playlist metadata only — no videos (1 quota unit).
+      operationId: getPlaylistInfo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Playlist metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}/ids:
+    get:
+      tags: [Playlist]
+      summary: Get playlist video IDs
+      description: Fetch all video IDs in a playlist (auto-paginates).
+      operationId: getPlaylistIds
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  videoIds:
+                    type: array
+                    items:
+                      type: string
+                  count:
+                    type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}/query:
     post:
-      summary: Buy museum tickets
-      description: Purchase museum tickets for general entry or special events.
-      operationId: buyMuseumTickets
-      tags:
-        - Tickets
+      tags: [Playlist]
+      summary: Query playlist videos
+      description: Filter, sort, and slice playlist videos.
+      operationId: queryPlaylist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BuyMuseumTickets'
-            examples:
-              general_entry:
-                $ref: '#/components/examples/BuyGeneralTicketsRequestExample'
-              event_entry:
-                $ref: '#/components/examples/BuyEventTicketsRequestExample'
+              type: object
+              properties:
+                filter:
+                  type: object
+                  properties:
+                    duration:
+                      type: object
+                      properties:
+                        min:
+                          type: integer
+                        max:
+                          type: integer
+                    views:
+                      type: object
+                      properties:
+                        min:
+                          type: integer
+                        max:
+                          type: integer
+                    likes:
+                      type: object
+                      properties:
+                        min:
+                          type: integer
+                        max:
+                          type: integer
+                sort:
+                  type: object
+                  properties:
+                    field:
+                      type: string
+                      enum: [duration, views, likes]
+                    order:
+                      type: string
+                      enum: [asc, desc]
+                range:
+                  type: object
+                  properties:
+                    start:
+                      type: integer
+                      minimum: 1
+                    end:
+                      type: integer
+                      minimum: 1
       responses:
-        '201':
-          description: Created.
+        '200':
+          description: Filtered playlist results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MuseumTicketsConfirmation'
-              examples:
-                general_entry:
-                  $ref: '#/components/examples/BuyGeneralTicketsResponseExample'
-                event_entry:
-                  $ref: '#/components/examples/BuyEventTicketsResponseExample'
+                $ref: '#/components/schemas/PlaylistQueryResult'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-  /tickets/{ticketId}/qr:
-    get:
-      summary: Get ticket QR code
-      description: Return an image of your ticket with scannable QR code. Used for event entry.
-      operationId: getTicketCode
-      tags:
-        - Tickets
-      parameters:
-        - $ref: '#/components/parameters/TicketId'
-      responses:
-        '200':
-          description: Scannable event ticket in image format.
-          content:
-            image/png:
-              schema:
-                $ref: '#/components/schemas/TicketCodeImage'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-webhooks:
-  publishNewEvent:
+
+  /api/url/parse:
     post:
-      summary: New special event added
-      description: Publish details of a new or updated event.
-      operationId: publishNewEvent
-      tags:
-        - Events
+      tags: [URL]
+      summary: Parse a YouTube URL
+      description: Parse a YouTube URL into a structured result.
+      operationId: parseUrl
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SpecialEvent'
-            examples:
-              default_example:
-                $ref: '#/components/examples/GetSpecialEventResponseExample'
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
       responses:
-        '202':
-          description: Data accepted.
+        '200':
+          description: Parsed URL result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParsedURL'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/url/extract:
+    post:
+      tags: [URL]
+      summary: Extract IDs from a YouTube URL
+      description: Extract video, playlist, or channel IDs from a YouTube URL.
+      operationId: extractUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                type:
+                  type: string
+                  enum: [video, playlist, channel]
+      responses:
+        '200':
+          description: Extracted IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  playlistId:
+                    type: string
+                  videoId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
 components:
   schemas:
-    TicketType:
-      description: Type of ticket being purchased. Use `general` for regular museum entry and `event` for tickets to special events.
-      type: string
-      enum:
-        - event
-        - general
-      example: event
-    Date:
-      type: string
-      format: date
-      example: '2023-10-29'
-    Email:
-      description: Email address for ticket purchaser.
-      type: string
-      format: email
-      example: museum-lover@example.com
-    BuyMuseumTickets:
-      description: Data to purchase a ticket.
+    Thumbnails:
       type: object
+      properties:
+        default:
+          $ref: '#/components/schemas/Thumbnail'
+        medium:
+          $ref: '#/components/schemas/Thumbnail'
+        high:
+          $ref: '#/components/schemas/Thumbnail'
+        standard:
+          $ref: '#/components/schemas/Thumbnail'
+        maxres:
+          $ref: '#/components/schemas/Thumbnail'
+
+    Thumbnail:
+      type: object
+      properties:
+        url:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+
+    Video:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        channel:
+          type: string
+        channelId:
+          type: string
+        views:
+          type: integer
+        viewsFmt:
+          type: string
+        likes:
+          type: integer
+        likesFmt:
+          type: string
+        comments:
+          type: integer
+        commentsFmt:
+          type: string
+        duration:
+          type: integer
+        durationFmt:
+          type: string
+        published:
+          type: string
+        publishedAt:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+
+    Channel:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        username:
+          type: string
+        subscribers:
+          type: integer
+        subscribersFmt:
+          type: string
+        totalViews:
+          type: integer
+        totalViewsFmt:
+          type: string
+        videoCount:
+          type: integer
+        country:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+        uploadsPlaylistId:
+          type: string
+
+    RecentVideo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        views:
+          type: integer
+        viewsFmt:
+          type: string
+        likes:
+          type: integer
+        likesFmt:
+          type: string
+        duration:
+          type: integer
+        durationFmt:
+          type: string
+        thumbnail:
+          type: string
+        uploadAge:
+          type: string
+        publishedAt:
+          type: string
+
+    PlaylistInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+
+    PlaylistVideo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        channelTitle:
+          type: string
+        publishedAt:
+          type: string
+        duration:
+          type: integer
+        durationFmt:
+          type: string
+        views:
+          type: integer
+        viewsFmt:
+          type: string
+        likes:
+          type: integer
+        likesFmt:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+
+    Playlist:
       allOf:
+        - $ref: '#/components/schemas/PlaylistInfo'
         - type: object
           properties:
-            email:
-              $ref: '#/components/schemas/Email'
-        - $ref: '#/components/schemas/Ticket'
-    TicketMessage:
-      description: Confirmation message after a ticket purchase.
-      type: string
-      example: Museum general entry ticket purchased
-    TicketId:
-      description: Unique identifier for museum ticket. Generated when purchased.
-      type: string
-      format: uuid
-      example: a54a57ca-36f8-421b-a6b4-2e8f26858a4c
-    TicketConfirmation:
-      description: Unique confirmation code used to verify ticket purchase.
-      type: string
-      example: 'ticket-event-a98c8f-7eb12'
-    Ticket:
-      description: Ticket for museum entry, can be general admission or special event.
-      type: object
-      properties:
-        ticketId:
-          $ref: '#/components/schemas/TicketId'
-        ticketDate:
-          description: Date when this ticket can be used for museum entry.
-          $ref: '#/components/schemas/Date'
-        ticketType:
-          $ref: '#/components/schemas/TicketType'
-        eventId:
-          description: Unique identifier for a special event. Required if purchasing tickets for the museum's special events.
-          $ref: '#/components/schemas/EventId'
-      required:
-        - ticketType
-        - ticketDate
-    MuseumTicketsConfirmation:
-      description: Details for a museum ticket after a successful purchase.
+            videoCount:
+              type: integer
+            totalDuration:
+              type: integer
+            totalDurationFmt:
+              type: string
+            videos:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlaylistVideo'
+
+    PlaylistQueryResult:
       allOf:
-        - $ref: '#/components/schemas/Ticket'
+        - $ref: '#/components/schemas/Playlist'
         - type: object
           properties:
-            message:
-              $ref: '#/components/schemas/TicketMessage'
-            confirmationCode:
-              $ref: '#/components/schemas/TicketConfirmation'
-          required:
-            - message
-            - confirmationCode
-    TicketCodeImage:
-      description: Image of a ticket with a QR code used for museum or event entry.
-      type: string
-      format: binary
-    MuseumHours:
-      description: List of museum operating hours for a date range.
-      type: array
-      items:
-        $ref: '#/components/schemas/MuseumDailyHours'
-    MuseumDailyHours:
-      description: Daily operating hours for the museum.
+            originalCount:
+              type: integer
+
+    ParsedURL:
       type: object
       properties:
-        date:
-          description: Date the operating hours apply to.
-          $ref: '#/components/schemas/Date'
-          example: '2024-12-31'
-        timeOpen:
+        isValid:
+          type: boolean
+        type:
           type: string
-          pattern: '^([01]\d|2[0-3]):?([0-5]\d)$'
-          description: Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).
-          example: 09:00
-        timeClose:
-          description: Time the museum closes on a specific date. Uses 24 hour time format (`HH:mm`).
+          enum: [video, playlist, channel]
+        videoId:
           type: string
-          pattern: '^([01]\d|2[0-3]):?([0-5]\d)$'
-          example: 18:00
-      required:
-        - date
-        - timeOpen
-        - timeClose
-    EventId:
-      description: Identifier for a special event.
-      type: string
-      format: uuid
-      example: 3be6453c-03eb-4357-ae5a-984a0e574a54
-    EventName:
-      type: string
-      description: Name of the special event.
-      example: Pirate Coding Workshop
-    EventLocation:
-      type: string
-      description: Location where the special event is held.
-      example: Computer Room
-    EventDescription:
-      type: string
-      description: Description of the special event.
-      example: Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).
-    EventDates:
-      type: array
-      items:
-        $ref: '#/components/schemas/Date'
-      description: List of planned dates for the special event.
-    EventPrice:
-      description: Price of a ticket for the special event.
-      type: number
-      format: float
-      example: 25
-    SpecialEventFields:
-      type: object
-      properties:
-        name:
-          $ref: '#/components/schemas/EventName'
-        location:
-          $ref: '#/components/schemas/EventLocation'
-        eventDescription:
-          $ref: '#/components/schemas/EventDescription'
-        dates:
-          $ref: '#/components/schemas/EventDates'
-        price:
-          $ref: '#/components/schemas/EventPrice'
-    SpecialEvent:
-      type: object
-      properties:
-        eventId:
-          $ref: '#/components/schemas/EventId'
-        name:
-          $ref: '#/components/schemas/EventName'
-        location:
-          $ref: '#/components/schemas/EventLocation'
-        eventDescription:
-          $ref: '#/components/schemas/EventDescription'
-        dates:
-          $ref: '#/components/schemas/EventDates'
-        price:
-          $ref: '#/components/schemas/EventPrice'
-      required:
-        - name
-        - location
-        - eventDescription
-        - dates
-        - price
-    SpecialEventCollection:
-      description: List of upcoming special events.
-      type: array
-      items:
-        $ref: '#/components/schemas/SpecialEvent'
+        playlistId:
+          type: string
+        channelId:
+          type: string
+        error:
+          type: string
+
     Error:
       type: object
       properties:
-        type:
-          type: string
-          example: object
-        title:
-          type: string
-          example: Validation failed
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: string
 
-  securitySchemes:
-    MuseumPlaceholderAuth:
-      type: http
-      scheme: basic
-  examples:
-    BuyGeneralTicketsRequestExample:
-      summary: General entry ticket
-      value:
-        ticketType: general
-        ticketDate: '2023-09-07'
-        email: todd@example.com
-    BuyEventTicketsRequestExample:
-      summary: Special event ticket
-      value:
-        ticketType: event
-        eventId: dad4bce8-f5cb-4078-a211-995864315e39
-        ticketDate: '2023-09-05'
-        email: todd@example.com
-    BuyGeneralTicketsResponseExample:
-      summary: General entry ticket
-      value:
-        message: Museum general entry ticket purchased
-        ticketId: 382c0820-0530-4f4b-99af-13811ad0f17a
-        ticketType: general
-        ticketDate: '2023-09-07'
-        confirmationCode: ticket-general-e5e5c6-dce78
-    BuyEventTicketsResponseExample:
-      summary: Special event ticket
-      value:
-        message: Museum special event ticket purchased
-        ticketId: b811f723-17b2-44f7-8952-24b03e43d8a9
-        eventName: Mermaid Treasure Identification and Analysis
-        ticketType: event
-        ticketDate: '2023-09-05'
-        confirmationCode: ticket-event-9c55eg-8v82a
-    CreateSpecialEventRequestExample:
-      summary: Create special event 1
-      description: Example with no price.
-      value:
-        name: Mermaid Treasure Identification and Analysis
-        location: Under the seaaa 🦀 🎶 🌊.
-        eventDescription: Join us as we review and classify a rare collection of 20 thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated by Ariel.
-        dates:
-          - '2023-09-05'
-          - '2023-09-08'
-        price: 0
-    SecondaryCreateSpecialEventRequestExample:
-      summary: Create special event 2
-      description: Example with a price.
-      value:
-        name: Mermaid Treasure Identification and Analysis
-        location: Under the seaaa 🦀 🎶 🌊.
-        eventDescription: Join us as we review and classify a rare collection of 20 thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated by Ariel.
-        dates:
-          - '2023-09-05'
-          - '2023-09-08'
-        price: 1234
-    TertiaryCreateSpecialEventRequestExample:
-      summary: Create special event 3 and a dang long title
-      description: Example with a price.
-      value:
-        name: Mermaid Treasure Identification and Analysis
-        location: Under the seaaa 🦀 🎶 🌊.
-        eventDescription: Join us as we review and classify a rare collection of 20 thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated by Ariel.
-        dates:
-          - '2023-09-05'
-          - '2023-09-08'
-        price: 1234
-    CreateSpecialEventResponseExample:
-      summary: Special event created
-      value:
-        eventId: dad4bce8-f5cb-4078-a211-995864315e39
-        name: Mermaid Treasure Identification and Analysis
-        location: Under the seaaa 🦀 🎶 🌊.
-        eventDescription: Join us as we review and classify a rare collection of 20 thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated by Ariel.
-        dates:
-          - '2023-09-05'
-          - '2023-09-08'
-        price: 30
-    GetSpecialEventResponseExample:
-      summary: Get special event
-      value:
-        eventId: 6744a0da-4121-49cd-8479-f8cc20526495
-        name: Time Traveler Tea Party
-        location: Temporal Tearoom
-        eventDescription: Sip tea with important historical figures.
-        dates:
-          - '2023-11-18'
-          - '2023-11-25'
-          - '2023-12-02'
-        price: 60
-    ListSpecialEventsResponseExample:
-      summary: List of special events
-      value:
-        - eventId: f3e0e76e-e4a8-466e-ab9c-ae36c15b8e97
-          name: Sasquatch Ballet
-          location: Seattle... probably
-          eventDescription: They're big, they're hairy, but they're also graceful. Come learn how the biggest feet can have the lightest touch.
-          dates:
-            - '2023-12-15'
-            - '2023-12-22'
-          price: 40
-        - eventId: 2f14374a-9c65-4ee5-94b7-fba66d893483
-          name: Solar Telescope Demonstration
-          location: Far from the sun.
-          eventDescription: Look at the sun without going blind!
-          dates:
-            - '2023-09-07'
-            - '2023-09-14'
-          price: 50
-        - eventId: 6aaa61ba-b2aa-4868-b803-603dbbf7bfdb
-          name: Cook like a Caveman
-          location: Fire Pit on East side
-          eventDescription: Learn to cook on an open flame.
-          dates:
-            - '2023-11-10'
-            - '2023-11-17'
-            - '2023-11-24'
-          price: 5
-        - eventId: 602b75e1-5696-4ab8-8c7a-f9e13580f910
-          name: Underwater Basket Weaving
-          location: Rec Center Pool next door.
-          eventDescription: Learn to weave baskets underwater.
-          dates:
-            - '2023-09-12'
-            - '2023-09-15'
-          price: 15
-        - eventId: dad4bce8-f5cb-4078-a211-995864315e39
-          name: Mermaid Treasure Identification and Analysis
-          location: Room Sea-12
-          eventDescription: Join us as we review and classify a rare collection of 20 thingamabobs, gadgets, gizmos, whoosits, and whatsits — kindly donated by Ariel.
-          dates:
-            - '2023-09-05'
-            - '2023-09-08'
-          price: 30
-        - eventId: 6744a0da-4121-49cd-8479-f8cc20526495
-          name: Time Traveler Tea Party
-          location: Temporal Tearoom
-          eventDescription: Sip tea with important historical figures.
-          dates:
-            - '2023-11-18'
-            - '2023-11-25'
-            - '2023-12-02'
-          price: 60
-        - eventId: 3be6453c-03eb-4357-ae5a-984a0e574a54
-          name: Pirate Coding Workshop
-          location: Computer Room
-          eventDescription: Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).
-          dates:
-            - '2023-10-29'
-            - '2023-10-30'
-            - '2023-10-31'
-          price: 45
-        - eventId: 9d90d29a-2af5-4206-97d9-9ea9ceadcb78
-          name: Llama Street Art Through the Ages
-          location: Auditorium
-          eventDescription: Llama street art?! Alpaca my bags -- let's go!
-          dates:
-            - '2023-10-29'
-            - '2023-10-30'
-            - '2023-10-31'
-          price: 45
-        - eventId: a3c7b2c4-b5fb-4ef7-9322-00a919864957
-          name: The Great Parrot Debate
-          location: Outdoor Amphitheatre
-          eventDescription: See leading parrot minds discuss important geopolitical issues.
-          dates:
-            - '2023-11-03'
-            - '2023-11-10'
-          price: 35
-        - eventId: b92d46b7-4c5d-422b-87a5-287767e26f29
-          name: Eat a Bunch of Corn
-          location: Cafeteria
-          eventDescription: We accidentally bought too much corn. Please come eat it.
-          dates:
-            - '2023-11-10'
-            - '2023-11-17'
-            - '2023-11-24'
-          price: 5
-    UpdateSpecialEventRequestExample:
-      summary: Update special event request
-      value:
-        location: On the beach.
-        price: 15
-    UpdateSpecialEventResponseExample:
-      summary: Update special event
-      value:
-        eventId: dad4bce8-f5cb-4078-a211-995864315e39
-        name: Mermaid Treasure Identification and Analysis
-        location: On the beach.
-        eventDescription: Join us as we review and classify a rare collection of 20 thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated by Ariel.
-        dates:
-          - '2023-09-05'
-          - '2023-09-08'
-        price: 15
-    GetMuseumHoursResponseExample:
-      summary: Get hours response
-      value:
-        - date: '2023-09-11'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-12'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-13'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-14'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-15'
-          timeOpen: '10:00'
-          timeClose: '16:00'
-        - date: '2023-09-18'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-19'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-20'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-21'
-          timeOpen: '09:00'
-          timeClose: '18:00'
-        - date: '2023-09-22'
-          timeOpen: '10:00'
-          timeClose: '16:00'
-  parameters:
-    PaginationPage:
-      name: page
-      in: query
-      description: Page number to retrieve.
-      schema:
-        type: integer
-        default: 1
-        example: 2
-    PaginationLimit:
-      name: limit
-      in: query
-      description: Number of days per page.
-      schema:
-        type: integer
-        default: 10
-        maximum: 30
-        example: 15
-    EventId:
-      name: eventId
-      in: path
-      description: Identifier for a special event.
-      required: true
-      schema:
-        type: string
-        format: uuid
-        example: dad4bce8-f5cb-4078-a211-995864315e39
-    StartDate:
-      name: startDate
-      in: query
-      description: Starting date to retrieve future operating hours from. Defaults to today's date.
-      schema:
-        type: string
-        format: date
-        example: '2023-02-23'
-    EndDate:
-      name: endDate
-      in: query
-      description: End of a date range to retrieve special events for. Defaults to 7 days after `startDate`.
-      schema:
-        type: string
-        format: date
-        example: '2023-04-18'
-    TicketId:
-      name: ticketId
-      in: path
-      description: Identifier for a ticket to a museum event. Used to generate ticket image.
-      required: true
-      schema:
-        type: string
-        format: uuid
-        example: a54a57ca-36f8-421b-a6b4-2e8f26858a4c
   responses:
     BadRequest:
-      description: Bad request.
+      description: Validation error or invalid URL
       content:
-        application/problem+json:
+        application/json:
           schema:
             $ref: '#/components/schemas/Error'
+
     NotFound:
-      description: Not found.
+      description: Resource not found
       content:
-        application/problem+json:
+        application/json:
           schema:
             $ref: '#/components/schemas/Error'
-    Unauthorized:
-      description: Unauthorized.
+
+    QuotaExceeded:
+      description: YouTube API quota exceeded
       content:
-        application/problem+json:
+        application/json:
           schema:
             $ref: '#/components/schemas/Error'
-tags:
-  - name: Operations
-    description: Operational information about the museum.
-  - name: Events
-    description: Special events hosted by the museum.
-  - name: Tickets
-    description: Museum tickets for general entrance or special events.
-security:
-  - MuseumPlaceholderAuth: []

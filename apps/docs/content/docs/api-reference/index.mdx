@@ -1,7 +1,21 @@
 ---
-title: Introduction
-description: This is a page to check fumadocs's OpenAPI example.
-icon: Book
+title: API Reference
+description: Interactive REST API documentation for the Lyra Express server
+icon: Webhook
 ---
 
-Welcome to the OpenAPI example! You can update the openapi in the 'openapi.yml' file.
+import { APIPage } from '@/components/api-page'
+
+<APIPage />
+
+The Lyra Express API wraps all `lyra-sdk` functions behind REST endpoints. Start the server with:
+
+```bash
+cd packages/sdk-examples && npm run dev:express
+```
+
+All endpoints are available at `http://localhost:3000/api/`.
+
+<Callout title="Try it out">
+  Use the interactive playground on each endpoint page to send real requests to your local server.
+</Callout>
