@@ -4,7 +4,7 @@ export const docsImageRoute = '/og/docs'
 export const docsContentRoute = '/llms.mdx/docs'
 
 export const gitConfig = {
-  user: 'abhiseksahoo',
-  repo: 'lyra',
+  user: 'abhisek-1221',
+  repo: 'lyra-sdk',
   branch: 'main',
 }
