@@ -6,19 +6,12 @@
   "pages": [
     "index",
     "---Video---",
-    "operations/getVideo",
-    "videos/getVideos",
-    "operations/getVideoTitle",
+    "...video",
     "---Channel---",
-    "operations/getChannel",
-    "channel/getChannelVideos",
+    "...channel",
     "---Playlist---",
-    "operations/getPlaylist",
-    "operations/getPlaylistInfo",
-    "playlist/getPlaylistIds",
-    "playlist/queryPlaylist",
+    "...playlist",
     "---URL---",
-    "url/parseUrl",
-    "url/extractUrl"
+    "...url"
   ]
 }
