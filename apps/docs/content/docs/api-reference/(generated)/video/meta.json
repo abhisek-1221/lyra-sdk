@@ -1,0 +1,5 @@
+{
+  "$schema": "../../../../../.source/json-schema/docs.meta.json",
+  "title": "Video",
+  "icon": "Play"
+}

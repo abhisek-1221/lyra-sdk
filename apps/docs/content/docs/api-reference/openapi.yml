@@ -1,0 +1,606 @@
+openapi: 3.1.0
+info:
+  title: Lyra API
+  description: >
+    REST API that wraps all `lyra-sdk` functions. Test every endpoint in Postman.
+  version: 1.0.0
+  contact:
+    name: Lyra SDK
+    url: https://github.com/abhiseksahoo/lyra
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Video
+    description: Fetch video details and titles
+  - name: Channel
+    description: Fetch channel metadata and recent uploads
+  - name: Playlist
+    description: Fetch playlists, metadata, and filtered queries
+  - name: URL
+    description: Parse and extract IDs from YouTube URLs
+
+paths:
+  /api/video/{id}:
+    get:
+      tags: [Video]
+      summary: Get video by ID or URL
+      description: Fetch full video details by ID or URL.
+      operationId: getVideo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: YouTube video ID or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/QuotaExceeded'
+
+  /api/videos:
+    get:
+      tags: [Video]
+      summary: Get multiple videos
+      description: Batch fetch multiple videos by comma-separated IDs.
+      operationId: getVideos
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Comma-separated video IDs
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of video objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Video'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/video/{id}/title:
+    get:
+      tags: [Video]
+      summary: Get video title
+      description: Lightweight title-only lookup (1 quota unit).
+      operationId: getVideoTitle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: YouTube video ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video title
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  title:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/channel/{id}:
+    get:
+      tags: [Channel]
+      summary: Get channel metadata
+      description: Fetch channel metadata by ID, @username, or URL.
+      operationId: getChannel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Channel ID, @username, or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Channel details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/channel/{id}/videos:
+    get:
+      tags: [Channel]
+      summary: Get channel videos
+      description: Fetch recent uploads for a channel.
+      operationId: getChannelVideos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Channel ID, @username, or URL
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Max videos to return (1-50, default 5)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+      responses:
+        '200':
+          description: Array of recent videos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecentVideo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}:
+    get:
+      tags: [Playlist]
+      summary: Get full playlist
+      description: Fetch complete playlist with all videos, stats, and total duration.
+      operationId: getPlaylist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Full playlist with videos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}/info:
+    get:
+      tags: [Playlist]
+      summary: Get playlist info
+      description: Playlist metadata only — no videos (1 quota unit).
+      operationId: getPlaylistInfo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Playlist metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}/ids:
+    get:
+      tags: [Playlist]
+      summary: Get playlist video IDs
+      description: Fetch all video IDs in a playlist (auto-paginates).
+      operationId: getPlaylistIds
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  videoIds:
+                    type: array
+                    items:
+                      type: string
+                  count:
+                    type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}/query:
+    post:
+      tags: [Playlist]
+      summary: Query playlist videos
+      description: Filter, sort, and slice playlist videos.
+      operationId: queryPlaylist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filter:
+                  type: object
+                  properties:
+                    duration:
+                      type: object
+                      properties:
+                        min:
+                          type: integer
+                        max:
+                          type: integer
+                    views:
+                      type: object
+                      properties:
+                        min:
+                          type: integer
+                        max:
+                          type: integer
+                    likes:
+                      type: object
+                      properties:
+                        min:
+                          type: integer
+                        max:
+                          type: integer
+                sort:
+                  type: object
+                  properties:
+                    field:
+                      type: string
+                      enum: [duration, views, likes]
+                    order:
+                      type: string
+                      enum: [asc, desc]
+                range:
+                  type: object
+                  properties:
+                    start:
+                      type: integer
+                      minimum: 1
+                    end:
+                      type: integer
+                      minimum: 1
+      responses:
+        '200':
+          description: Filtered playlist results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistQueryResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/url/parse:
+    post:
+      tags: [URL]
+      summary: Parse a YouTube URL
+      description: Parse a YouTube URL into a structured result.
+      operationId: parseUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+      responses:
+        '200':
+          description: Parsed URL result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParsedURL'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/url/extract:
+    post:
+      tags: [URL]
+      summary: Extract IDs from a YouTube URL
+      description: Extract video, playlist, or channel IDs from a YouTube URL.
+      operationId: extractUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                type:
+                  type: string
+                  enum: [video, playlist, channel]
+      responses:
+        '200':
+          description: Extracted IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  playlistId:
+                    type: string
+                  videoId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  schemas:
+    Thumbnails:
+      type: object
+      properties:
+        default:
+          $ref: '#/components/schemas/Thumbnail'
+        medium:
+          $ref: '#/components/schemas/Thumbnail'
+        high:
+          $ref: '#/components/schemas/Thumbnail'
+        standard:
+          $ref: '#/components/schemas/Thumbnail'
+        maxres:
+          $ref: '#/components/schemas/Thumbnail'
+
+    Thumbnail:
+      type: object
+      properties:
+        url:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+
+    Video:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        channel:
+          type: string
+        channelId:
+          type: string
+        views:
+          type: integer
+        viewsFmt:
+          type: string
+        likes:
+          type: integer
+        likesFmt:
+          type: string
+        comments:
+          type: integer
+        commentsFmt:
+          type: string
+        duration:
+          type: integer
+        durationFmt:
+          type: string
+        published:
+          type: string
+        publishedAt:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+
+    Channel:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        username:
+          type: string
+        subscribers:
+          type: integer
+        subscribersFmt:
+          type: string
+        totalViews:
+          type: integer
+        totalViewsFmt:
+          type: string
+        videoCount:
+          type: integer
+        country:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+        uploadsPlaylistId:
+          type: string
+
+    RecentVideo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        views:
+          type: integer
+        viewsFmt:
+          type: string
+        likes:
+          type: integer
+        likesFmt:
+          type: string
+        duration:
+          type: integer
+        durationFmt:
+          type: string
+        thumbnail:
+          type: string
+        uploadAge:
+          type: string
+        publishedAt:
+          type: string
+
+    PlaylistInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+
+    PlaylistVideo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        channelTitle:
+          type: string
+        publishedAt:
+          type: string
+        duration:
+          type: integer
+        durationFmt:
+          type: string
+        views:
+          type: integer
+        viewsFmt:
+          type: string
+        likes:
+          type: integer
+        likesFmt:
+          type: string
+        thumbnails:
+          $ref: '#/components/schemas/Thumbnails'
+
+    Playlist:
+      allOf:
+        - $ref: '#/components/schemas/PlaylistInfo'
+        - type: object
+          properties:
+            videoCount:
+              type: integer
+            totalDuration:
+              type: integer
+            totalDurationFmt:
+              type: string
+            videos:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlaylistVideo'
+
+    PlaylistQueryResult:
+      allOf:
+        - $ref: '#/components/schemas/Playlist'
+        - type: object
+          properties:
+            originalCount:
+              type: integer
+
+    ParsedURL:
+      type: object
+      properties:
+        isValid:
+          type: boolean
+        type:
+          type: string
+          enum: [video, playlist, channel]
+        videoId:
+          type: string
+        playlistId:
+          type: string
+        channelId:
+          type: string
+        error:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Validation error or invalid URL
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    QuotaExceeded:
+      description: YouTube API quota exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

@@ -1,0 +1,176 @@
+---
+title: Scripts
+description: Ready-to-run examples for every SDK function
+icon: Terminal
+---
+
+The `lyra-sdk` repo includes runnable scripts in the `scripts/` directory. Each script demonstrates a core SDK capability.
+
+## Prerequisites
+
+Set your API key in the environment:
+
+```bash
+export YOUTUBE_API_KEY=your_key_here
+```
+
+<Callout>
+  The `url-utils.ts` script does not require an API key.
+</Callout>
+
+## Running a Script
+
+<Tabs groupId="package-manager" persist items={['npm', 'pnpm', 'bun']}>
+  ```bash tab="npm"
+  npx tsx scripts/video.ts
+  ```
+
+  ```bash tab="pnpm"
+  pnpm tsx scripts/video.ts
+  ```
+
+  ```bash tab="bun"
+  bun run scripts/video.ts
+  ```
+</Tabs>
+
+---
+
+## Video
+
+```ts title="scripts/video.ts"
+import { yt } from 'lyra-sdk'
+import 'dotenv/config'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+const video = await client.video('dQw4w9WgXcQ')
+
+console.log(video.title)         // "Rick Astley - Never Gonna Give You Up"
+console.log(video.channel)        // "Rick Astley"
+console.log(video.viewsFmt)      // "1.8B"
+console.log(video.likesFmt)      // "19M"
+console.log(video.durationFmt)   // "3:34"
+console.log(video.published)     // "October 25, 2009"
+```
+
+---
+
+## Channel
+
+```ts title="scripts/channel.ts"
+import { yt } from 'lyra-sdk'
+import 'dotenv/config'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+const channel = await client.channel('@MrBeast')
+
+console.log(channel.name)              // "MrBeast"
+console.log(channel.username)           // "@mrbeast"
+console.log(channel.subscribersFmt)     // "478M"
+console.log(channel.totalViewsFmt)     // "118B"
+console.log(channel.videoCount)        // 966
+console.log(channel.country)           // "US"
+```
+
+---
+
+## Playlist (Full)
+
+```ts title="scripts/playlist-full.ts"
+import { yt } from 'lyra-sdk'
+import 'dotenv/config'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+const playlist = await client.playlist('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+
+console.log(playlist.title)             // "Select Lectures"
+console.log(playlist.videoCount)        // 2
+console.log(playlist.totalDurationFmt) // "2h 35m 47s"
+
+for (const v of playlist.videos.slice(0, 5)) {
+  console.log(`  ${v.title} — ${v.durationFmt} — ${v.viewsFmt} views`)
+}
+```
+
+---
+
+## Playlist (Info Only)
+
+```ts title="scripts/playlist-info.ts"
+import { yt } from 'lyra-sdk'
+import 'dotenv/config'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+const info = await client.playlistInfo('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+
+console.log(info.title)          // "Select Lectures"
+console.log(info.description)     // "Some lectures on deep learning..."
+```
+
+---
+
+## Playlist Query
+
+```ts title="scripts/playlist-query.ts"
+import { yt } from 'lyra-sdk'
+import 'dotenv/config'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+const result = await client
+  .playlistQuery('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+  .filterByDuration({ min: 300 })
+  .filterByViews({ min: 100000 })
+  .sortBy('views', 'desc')
+  .between(1, 10)
+  .execute()
+
+console.log(`Showing ${result.videos.length} of ${result.originalCount} videos`)
+```
+
+---
+
+## URL Utilities (No API Key)
+
+```ts title="scripts/url-utils.ts"
+import {
+  parseURL,
+  isVideoURL,
+  isPlaylistURL,
+  extractVideoId,
+  extractPlaylistId,
+  parseDuration,
+  formatDuration,
+  formatDurationClock,
+  formatNumber,
+  formatDate,
+  relativeTime,
+} from 'lyra-sdk/url'
+
+// URL parsing
+const result = parseURL('https://youtu.be/dQw4w9WgXcQ')
+console.log(result) // { isValid: true, type: 'video', videoId: 'dQw4w9WgXcQ' }
+
+// Type guards
+console.log(isVideoURL('https://youtube.com/watch?v=dQw4w9WgXcQ'))    // true
+console.log(isPlaylistURL('https://youtube.com/playlist?list=PL...')) // true
+
+// ID extraction
+console.log(extractVideoId('https://youtu.be/dQw4w9WgXcQ')) // 'dQw4w9WgXcQ'
+
+// Duration formatting
+console.log(parseDuration('PT3M34S'))     // 214
+console.log(formatDuration(9347))          // "2h 35m 47s"
+console.log(formatDurationClock(214))      // "3:34"
+
+// Number formatting
+console.log(formatNumber(1763613349))      // "1.8B"
+
+// Date formatting
+console.log(formatDate('2009-10-25T06:57:33.000Z')) // "October 25, 2009"
+console.log(relativeTime(new Date('2025-01-01')))    // relative time string
+```

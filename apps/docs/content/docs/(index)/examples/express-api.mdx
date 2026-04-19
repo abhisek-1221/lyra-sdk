@@ -1,0 +1,118 @@
+---
+title: Express API Server
+description: REST API that wraps all lyra-sdk functions
+icon: Server
+---
+
+A complete Express REST API that wraps every `lyra-sdk` function. Use it to test endpoints in Postman or as a starting point for your own API.
+
+## Getting Started
+
+<Tabs groupId="package-manager" persist items={['npm', 'pnpm', 'bun']}>
+  ```bash tab="npm"
+  cd packages/sdk-examples
+  npm run dev:express
+  ```
+
+  ```bash tab="pnpm"
+  cd packages/sdk-examples
+  pnpm dev:express
+  ```
+
+  ```bash tab="bun"
+  cd packages/sdk-examples
+  bun dev:express
+  ```
+</Tabs>
+
+Runs on `http://localhost:3000` (override with `PORT` env var).
+
+Requires `YOUTUBE_API_KEY` in your `.env` file.
+
+## Architecture
+
+<Files>
+  <Folder name="packages/sdk-examples/src/api/express" defaultOpen>
+    <File name="index.ts" />
+    <File name="app.ts" />
+    <File name="lib.ts" />
+    <File name="errors.ts" />
+    <Folder name="routes" defaultOpen>
+      <File name="video.ts" />
+      <File name="channel.ts" />
+      <File name="playlist.ts" />
+      <File name="url.ts" />
+    </Folder>
+    <Folder name="schemas" defaultOpen>
+      <File name="video.ts" />
+      <File name="channel.ts" />
+      <File name="playlist.ts" />
+      <File name="url.ts" />
+    </Folder>
+  </Folder>
+</Files>
+
+| File | Purpose |
+| ---- | ------- |
+| `lib.ts` | Initializes the `yt()` client singleton |
+| `app.ts` | Creates the Express app, mounts routes under `/api` |
+| `errors.ts` | Maps SDK errors to HTTP responses |
+| `routes/` | Express routers for each resource |
+| `schemas/` | Zod validation schemas for each endpoint |
+
+## Endpoints
+
+See the [API Reference](/docs/api-reference) for full interactive documentation of every endpoint.
+
+### Video
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video/:id` | Fetch full video details by ID or URL |
+| GET | `/api/videos?ids=...` | Batch fetch multiple videos |
+| GET | `/api/video/:id/title` | Lightweight title-only lookup |
+
+### Channel
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/channel/:id` | Fetch channel metadata (ID, @username, or URL) |
+| GET | `/api/channel/:id/videos?limit=5` | Fetch recent uploads for a channel |
+
+### Playlist
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/playlist/:id` | Full playlist with all videos |
+| GET | `/api/playlist/:id/info` | Metadata only (1 quota unit) |
+| GET | `/api/playlist/:id/ids` | All video IDs in a playlist |
+| POST | `/api/playlist/:id/query` | Filter, sort, and slice playlist videos |
+
+### URL Utilities
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/url/parse` | Parse a YouTube URL into structured data |
+| POST | `/api/url/extract` | Extract IDs from a YouTube URL |
+
+## Error Handling
+
+All errors follow the same format:
+
+```json
+{
+  "error": {
+    "code": 404,
+    "message": "Video not found: INVALID_ID"
+  }
+}
+```
+
+| HTTP Status | Cause |
+| ----------- | ----- |
+| 400 | Validation error (Zod) or invalid URL |
+| 401 | Invalid YouTube API key |
+| 404 | Video/channel/playlist not found |
+| 429 | YouTube API quota exceeded |
+| 502 | YouTube API error |
+| 500 | Internal server error |

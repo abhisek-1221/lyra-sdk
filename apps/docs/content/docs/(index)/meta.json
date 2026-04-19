@@ -1,0 +1,20 @@
+{
+  "title": "Documentation",
+  "description": "Learn how to use Lyra SDK to interact with the YouTube Data API",
+  "icon": "Book",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "---SDK Reference---",
+    "...sdk",
+    "---Examples---",
+    "...examples",
+    "---Guides---",
+    "...guides",
+    "---Features---",
+    "...features",
+    "..."
+  ]
+}

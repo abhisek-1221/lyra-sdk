@@ -1,0 +1,76 @@
+---
+title: LLM Support
+description: Provide AI-friendly endpoints to assist large language models
+icon: Bot
+---
+
+## Introduction
+
+Large language models waste tokens crawling HTML, JS, and site chrome. These endpoints expose clean, text-only snapshots of your docs so agents can ingest them efficiently without scraping.
+
+1. **`/llms.txt`**: a concise sitemap with titles, URLs, and summaries
+2. **`/llms-full.txt`**: a Markdown dump of every document except the API reference
+3. **`/llms.mdx/*`**: the raw MDX/Markdown content of a requested page with `text/markdown`
+
+## `/llms.txt`
+
+- Lists each section and page in your documentation (grouped by top-level category names)
+- Includes optional one-line descriptions from frontmatter
+- No boilerplate or styling, just the outline
+
+```md
+# Docs
+
+## API Reference
+
+- [Get museum hours](/docs/api-reference/operations/getMuseumHours): Get upcoming museum operating hours.
+- [Buy museum tickets](/docs/api-reference/tickets/buyMuseumTickets): Purchase museum tickets for general entry or special events.
+
+## Home
+
+- [Quickstart](/docs/quickstart): Start building awesome documentation in under 5 minutes
+```
+
+This file is generated at the root of your deployed site, enabling agents to discover it at `https://<your-domain>/llms.txt`.
+
+## `/llms-full.txt`
+
+- Concatenates the raw MDX/Markdown of every page **except** `content/docs/api-reference/**/*` to keep the payload reasonable
+- Preserves headings, paragraphs, code samples, and frontmatter
+- Lets an LLM ingest your entire documentation corpus in a single fetch
+
+```md
+# API Reference: Get museum hours
+
+URL: /docs/api-reference/operations/getMuseumHours
+Source: https://raw.githubusercontent.com/techwithanirudh/fumadocs-starter/refs/heads/main/content/docs/api-reference/(generated)/operations/getMuseumHours.mdx
+
+Get upcoming museum operating hours.
+
+...full MDX content...
+```
+
+The route (`src/app/llms-full.txt/route.ts`) streams the latest content on request—no extra build step is required.
+
+## `/llms.mdx/*`
+
+- Provides the raw MDX/Markdown content of a requested page
+- Preserves headings, paragraphs, code samples, and frontmatter
+- Returns `404` for unknown slugs and sets `Content-Type: text/markdown`
+
+Example: `/llms.mdx/quickstart`
+
+```md
+# Home: Quickstart
+
+URL: /docs/quickstart
+Source: https://raw.githubusercontent.com/techwithanirudh/fumadocs-starter/refs/heads/main/content/docs/(index)/quickstart.mdx
+
+Start building awesome documentation in under 5 minutes
+
+## Setup your development environment
+
+A minimum version of Node.js 22 is required...
+```
+
+All three endpoints read directly from the same `source` used by the site, so updates to `content/docs` automatically flow into the LLM feeds without additional configuration.

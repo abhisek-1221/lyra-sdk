@@ -1,0 +1,95 @@
+---
+title: Quickstart
+description: Install Lyra SDK and make your first request
+icon: Play
+---
+
+## Prerequisites
+
+- Node.js 18 or later
+- A YouTube Data API v3 key from the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+
+## Installation
+
+<Tabs groupId="package-manager" persist items={['npm', 'pnpm', 'yarn', 'bun']}>
+  ```bash tab="npm"
+  npm install lyra-sdk
+  ```
+
+  ```bash tab="pnpm"
+  pnpm add lyra-sdk
+  ```
+
+  ```bash tab="yarn"
+  yarn add lyra-sdk
+  ```
+
+  ```bash tab="bun"
+  bun add lyra-sdk
+  ```
+</Tabs>
+
+## Set up your API key
+
+Create a `.env` file in your project root:
+
+```bash
+YOUTUBE_API_KEY=your_api_key_here
+```
+
+<Callout type="warn" title="API Key Security">
+  Never commit your API key to source control. Use environment variables or a secrets manager.
+</Callout>
+
+## Make your first request
+
+```ts
+import { yt } from 'lyra-sdk'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+// Fetch a single video
+const video = await client.video('dQw4w9WgXcQ')
+console.log(`${video.title} — ${video.viewsFmt} views`)
+```
+
+## Use URL utilities (no API key needed)
+
+The `lyra-sdk/url` subpath exports standalone helpers that don't require an API key:
+
+```ts
+import { parseURL, isVideoURL, extractVideoId, formatDuration } from 'lyra-sdk/url'
+
+const result = parseURL('https://youtu.be/dQw4w9WgXcQ')
+// { isValid: true, type: 'video', videoId: 'dQw4w9WgXcQ' }
+
+isVideoURL('https://youtube.com/watch?v=dQw4w9WgXcQ') // true
+
+extractVideoId('https://youtu.be/dQw4w9WgXcQ') // 'dQw4w9WgXcQ'
+
+formatDuration(9347) // '2h 35m 47s'
+```
+
+## Use formatters (no API key needed)
+
+The `lyra-sdk/fmt` subpath exports formatting utilities:
+
+```ts
+import { formatNumber, formatDate, relativeTime, formatDurationClock } from 'lyra-sdk/fmt'
+
+formatNumber(1763613349)   // '1.8B'
+formatDate('2009-10-25T06:57:33.000Z') // 'October 25, 2009'
+relativeTime(new Date('2025-01-01'))    // '3 months ago'
+formatDurationClock(214)  // '3:34'
+```
+
+## Next steps
+
+<Cards>
+  <Card title="SDK Reference" icon={<BookIcon />} href="/docs/sdk/video">
+    Explore every function the SDK offers.
+  </Card>
+  <Card title="API Reference" icon={<WebhookIcon />} href="/docs/api-reference">
+    Browse the REST API endpoints with interactive examples.
+  </Card>
+</Cards>

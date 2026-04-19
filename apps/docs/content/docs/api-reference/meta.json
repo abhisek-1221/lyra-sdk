@@ -1,0 +1,17 @@
+{
+  "title": "API Reference",
+  "description": "Interactive REST API documentation",
+  "icon": "Webhook",
+  "root": true,
+  "pages": [
+    "index",
+    "---Video---",
+    "...(generated)/video",
+    "---Channel---",
+    "...(generated)/channel",
+    "---Playlist---",
+    "...(generated)/playlist",
+    "---URL---",
+    "...(generated)/url"
+  ]
+}

@@ -1,0 +1,62 @@
+---
+title: Introduction
+description: 'YouTube Data API made simple'
+icon: Book
+---
+
+## What is Lyra?
+
+Lyra is a lightweight TypeScript SDK that wraps the YouTube Data API v3 with a clean, intuitive interface. No boilerplate, no pagination headaches — just the data you need.
+
+<Cards cols={2}>
+  <Card title="Quickstart" icon={<PlayIcon />} href="/docs/quickstart">
+    Install the SDK and make your first request in under a minute.
+  </Card>
+  <Card title="API Reference" icon={<WebhookIcon />} href="/docs/api-reference">
+    Explore the REST API endpoints with interactive examples.
+  </Card>
+</Cards>
+
+## Key Features
+
+- **Single function calls** — Fetch videos, channels, and playlists with one line of code
+- **Auto-pagination** — Playlists with hundreds of videos? No problem
+- **Fluent query builder** — Filter, sort, and slice playlist videos with a chainable API
+- **URL parsing** — Detect and extract IDs from any YouTube URL format
+- **Built-in formatting** — Human-readable durations, numbers, and dates out of the box
+- **Zero dependencies** — Runs on Node.js 18+ with native `fetch`
+- **Type-safe** — Full TypeScript types for every response shape
+
+## Quick Example
+
+```ts
+import { yt } from 'lyra-sdk'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+// Fetch a video
+const video = await client.video('dQw4w9WgXcQ')
+console.log(video.title)        // "Rick Astley - Never Gonna Give You Up"
+console.log(video.viewsFmt)     // "1.8B"
+console.log(video.durationFmt)  // "3:34"
+
+// Fetch a channel by handle
+const channel = await client.channel('@MrBeast')
+console.log(channel.name)              // "MrBeast"
+console.log(channel.subscribersFmt)    // "478M"
+
+// Query a playlist — filter, sort, paginate
+const result = await client.playlistQuery('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+  .filterByDuration({ min: 300 })
+  .sortBy('views', 'desc')
+  .between(1, 10)
+  .execute()
+```
+
+## Packages
+
+| Package | Description |
+| ------- | ----------- |
+| `lyra-sdk` | Core SDK — all functions, types, and utilities |
+| `lyra-sdk/url` | Standalone URL utilities (no API key needed) |
+| `lyra-sdk/fmt` | Standalone formatters (no API key needed) |
