@@ -29,20 +29,20 @@ function DocumentationItem({
 export default function HomePage() {
   return (
     <div className='flex flex-1 flex-col items-center justify-center gap-6 py-12'>
-      <h1 className='text-4xl font-bold'>Welcome to the Docs</h1>
+      <h1 className='text-4xl font-bold'>Lyra</h1>
       <p className='text-fd-muted-foreground max-w-xl text-center text-lg'>
-        Get started with the documentation, API reference, or changelog.
+        YouTube Data API made simple. No boilerplate, no pagination headaches.
       </p>
       <div className='mt-8 grid grid-cols-1 gap-4 text-left md:grid-cols-2'>
         <DocumentationItem
           title='Documentation'
-          description='Get started with the Fumadocs framework.'
+          description='SDK reference, examples, and guides.'
           icon={{ icon: <BookIcon />, id: '(index)' }}
           href='/docs'
         />
         <DocumentationItem
           title='API Reference'
-          description='Explore the API reference.'
+          description='Interactive REST API documentation.'
           icon={{ icon: <WebhookIcon />, id: 'api-reference' }}
           href='/docs/api-reference'
         />

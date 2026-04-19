@@ -1,10 +1,10 @@
-export const appName = 'My App'
+export const appName = 'Lyra'
 export const docsRoute = '/docs'
 export const docsImageRoute = '/og/docs'
 export const docsContentRoute = '/llms.mdx/docs'
 
 export const gitConfig = {
-  user: 'fuma-nama',
-  repo: 'fumadocs',
+  user: 'abhiseksahoo',
+  repo: 'lyra',
   branch: 'main',
 }
