@@ -1,0 +1,73 @@
+---
+title: Channel
+description: Fetch channel metadata and recent uploads
+icon: Users
+---
+
+## `client.channel(urlOrId)`
+
+Fetch channel metadata. Accepts a channel ID, `@username`, or any YouTube channel URL.
+
+```ts
+const channel = await client.channel('@MrBeast')
+```
+
+### Response
+
+<TypeTable>
+  | Property          | Type     | Description                                     |
+  | ----------------- | -------- | ----------------------------------------------- |
+  | id                | string   | Channel ID (`UC...`)                           |
+  | name              | string   | Channel display name                            |
+  | username          | string   | Handle (e.g. `@mrbeast`)                      |
+  | subscribers       | number   | Raw subscriber count                           |
+  | subscribersFmt    | string   | Formatted subscribers (e.g. `"478M"`)          |
+  | totalViews        | number   | Total view count across all videos              |
+  | totalViewsFmt     | string   | Formatted total views                           |
+  | videoCount        | number   | Number of public videos                         |
+  | country           | string   | Channel country code (e.g. `"US"`)            |
+  | thumbnails        | object   | Thumbnail map (default, medium, high)          |
+  | uploadsPlaylistId | string   | Playlist ID for the channel's uploads           |
+</TypeTable>
+
+<Callout title="Accepted inputs">
+  The `urlOrId` parameter accepts channel IDs (`UCX6OQ3DkcsbYNE6H8uQQuVA`), handles (`@MrBeast`), or full YouTube URLs.
+</Callout>
+
+---
+
+## `client.channelVideos(urlOrId, options?)`
+
+Fetch recent uploads for a channel.
+
+```ts
+const videos = await client.channelVideos('@MrBeast', { limit: 3 })
+```
+
+### Parameters
+
+<TypeTable>
+  | Property | Type   | Default | Description                        |
+  | -------- | ------ | ------- | ---------------------------------- |
+  | limit    | number | 5       | Max videos to return (1–50)        |
+</TypeTable>
+
+### Response
+
+Returns an array of `RecentVideo` objects:
+
+<TypeTable>
+  | Property      | Type     | Description                                    |
+  | ------------- | -------- | ---------------------------------------------- |
+  | id            | string   | Video ID                                       |
+  | title         | string   | Video title                                    |
+  | views         | number   | Raw view count                                 |
+  | viewsFmt      | string   | Formatted views                                |
+  | likes         | number   | Raw like count                                 |
+  | likesFmt      | string   | Formatted likes                                |
+  | duration      | number   | Duration in seconds                            |
+  | durationFmt   | string   | Duration as clock                              |
+  | thumbnail     | string   | Thumbnail URL                                  |
+  | uploadAge     | string   | Relative upload time (e.g. `"1 hour ago"`)    |
+  | publishedAt   | string   | ISO 8601 publish timestamp                     |
+</TypeTable>

@@ -1,0 +1,89 @@
+---
+title: Formatting
+description: Human-readable durations, numbers, and dates
+icon: CalendarDays
+---
+
+<Callout title="No API key required">
+  All formatting utilities work offline. Import them from `lyra-sdk/fmt` or the main `lyra-sdk` package.
+</Callout>
+
+## `formatNumber(n)`
+
+Compact number formatting using `Intl.NumberFormat`.
+
+```ts
+import { formatNumber } from 'lyra-sdk/fmt'
+
+formatNumber(1763613349)  // "1.8B"
+formatNumber(478000000)   // "478M"
+formatNumber(546436)      // "546K"
+formatNumber(1234)        // "1.2K"
+```
+
+---
+
+## `formatDuration(seconds)`
+
+Compact duration formatting for longer time spans.
+
+```ts
+import { formatDuration } from 'lyra-sdk/fmt'
+
+formatDuration(9347)   // "2h 35m 47s"
+formatDuration(5261)   // "1h 27m 41s"
+formatDuration(214)    // "3m 34s"
+formatDuration(45)    // "45s"
+```
+
+---
+
+## `formatDurationClock(seconds)`
+
+Clock-style duration formatting for video-length display.
+
+```ts
+import { formatDurationClock } from 'lyra-sdk/fmt'
+
+formatDurationClock(214)  // "3:34"
+formatDurationClock(5261) // "1:27:41"
+formatDurationClock(45)   // "0:45"
+```
+
+---
+
+## `formatDate(isoString)`
+
+Format an ISO 8601 timestamp into a long-form human-readable date.
+
+```ts
+import { formatDate } from 'lyra-sdk/fmt'
+
+formatDate('2009-10-25T06:57:33.000Z') // "October 25, 2009"
+formatDate('2024-01-15T00:00:00.000Z')  // "January 15, 2024"
+```
+
+---
+
+## `parseDuration(iso8601)`
+
+Parse an ISO 8601 duration string (`PT1H23M45S`) into total seconds.
+
+```ts
+import { parseDuration } from 'lyra-sdk/fmt'
+
+parseDuration('PT3M34S')   // 214
+parseDuration('PT1H27M41S') // 5261
+```
+
+---
+
+## `relativeTime(date)`
+
+Convert a date into a relative time string (e.g. "3 days ago").
+
+```ts
+import { relativeTime } from 'lyra-sdk/fmt'
+
+relativeTime(new Date('2025-01-01')) // "3 months ago" (relative to now)
+```

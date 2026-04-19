@@ -1,0 +1,110 @@
+---
+title: Playlist
+description: Fetch playlists, query videos, and auto-paginate
+icon: ListVideo
+---
+
+## `client.playlist(urlOrId)`
+
+Fetch a complete playlist with all videos, stats, and total duration. Auto-paginates through all pages.
+
+```ts
+const playlist = await client.playlist('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+console.log(playlist.title)           // "Select Lectures"
+console.log(playlist.videoCount)      // 2
+console.log(playlist.totalDurationFmt) // "2h 35m 47s"
+```
+
+### Response
+
+<TypeTable>
+  | Property            | Type     | Description                                    |
+  | ------------------- | -------- | ---------------------------------------------- |
+  | id                  | string   | Playlist ID                                    |
+  | title               | string   | Playlist title                                 |
+  | description         | string   | Playlist description                           |
+  | thumbnails          | object   | Thumbnail map                                  |
+  | videoCount          | number   | Number of videos                               |
+  | totalDuration       | number   | Total duration in seconds                      |
+  | totalDurationFmt    | string   | Formatted total duration                       |
+  | videos              | array    | Array of `PlaylistVideo` objects               |
+</TypeTable>
+
+**`PlaylistVideo` shape:**
+
+<TypeTable>
+  | Property      | Type     | Description                                    |
+  | ------------- | -------- | ---------------------------------------------- |
+  | id            | string   | Video ID                                       |
+  | title         | string   | Video title                                    |
+  | description   | string   | Video description                               |
+  | channelTitle  | string   | Channel name                                   |
+  | publishedAt   | string   | ISO 8601 publish timestamp                     |
+  | duration      | number   | Duration in seconds                            |
+  | durationFmt   | string   | Duration as clock                              |
+  | views         | number   | Raw view count                                 |
+  | viewsFmt      | string   | Formatted views                                |
+  | likes         | number   | Raw like count                                 |
+  | likesFmt      | string   | Formatted likes                                |
+  | thumbnails    | object   | Thumbnail map                                  |
+</TypeTable>
+
+---
+
+## `client.playlistInfo(urlOrId)`
+
+Fetch playlist metadata only — no videos. Costs just 1 quota unit.
+
+```ts
+const info = await client.playlistInfo('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+// { id, title, description, thumbnails }
+```
+
+### Response
+
+Returns a `PlaylistInfo` object with `id`, `title`, `description`, and `thumbnails`.
+
+---
+
+## `client.playlistVideoIds(urlOrId)`
+
+Fetch all video IDs in a playlist. Auto-paginates.
+
+```ts
+const ids = await client.playlistVideoIds('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+// ["0VH1Lim8gL8", "O5xeyoRL95U"]
+```
+
+### Response
+
+Returns `string[]` — an array of video IDs.
+
+---
+
+## `client.playlistQuery(urlOrId)`
+
+Fluent query builder for filtering, sorting, and slicing playlist videos.
+
+```ts
+const result = await client
+  .playlistQuery('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+  .filterByDuration({ min: 300 })     // At least 5 minutes
+  .filterByViews({ min: 100000 })     // At least 100K views
+  .sortBy('views', 'desc')            // Sort by views, descending
+  .between(1, 10)                    // Top 10 results
+  .execute()
+```
+
+### Builder Methods
+
+| Method | Signature | Description |
+| ------ | --------- | ----------- |
+| `filterByDuration` | `({ min?, max? })` | Filter by duration in seconds |
+| `filterByViews` | `({ min?, max? })` | Filter by view count |
+| `filterByLikes` | `({ min?, max? })` | Filter by like count |
+| `sortBy` | `(field, order)` | Sort by `"duration"`, `"views"`, or `"likes"`, order `"asc"` or `"desc"` |
+| `between` | `(start, end)` | 1-indexed slice (inclusive) |
+
+### Response
+
+Returns a `PlaylistQueryResult` — same as `Playlist` but with an additional `originalCount` field showing the total before filtering.

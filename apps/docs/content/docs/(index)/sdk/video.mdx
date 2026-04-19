@@ -1,0 +1,110 @@
+---
+title: Video
+description: Fetch video details, titles, and batch data
+icon: PlayCircle
+---
+
+## `client.video(urlOrId)`
+
+Fetch full details for a single video. Accepts a video ID or any YouTube URL.
+
+```ts
+const video = await client.video('dQw4w9WgXcQ')
+```
+
+Also accepts URLs:
+
+```ts
+const video = await client.video('https://youtu.be/dQw4w9WgXcQ')
+```
+
+### Response
+
+<TypeTable>
+  | Property      | Type     | Description                                      |
+  | -------------- | -------- | ------------------------------------------------ |
+  | id             | string   | YouTube video ID                                 |
+  | title          | string   | Video title                                      |
+  | description    | string   | Full video description                            |
+  | channel        | string   | Channel name                                     |
+  | channelId      | string   | Channel ID                                       |
+  | views          | number   | Raw view count                                   |
+  | viewsFmt       | string   | Formatted views (e.g. `"1.8B"`)                  |
+  | likes          | number   | Raw like count                                   |
+  | likesFmt       | string   | Formatted likes (e.g. `"19M"`)                   |
+  | comments       | number   | Raw comment count                                |
+  | commentsFmt    | string   | Formatted comments                              |
+  | duration       | number   | Duration in seconds                              |
+  | durationFmt    | string   | Duration as clock (e.g. `"3:34"`)               |
+  | published      | string   | Formatted publish date (e.g. `"October 25, 2009"`)|
+  | publishedAt    | string   | ISO 8601 timestamp                               |
+  | thumbnails     | object   | Thumbnail map (default, medium, high, standard, maxres) |
+</TypeTable>
+
+---
+
+## `client.videos(urlsOrIds)`
+
+Batch fetch multiple videos. Accepts an array of IDs or URLs.
+
+```ts
+const videos = await client.videos(['dQw4w9WgXcQ', 'jNQXAC9IVRw'])
+```
+
+Automatically chunks requests into batches of 50 and fetches details in parallel.
+
+### Response
+
+Returns an array of `Video` objects (same shape as `client.video`).
+
+---
+
+## `client.videoTitle(urlOrId)`
+
+Lightweight title-only lookup. Costs 1 quota unit instead of the full video detail cost.
+
+```ts
+const { id, title } = await client.videoTitle('dQw4w9WgXcQ')
+```
+
+### Response
+
+<TypeTable>
+  | Property | Type   | Description       |
+  | -------- | ------ | ----------------- |
+  | id       | string | YouTube video ID  |
+  | title    | string | Video title       |
+</TypeTable>
+
+---
+
+## `client.videoTitles(urlsOrIds)`
+
+Batch fetch titles for multiple videos.
+
+```ts
+const titles = await client.videoTitles(['dQw4w9WgXcQ', 'jNQXAC9IVRw'])
+// { "dQw4w9WgXcQ": "Rick Astley - Never Gonna Give You Up", ... }
+```
+
+### Response
+
+Returns `Record<string, string>` — a map of video IDs to titles.
+
+---
+
+## Error Handling
+
+```ts
+import { yt, NotFoundError, QuotaError } from 'lyra-sdk'
+
+try {
+  const video = await client.video('INVALID_ID')
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    console.log('Video not found')
+  } else if (error instanceof QuotaError) {
+    console.log('Quota exceeded, retry after', error.retryAfter, 'seconds')
+  }
+}
+```

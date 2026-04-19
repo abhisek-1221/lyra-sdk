@@ -1,0 +1,79 @@
+---
+title: URL Utilities
+description: Parse, detect, and extract IDs from YouTube URLs
+icon: Link
+---
+
+<Callout title="No API key required">
+  All URL utilities work offline. Import them from `lyra-sdk/url` or use `client.url.*` on any initialized client.
+</Callout>
+
+## `parseURL(url)`
+
+Parse any YouTube URL into a structured result.
+
+```ts
+import { parseURL } from 'lyra-sdk/url'
+
+const result = parseURL('https://youtu.be/dQw4w9WgXcQ')
+// { isValid: true, type: 'video', videoId: 'dQw4w9WgXcQ' }
+```
+
+### Response
+
+<TypeTable>
+  | Property    | Type   | Description                                        |
+  | ----------- | ------ | -------------------------------------------------- |
+  | isValid     | boolean | Whether the URL was recognized as a YouTube URL    |
+  | type        | string | `"video"`, `"playlist"`, or `"channel"`            |
+  | videoId     | string | Extracted video ID (if type is `"video"`)          |
+  | playlistId  | string | Extracted playlist ID (if type is `"playlist"`)    |
+  | channelId   | string | Extracted channel ID (if type is `"channel"`)      |
+  | error       | string | Error message if the URL could not be parsed       |
+</TypeTable>
+
+---
+
+## Type Guards
+
+```ts
+import { isVideoURL, isPlaylistURL } from 'lyra-sdk/url'
+
+isVideoURL('https://youtube.com/watch?v=dQw4w9WgXcQ')  // true
+isPlaylistURL('https://youtube.com/playlist?list=PL...')  // true
+isVideoURL('https://example.com')                        // false
+```
+
+---
+
+## ID Extractors
+
+Extract specific IDs from YouTube URLs:
+
+```ts
+import { extractVideoId, extractPlaylistId, extractChannelId, extractUsername } from 'lyra-sdk/url'
+
+extractVideoId('https://youtu.be/dQw4w9WgXcQ')
+// 'dQw4w9WgXcQ'
+
+extractPlaylistId('https://youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+// 'PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf'
+
+extractChannelId('https://youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA')
+// 'UCX6OQ3DkcsbYNE6H8uQQuVA'
+
+extractUsername('https://youtube.com/@MrBeast')
+// 'MrBeast'
+```
+
+### Supported URL Formats
+
+| Format | Example |
+| ------ | ------- |
+| Watch URL | `https://youtube.com/watch?v=VIDEO_ID` |
+| Short URL | `https://youtu.be/VIDEO_ID` |
+| Embed URL | `https://youtube.com/embed/VIDEO_ID` |
+| Shorts URL | `https://youtube.com/shorts/VIDEO_ID` |
+| Playlist URL | `https://youtube.com/playlist?list=PLAYLIST_ID` |
+| Channel URL | `https://youtube.com/channel/CHANNEL_ID` |
+| Handle URL | `https://youtube.com/@USERNAME` |

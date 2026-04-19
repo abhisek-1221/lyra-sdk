@@ -1,0 +1,5 @@
+{
+  "title": "SDK Reference",
+  "icon": "Code",
+  "pages": ["video", "channel", "playlist", "url-utils", "formatting"]
+}
