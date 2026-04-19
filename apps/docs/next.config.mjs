@@ -12,6 +12,14 @@ const config = {
     'twoslash',
     'shiki',
   ],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'fumadocs.dev',
+      },
+    ],
+  },
 }
 
 export default withMDX(config)
