@@ -38,6 +38,16 @@
         "types": "./dist/fmt.d.cts",
         "default": "./dist/fmt.cjs"
       }
+    },
+    "./transcript": {
+      "import": {
+        "types": "./dist/transcript.d.ts",
+        "default": "./dist/transcript.js"
+      },
+      "require": {
+        "types": "./dist/transcript.d.cts",
+        "default": "./dist/transcript.cjs"
+      }
     }
   },
   "sideEffects": false,

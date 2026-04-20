@@ -69,3 +69,28 @@ export {
   extractUsername,
   extractVideoId,
 } from "./utils/url-patterns.js";
+
+export {
+  TranscriptClient,
+  transcribeVideo,
+  listCaptionTracks,
+  toSRT,
+  toVTT,
+  toPlainText,
+  TranscriptError,
+  TranscriptRateLimitError,
+  TranscriptVideoUnavailableError,
+  TranscriptDisabledError,
+  TranscriptNotFoundError,
+  TranscriptLanguageError,
+  TranscriptInvalidVideoIdError,
+  TranscriptInvalidLangError,
+} from "./modules/transcript.js";
+
+export type {
+  TranscriptLine,
+  TranscriptWithMeta,
+  VideoMeta,
+  CaptionTrack,
+  TranscriptOptions,
+} from "./modules/transcript.js";
