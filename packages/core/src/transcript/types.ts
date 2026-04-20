@@ -78,3 +78,36 @@ export interface InnertubePlayerResponse {
     captionTracks?: InternalCaptionTrack[];
   };
 }
+
+export type VideoTranscriptStatus = "success" | "failed";
+
+export interface VideoTranscriptResult {
+  videoId: string;
+  title: string;
+  position: number;
+  status: VideoTranscriptStatus;
+  lines?: TranscriptLine[];
+  error?: string;
+}
+
+export interface PlaylistTranscriptResult {
+  playlistId: string;
+  totalVideos: number;
+  requestedRange: [number, number];
+  succeeded: number;
+  failed: number;
+  results: VideoTranscriptResult[];
+}
+
+export interface PlaylistTranscriptOptions extends TranscriptOptions {
+  apiKey: string;
+  from?: number;
+  to?: number;
+  concurrency?: number;
+  onProgress?: (
+    done: number,
+    total: number,
+    videoId: string,
+    status: VideoTranscriptStatus,
+  ) => void;
+}
