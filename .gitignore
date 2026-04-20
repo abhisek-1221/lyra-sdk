@@ -41,3 +41,6 @@ npm-test
 # Starter reference (not tracked)
 fumadocs-starter
 ytp
+
+# Architecture notes (local only)
+arch.md
