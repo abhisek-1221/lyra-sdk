@@ -108,6 +108,6 @@ export interface PlaylistTranscriptOptions extends TranscriptOptions {
     done: number,
     total: number,
     videoId: string,
-    status: VideoTranscriptStatus,
+    status: VideoTranscriptStatus
   ) => void;
 }
