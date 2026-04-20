@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+
 config();
 
 import { yt } from "../packages/core/src/index.js";
@@ -38,23 +39,19 @@ async function main() {
   console.log(`  Avg likes:        ${stats.avgLikes}`);
   console.log(`  Reply ratio:      ${stats.replyRatio}`);
   if (stats.mostLikedComment) {
-    console.log(`  Most liked:       @${stats.mostLikedComment.authorName} (${stats.mostLikedComment.likeCount} likes)`);
+    console.log(
+      `  Most liked:       @${stats.mostLikedComment.authorName} (${stats.mostLikedComment.likeCount} likes)`
+    );
     console.log(`                    "${stats.mostLikedComment.text}"`);
   }
 
-  console.log("\n--- Search Comments ---\n");
-  const results = await client.searchComments(videoId, "love");
-  console.log(`  Found ${results.length} threads matching "love"`);
-
-  console.log("\n--- Comment Query Builder ---\n");
-  const queryResult = await client
-    .commentQuery(videoId)
-    .order("relevance")
-    .limit(3)
-    .execute();
+  console.log("\n--- Comment Query Builder (top 3) ---\n");
+  const queryResult = await client.commentQuery(videoId).order("relevance").limit(3).execute();
 
   console.log(`  Threads: ${queryResult.threads.length}`);
-  console.log(`  Stats: ${queryResult.stats.totalComments} comments, ${queryResult.stats.uniqueAuthors} authors`);
+  console.log(
+    `  Stats: ${queryResult.stats.totalComments} comments, ${queryResult.stats.uniqueAuthors} authors`
+  );
 }
 
 main().catch(console.error);

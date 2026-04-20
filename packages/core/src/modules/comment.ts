@@ -60,7 +60,10 @@ function mapComment(c: YTCommentResource, textFormat: CommentTextFormat): Commen
     authorProfileImage: c.snippet.authorProfileImageUrl,
     authorChannelUrl: c.snippet.authorChannelUrl,
     authorChannelId: c.snippet.authorChannelId.value,
-    text: textFormat === "plainText" ? (c.snippet.textOriginal ?? c.snippet.textDisplay) : c.snippet.textDisplay,
+    text:
+      textFormat === "plainText"
+        ? (c.snippet.textOriginal ?? c.snippet.textDisplay)
+        : c.snippet.textDisplay,
     likeCount: c.snippet.likeCount,
     publishedAt: new Date(c.snippet.publishedAt),
     updatedAt: new Date(c.snippet.updatedAt),
@@ -99,10 +102,11 @@ function buildParams(opts: CommentOptions): Record<string, string> {
 export async function getVideoComments(
   http: HttpClient,
   videoUrlOrId: string,
-  opts: CommentOptions = {},
+  opts: CommentOptions = {}
 ): Promise<CommentThread[]> {
   const videoId = resolveVideoId(videoUrlOrId);
   const textFormat = opts.textFormat ?? "plainText";
+  const maxItems = opts.maxResults ?? Infinity;
   const threads: CommentThread[] = [];
   let pageToken: string | undefined;
 
@@ -119,9 +123,10 @@ export async function getVideoComments(
 
     for (const item of data.items) {
       threads.push(mapThread(item, textFormat));
+      if (threads.length >= maxItems) break;
     }
 
-    pageToken = data.nextPageToken;
+    pageToken = threads.length >= maxItems ? undefined : data.nextPageToken;
   } while (pageToken);
 
   return threads;
@@ -130,7 +135,7 @@ export async function getVideoComments(
 export async function getCommentReplies(
   http: HttpClient,
   parentId: string,
-  textFormat: CommentTextFormat = "plainText",
+  textFormat: CommentTextFormat = "plainText"
 ): Promise<Comment[]> {
   const comments: Comment[] = [];
   let pageToken: string | undefined;
@@ -161,12 +166,12 @@ export async function getCommentReplies(
 export async function getCommentsWithReplies(
   http: HttpClient,
   videoUrlOrId: string,
-  opts: CommentOptions = {},
+  opts: CommentOptions = {}
 ): Promise<CommentThread[]> {
   const threads = await getVideoComments(http, videoUrlOrId, opts);
 
   const needsReplies = threads.filter(
-    (t) => t.totalReplyCount > 0 && (!t.replies || t.replies.length < t.totalReplyCount),
+    (t) => t.totalReplyCount > 0 && (!t.replies || t.replies.length < t.totalReplyCount)
   );
 
   if (needsReplies.length === 0) return threads;
@@ -181,7 +186,7 @@ export async function getCommentsWithReplies(
       if (i > 0 && i % 5 === 0) {
         await new Promise((r) => setTimeout(r, 100));
       }
-    }),
+    })
   );
 
   return threads;
@@ -190,7 +195,7 @@ export async function getCommentsWithReplies(
 export async function getTopComments(
   http: HttpClient,
   videoUrlOrId: string,
-  limit = 20,
+  limit = 20
 ): Promise<CommentThread[]> {
   const threads = await getVideoComments(http, videoUrlOrId, {
     order: "relevance",
@@ -204,19 +209,22 @@ export async function searchComments(
   http: HttpClient,
   videoUrlOrId: string,
   query: string,
+  opts: CommentOptions = {}
 ): Promise<CommentThread[]> {
   return getVideoComments(http, videoUrlOrId, {
+    ...opts,
     searchTerms: query,
-    textFormat: "plainText",
+    textFormat: opts.textFormat ?? "plainText",
   });
 }
 
 export async function getChannelComments(
   http: HttpClient,
   channelId: string,
-  opts: CommentOptions = {},
+  opts: CommentOptions = {}
 ): Promise<CommentThread[]> {
   const textFormat = opts.textFormat ?? "plainText";
+  const maxItems = opts.maxResults ?? Infinity;
   const threads: CommentThread[] = [];
   let pageToken: string | undefined;
 
@@ -233,9 +241,10 @@ export async function getChannelComments(
 
     for (const item of data.items) {
       threads.push(mapThread(item, textFormat));
+      if (threads.length >= maxItems) break;
     }
 
-    pageToken = data.nextPageToken;
+    pageToken = threads.length >= maxItems ? undefined : data.nextPageToken;
   } while (pageToken);
 
   return threads;
@@ -258,7 +267,7 @@ export function getCommentStats(videoId: string, threads: CommentThread[]): Comm
   const totalLikes = allComments.reduce((sum, c) => sum + c.likeCount, 0);
   const mostLiked = allComments.reduce<Comment | null>(
     (best, c) => (c.likeCount > (best?.likeCount ?? -1) ? c : best),
-    null,
+    null
   );
 
   return {
@@ -267,7 +276,8 @@ export function getCommentStats(videoId: string, threads: CommentThread[]): Comm
     totalReplies,
     uniqueAuthors,
     mostLikedComment: mostLiked,
-    avgLikes: allComments.length > 0 ? Math.round((totalLikes / allComments.length) * 100) / 100 : 0,
+    avgLikes:
+      allComments.length > 0 ? Math.round((totalLikes / allComments.length) * 100) / 100 : 0,
     replyRatio: threads.length > 0 ? Math.round((totalReplies / threads.length) * 100) / 100 : 0,
   };
 }
