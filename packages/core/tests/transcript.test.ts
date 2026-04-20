@@ -1,11 +1,10 @@
-import { readFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { listCaptionTracks, TranscriptClient, transcribeVideo } from "../src/modules/transcript.js";
-import { InMemoryCache } from "../src/transcript/cache/memory-store.js";
 import { FsCache } from "../src/transcript/cache/file-store.js";
-import { isRetryable, fetchWithRetry } from "../src/transcript/retry.js";
+import { InMemoryCache } from "../src/transcript/cache/memory-store.js";
 import {
   TranscriptDisabledError,
   TranscriptError,
@@ -23,6 +22,7 @@ import {
   resolveVideoId,
   validateLang,
 } from "../src/transcript/parse.js";
+import { fetchWithRetry, isRetryable } from "../src/transcript/retry.js";
 import type { TranscriptLine } from "../src/transcript/types.js";
 
 const FIXTURES = join(__dirname, "fixtures");
@@ -512,11 +512,7 @@ describe("FsCache", () => {
 
   it("handles concurrent operations", async () => {
     const cache = new FsCache(testCacheDir);
-    await Promise.all([
-      cache.set("c1", "v1"),
-      cache.set("c2", "v2"),
-      cache.set("c3", "v3"),
-    ]);
+    await Promise.all([cache.set("c1", "v1"), cache.set("c2", "v2"), cache.set("c3", "v3")]);
     expect(await cache.get("c1")).toBe("v1");
     expect(await cache.get("c2")).toBe("v2");
     expect(await cache.get("c3")).toBe("v3");
@@ -660,9 +656,7 @@ describe("Retry logic", () => {
 
     setTimeout(() => controller.abort(), 5);
 
-    await expect(
-      fetchWithRetry(fn, 5, 50, controller.signal)
-    ).rejects.toThrow();
+    await expect(fetchWithRetry(fn, 5, 50, controller.signal)).rejects.toThrow();
 
     expect(fn.mock.calls.length).toBeLessThan(5);
   });

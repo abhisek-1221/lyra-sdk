@@ -31,7 +31,7 @@ export async function fetchWithRetry(
       return response;
     }
 
-    await sleep(retryDelay * Math.pow(2, attempt), signal);
+    await sleep(retryDelay * 2 ** attempt, signal);
   }
 
   throw new Error("Unexpected: retry loop exited without returning");

@@ -53,14 +53,18 @@ async function runBench(
 
     if (isHit) {
       hitTimes.push(elapsed);
-      console.log(`  Run ${i + 1}: ${elapsed.toFixed(2)}ms  (cache HIT — ${lines.length} lines from cache)`);
+      console.log(
+        `  Run ${i + 1}: ${elapsed.toFixed(2)}ms  (cache HIT — ${lines.length} lines from cache)`
+      );
     } else {
       missTimes.push(elapsed);
       console.log(`  Run ${i + 1}: ${elapsed.toFixed(0)}ms  (cold — ${countHttpCalls(lines)})`);
     }
   }
 
-  console.log(`  Avg:   ${avg(times, 0)}  |  Cold: ${avg(missTimes, 0)}  |  Hit: ${avg(hitTimes, 2)}`);
+  console.log(
+    `  Avg:   ${avg(times, 0)}  |  Cold: ${avg(missTimes, 0)}  |  Hit: ${avg(hitTimes, 2)}`
+  );
   if (cache && "size" in cache) {
     console.log(`  Cache entries: ${(cache as InMemoryCache).size}`);
   }
@@ -101,10 +105,14 @@ async function main() {
     `  FsCache avg:         ${avg(fsResult.times, 0)}  (${speedup(noCacheAvg, fsResult.times.reduce((a, b) => a + b, 0) / fsResult.times.length)} faster overall)`
   );
   if (memHitAvg > 0) {
-    console.log(`  InMemoryCache hit:   ~${memHitAvg.toFixed(2)}ms  (${speedup(noCacheAvg, memHitAvg)} faster than no-cache)`);
+    console.log(
+      `  InMemoryCache hit:   ~${memHitAvg.toFixed(2)}ms  (${speedup(noCacheAvg, memHitAvg)} faster than no-cache)`
+    );
   }
   if (fsHitAvg > 0) {
-    console.log(`  FsCache hit:         ~${fsHitAvg.toFixed(2)}ms  (${speedup(noCacheAvg, fsHitAvg)} faster than no-cache)`);
+    console.log(
+      `  FsCache hit:         ~${fsHitAvg.toFixed(2)}ms  (${speedup(noCacheAvg, fsHitAvg)} faster than no-cache)`
+    );
   }
 }
 

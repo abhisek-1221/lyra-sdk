@@ -1,5 +1,5 @@
-import { transcribeVideo } from "../packages/core/src/modules/transcript.js";
 import type { TranscriptLine } from "../packages/core/src/modules/transcript.js";
+import { transcribeVideo } from "../packages/core/src/modules/transcript.js";
 
 const VIDEO_ID = "dQw4w9WgXcQ";
 
@@ -7,21 +7,24 @@ function log(elapsed: number, msg: string) {
   console.log(`  ${elapsed.toFixed(0).padStart(5)}ms → ${msg}`);
 }
 
-function createFailingFetch(failCount: number) {
+function _createFailingFetch(failCount: number) {
   let call = 0;
   return async (_url: string, _init?: RequestInit): Promise<Response> => {
     call++;
     if (call <= failCount) {
-      return new Response("Service Unavailable", { status: 503, statusText: "Service Unavailable" });
+      return new Response("Service Unavailable", {
+        status: 503,
+        statusText: "Service Unavailable",
+      });
     }
     return globalThis.fetch(_url, _init);
   };
 }
 
-function createAlwaysFailingFetch() {
-  let call = 0;
+function _createAlwaysFailingFetch() {
+  let _call = 0;
   return async (_url: string, _init?: RequestInit): Promise<Response> => {
-    call++;
+    _call++;
     return new Response("Service Unavailable", { status: 503, statusText: "Service Unavailable" });
   };
 }
@@ -64,7 +67,9 @@ async function testRetryRecovery(baselineMs: number) {
   const lines = result as TranscriptLine[];
 
   log(elapsed, `Attempt ${fetchCall > 1 ? fetchCall : "?"}: 200 OK — ${lines.length} lines`);
-  console.log(`  Time:     ${elapsed.toFixed(0)}ms  (${((elapsed / baselineMs) * 100).toFixed(0)}% of baseline)`);
+  console.log(
+    `  Time:     ${elapsed.toFixed(0)}ms  (${((elapsed / baselineMs) * 100).toFixed(0)}% of baseline)`
+  );
   console.log(`  Attempts: 2 (1 failed + 1 succeeded)`);
   console.log(`  Backoff:  100ms (delay * 2^0)`);
   console.log(`  Overhead: ~${(elapsed - baselineMs).toFixed(0)}ms from retry`);
@@ -76,11 +81,11 @@ async function testRetryExhausted() {
   const alwaysFail = async (_url: string, _init?: RequestInit): Promise<Response> => {
     fetchCall++;
     const delays: number[] = [];
-    for (let i = 0; i < fetchCall - 1; i++) delays.push(200 * Math.pow(2, i));
+    for (let i = 0; i < fetchCall - 1; i++) delays.push(200 * 2 ** i);
     if (fetchCall <= 3) {
       log(
         delays.reduce((a, b) => a + b, 0) + fetchCall * 50,
-        `Attempt ${fetchCall}: 503 ${fetchCall < 3 ? `(retryable, waiting ${200 * Math.pow(2, fetchCall - 1)}ms)` : "(retries exhausted)"}`
+        `Attempt ${fetchCall}: 503 ${fetchCall < 3 ? `(retryable, waiting ${200 * 2 ** (fetchCall - 1)}ms)` : "(retries exhausted)"}`
       );
     }
     return new Response("Service Unavailable", { status: 503, statusText: "Service Unavailable" });

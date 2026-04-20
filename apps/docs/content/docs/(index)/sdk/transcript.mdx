@@ -1,0 +1,244 @@
+---
+title: Transcript
+description: Fetch YouTube video transcripts, captions, and metadata without an API key
+icon: FileText
+---
+
+## Overview
+
+The transcript module fetches YouTube video transcripts using YouTube's internal Innertube API. **No YouTube Data API key is required** — it works out of the box.
+
+Import from the `lyra-sdk/transcript` subpath:
+
+```ts
+import { transcribeVideo, listCaptionTracks } from 'lyra-sdk/transcript'
+```
+
+<Callout>
+  The transcript module is completely independent from the YouTube Data API v3 client (`yt()`). It does not consume quota units and requires no API key.
+</Callout>
+
+---
+
+## `transcribeVideo(idOrUrl, options?)`
+
+Fetch the transcript for a YouTube video. Accepts a video ID or any YouTube URL.
+
+```ts
+import { transcribeVideo } from 'lyra-sdk/transcript'
+
+const lines = await transcribeVideo('dQw4w9WgXcQ')
+```
+
+Also accepts URLs:
+
+```ts
+const lines = await transcribeVideo('https://youtu.be/dQw4w9WgXcQ')
+```
+
+### Options
+
+| Property      | Type                                                        | Default  | Description                                         |
+| ------------- | ----------------------------------------------------------- | -------- | --------------------------------------------------- |
+| `lang`        | `string`                                                    | —        | BCP 47 language code (e.g. `'en'`, `'es'`, `'pt-BR'`) |
+| `userAgent`   | `string`                                                    | Chrome   | Custom User-Agent string for HTTP requests          |
+| `useHttp`     | `boolean`                                                   | `false`  | Use HTTP instead of HTTPS                           |
+| `includeMeta` | `boolean`                                                   | `false`  | Include video metadata in the response              |
+| `customFetch` | `(url: string, init?: RequestInit) => Promise<Response>`    | `fetch`  | Custom fetch function for proxy/networking support  |
+| `signal`      | `AbortSignal`                                               | —        | Abort in-flight requests                            |
+| `cache`       | `CacheStore`                                                | —        | Cache instance (see [Caching](/docs/sdk/caching))   |
+| `cacheTTL`    | `number`                                                    | `3600000`| Cache TTL in milliseconds (1 hour default)          |
+| `retries`     | `number`                                                    | `0`      | Max retry attempts for transient failures           |
+| `retryDelay`  | `number`                                                    | `1000`   | Base delay in ms for exponential backoff            |
+
+### Response
+
+Returns an array of `TranscriptLine` objects:
+
+| Property   | Type     | Description                            |
+| ---------- | -------- | -------------------------------------- |
+| `text`     | `string` | Transcript text for this segment       |
+| `duration` | `number` | Segment duration in seconds            |
+| `offset`   | `number` | Start time in seconds from video start |
+| `lang`     | `string` | Language code of this transcript       |
+
+---
+
+## Fetch with a specific language
+
+```ts
+const lines = await transcribeVideo('dQw4w9WgXcQ', { lang: 'es' })
+```
+
+<Callout type="warn" title="Language availability">
+  Not all videos have transcripts in every language. If the requested language is unavailable, a `TranscriptLanguageError` is thrown listing available alternatives.
+</Callout>
+
+---
+
+## Fetch with video metadata
+
+Set `includeMeta: true` to get both transcript lines and video metadata in a single call:
+
+```ts
+import { transcribeVideo } from 'lyra-sdk/transcript'
+
+const result = await transcribeVideo('dQw4w9WgXcQ', { includeMeta: true })
+
+console.log(result.meta.title)   // "Rick Astley - Never Gonna Give You Up"
+console.log(result.meta.author)  // "Rick Astley"
+console.log(result.meta.views)   // 1600000000
+console.log(result.lines.length) // 61
+```
+
+### VideoMeta
+
+| Property        | Type       | Description                         |
+| --------------- | ---------- | ----------------------------------- |
+| `videoId`       | `string`   | YouTube video ID                    |
+| `title`         | `string`   | Video title                         |
+| `author`        | `string`   | Channel name                        |
+| `channelId`     | `string`   | Channel ID                          |
+| `lengthSeconds` | `number`   | Duration in seconds                 |
+| `viewCount`     | `number`   | Total view count                    |
+| `description`   | `string`   | Full video description              |
+| `keywords`      | `string[]` | Video keyword tags                  |
+| `thumbnails`    | `object[]` | Thumbnail images with size info     |
+| `isLiveContent` | `boolean`  | Whether the video is a live stream  |
+
+---
+
+## `listCaptionTracks(idOrUrl, options?)`
+
+Discover what caption tracks are available for a video without downloading the transcript:
+
+```ts
+import { listCaptionTracks } from 'lyra-sdk/transcript'
+
+const tracks = await listCaptionTracks('dQw4w9WgXcQ')
+
+for (const track of tracks) {
+  console.log(`${track.languageCode} — ${track.languageName}`)
+  console.log(`  Auto-generated: ${track.isAutoGenerated}`)
+}
+```
+
+### CaptionTrack
+
+| Property          | Type      | Description                              |
+| ----------------- | --------- | ---------------------------------------- |
+| `languageCode`    | `string`  | BCP 47 language code (e.g. `'en'`)      |
+| `languageName`    | `string`  | Human-readable name (e.g. `'English'`)  |
+| `isAutoGenerated` | `boolean` | Whether captions are auto-generated (ASR) |
+
+---
+
+## `TranscriptClient`
+
+Create a client with shared configuration for multiple requests:
+
+```ts
+import { TranscriptClient } from 'lyra-sdk/transcript'
+
+const client = new TranscriptClient({
+  lang: 'en',
+  retries: 2,
+  retryDelay: 500,
+})
+
+// Reuses config from constructor
+const lines = await client.transcribe('dQw4w9WgXcQ')
+const tracks = await client.availableTracks('dQw4w9WgXcQ')
+```
+
+### Methods
+
+| Method                                | Description                            |
+| ------------------------------------- | -------------------------------------- |
+| `transcribe(videoId, overrides?)`     | Fetch transcript with merged config    |
+| `availableTracks(videoId, overrides?)`| List caption tracks with merged config |
+
+Both methods accept optional overrides that are merged with the constructor defaults.
+
+---
+
+## Custom fetch (proxy support)
+
+Pass a `customFetch` function to route requests through a proxy or custom networking layer:
+
+```ts
+const lines = await transcribeVideo('dQw4w9WgXcQ', {
+  customFetch: async (url, init) => {
+    return fetch(`https://my-proxy.example.com/fetch?url=${encodeURIComponent(url)}`, init)
+  },
+})
+```
+
+---
+
+## Output formatters
+
+Convert transcript lines into standard subtitle formats:
+
+```ts
+import { transcribeVideo, toSRT, toVTT, toPlainText } from 'lyra-sdk/transcript'
+
+const lines = await transcribeVideo('dQw4w9WgXcQ')
+
+// SubRip format
+const srt = toSRT(lines)
+
+// WebVTT format
+const vtt = toVTT(lines)
+
+// Plain text (custom separator, defaults to newline)
+const text = toPlainText(lines, ' ')
+```
+
+---
+
+## Error handling
+
+The transcript module provides granular error classes for every failure case:
+
+```ts
+import {
+  transcribeVideo,
+  TranscriptError,
+  TranscriptRateLimitError,
+  TranscriptVideoUnavailableError,
+  TranscriptDisabledError,
+  TranscriptNotFoundError,
+  TranscriptLanguageError,
+  TranscriptInvalidVideoIdError,
+  TranscriptInvalidLangError,
+} from 'lyra-sdk/transcript'
+
+try {
+  const lines = await transcribeVideo('dQw4w9WgXcQ', { lang: 'de' })
+} catch (error) {
+  if (error instanceof TranscriptLanguageError) {
+    console.log(`Language "${error.lang}" not available`)
+    console.log('Available:', error.availableLangs.join(', '))
+  } else if (error instanceof TranscriptRateLimitError) {
+    console.log('Rate limited — try again later or use a proxy')
+  } else if (error instanceof TranscriptDisabledError) {
+    console.log(`Transcripts disabled for video "${error.videoId}"`)
+  } else if (error instanceof TranscriptVideoUnavailableError) {
+    console.log(`Video "${error.videoId}" is unavailable`)
+  }
+}
+```
+
+### Error classes
+
+| Error                           | When it's thrown                                    |
+| ------------------------------- | --------------------------------------------------- |
+| `TranscriptError`               | Base class for all transcript errors                |
+| `TranscriptInvalidVideoIdError` | Input is not a valid video ID or URL                |
+| `TranscriptInvalidLangError`    | Language code doesn't match BCP 47 format           |
+| `TranscriptVideoUnavailableError`| Video doesn't exist or is private                  |
+| `TranscriptRateLimitError`      | YouTube is rate-limiting your IP (reCAPTCHA page)   |
+| `TranscriptDisabledError`       | Video has captions disabled by the uploader         |
+| `TranscriptNotFoundError`       | No transcript data available for the video          |
+| `TranscriptLanguageError`       | Requested language not available (lists alternatives) |

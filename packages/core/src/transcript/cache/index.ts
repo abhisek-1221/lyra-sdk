@@ -1,2 +1,2 @@
-export { InMemoryCache } from "./memory-store.js";
 export { FsCache } from "./file-store.js";
+export { InMemoryCache } from "./memory-store.js";

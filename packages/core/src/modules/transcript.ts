@@ -38,7 +38,7 @@ export function transcribeVideo(
   return fetchTranscript(videoId, options);
 }
 
-export { InMemoryCache, FsCache } from "../transcript/cache/index.js";
+export { FsCache, InMemoryCache } from "../transcript/cache/index.js";
 export {
   TranscriptDisabledError,
   TranscriptError,

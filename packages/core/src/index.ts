@@ -45,8 +45,8 @@ export type {
   VideoMeta,
 } from "./modules/transcript.js";
 export {
-  InMemoryCache,
   FsCache,
+  InMemoryCache,
   listCaptionTracks,
   TranscriptClient,
   TranscriptDisabledError,
