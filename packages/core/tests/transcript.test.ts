@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { listCaptionTracks, TranscriptClient, transcribeVideo } from "../src/modules/transcript.js";
+import { transcribePlaylist } from "../src/transcript/batch.js";
 import { FsCache } from "../src/transcript/cache/file-store.js";
 import { InMemoryCache } from "../src/transcript/cache/memory-store.js";
 import {
@@ -12,6 +13,7 @@ import {
   TranscriptInvalidVideoIdError,
   TranscriptLanguageError,
   TranscriptNotFoundError,
+  TranscriptPlaylistError,
   TranscriptRateLimitError,
   TranscriptVideoUnavailableError,
 } from "../src/transcript/errors.js";
@@ -686,5 +688,213 @@ describe("Retry logic", () => {
 
     expect((lines as TranscriptLine[]).length).toBeGreaterThan(0);
     expect(watchCall).toBe(2);
+  });
+});
+
+describe("transcribePlaylist (batch)", () => {
+  const FAKE_API_KEY = "test_key_123";
+
+  function createBatchMock(
+    videoIds: string[],
+    options?: {
+      failVideoIds?: string[];
+      titles?: Record<string, string>;
+    }
+  ) {
+    const titles = options?.titles ?? {};
+    const failSet = new Set(options?.failVideoIds ?? []);
+
+    return vi.fn(async (url: string | URL, _init?: RequestInit) => {
+      const urlStr = url.toString();
+
+      if (urlStr.includes("/playlistItems")) {
+        return new Response(
+          JSON.stringify({
+            items: videoIds.map((id) => ({ contentDetails: { videoId: id } })),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (urlStr.includes("/videos") && urlStr.includes("googleapis")) {
+        const idParam = new URL(urlStr).searchParams.get("id") ?? "";
+        const ids = idParam.split(",");
+        return new Response(
+          JSON.stringify({
+            items: ids.map((id) => ({
+              id,
+              snippet: { title: titles[id] ?? `Video ${id}` },
+            })),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (urlStr.includes("youtube.com/watch")) {
+        for (const failId of failSet) {
+          if (urlStr.includes(failId)) {
+            return new Response("Not Found", { status: 404 });
+          }
+        }
+        return new Response(WATCH_HTML_SUCCESS, { status: 200 });
+      }
+
+      if (urlStr.includes("youtubei/v1/player")) {
+        return new Response(JSON.stringify(PLAYER_SUCCESS), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (urlStr.includes("api/timedtext")) {
+        for (const failId of failSet) {
+          if (urlStr.includes(failId)) {
+            return new Response("Not Found", { status: 404 });
+          }
+        }
+        return new Response(TRANSCRIPT_XML, { status: 200 });
+      }
+
+      return new Response("Not Found", { status: 404 });
+    });
+  }
+
+  it("fetches transcripts for all videos in a playlist", async () => {
+    const mockFetch = createBatchMock(["dQw4w9WgXcQ", "jNQXAC9IVRw"], {
+      titles: { dQw4w9WgXcQ: "Test Video 1", jNQXAC9IVRw: "Test Video 2" },
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await transcribePlaylist("PL_TEST123", {
+      apiKey: FAKE_API_KEY,
+    });
+
+    expect(result.playlistId).toBe("PL_TEST123");
+    expect(result.totalVideos).toBe(2);
+    expect(result.succeeded).toBe(2);
+    expect(result.failed).toBe(0);
+    expect(result.results).toHaveLength(2);
+    expect(result.results[0].status).toBe("success");
+    expect(result.results[0].videoId).toBe("dQw4w9WgXcQ");
+    expect(result.results[0].title).toBe("Test Video 1");
+    expect(result.results[0].position).toBe(1);
+    expect(result.results[0].lines).toHaveLength(5);
+  });
+
+  it("handles partial failures gracefully", async () => {
+    const mockFetch = createBatchMock(["dQw4w9WgXcQ", "jNQXAC9IVRw"], {
+      failVideoIds: ["jNQXAC9IVRw"],
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await transcribePlaylist("PL_TEST123", {
+      apiKey: FAKE_API_KEY,
+    });
+
+    expect(result.succeeded).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.results).toHaveLength(2);
+
+    const successResult = result.results.find((r) => r.status === "success")!;
+    expect(successResult.lines).toHaveLength(5);
+
+    const failedResult = result.results.find((r) => r.status === "failed")!;
+    expect(failedResult.videoId).toBe("jNQXAC9IVRw");
+    expect(failedResult.error).toBeDefined();
+  });
+
+  it("respects from/to range", async () => {
+    const ids = ["aaaaaaaaaa1", "bbbbbbbbbb2", "cccccccccc3", "dddddddddd4", "eeeeeeeeee5"];
+    const mockFetch = createBatchMock(ids);
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await transcribePlaylist("PL_TEST123", {
+      apiKey: FAKE_API_KEY,
+      from: 2,
+      to: 4,
+    });
+
+    expect(result.totalVideos).toBe(5);
+    expect(result.results).toHaveLength(3);
+    expect(result.results[0].position).toBe(2);
+    expect(result.results[2].position).toBe(4);
+    expect(result.requestedRange).toEqual([2, 4]);
+  });
+
+  it("throws TranscriptPlaylistError for invalid range", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+
+    await expect(
+      transcribePlaylist("PL_TEST123", {
+        apiKey: FAKE_API_KEY,
+        from: -1,
+      })
+    ).rejects.toThrow(TranscriptPlaylistError);
+
+    await expect(
+      transcribePlaylist("PL_TEST123", {
+        apiKey: FAKE_API_KEY,
+        from: 5,
+        to: 2,
+      })
+    ).rejects.toThrow(TranscriptPlaylistError);
+  });
+
+  it("returns empty result for empty playlist", async () => {
+    const mockFetch = createBatchMock([]);
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await transcribePlaylist("PL_EMPTY", {
+      apiKey: FAKE_API_KEY,
+    });
+
+    expect(result.totalVideos).toBe(0);
+    expect(result.results).toHaveLength(0);
+    expect(result.succeeded).toBe(0);
+    expect(result.failed).toBe(0);
+  });
+
+  it("calls onProgress callback for each video", async () => {
+    const ids = ["aaaaaaaaaa1", "bbbbbbbbbb2", "cccccccccc3"];
+    const mockFetch = createBatchMock(ids);
+    vi.stubGlobal("fetch", mockFetch);
+    const progressCalls: Array<[number, number, string, string]> = [];
+
+    await transcribePlaylist("PL_TEST123", {
+      apiKey: FAKE_API_KEY,
+      onProgress: (done, total, videoId, status) => {
+        progressCalls.push([done, total, videoId, status]);
+      },
+    });
+
+    expect(progressCalls).toHaveLength(3);
+    expect(progressCalls[0][0]).toBe(1);
+    expect(progressCalls[0][1]).toBe(3);
+    expect(progressCalls[2][0]).toBe(3);
+  });
+
+  it("respects concurrency option", async () => {
+    const ids = Array.from({ length: 6 }, (_, i) => `vid0${i}000000`.slice(0, 11));
+    const mockFetch = createBatchMock(ids);
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await transcribePlaylist("PL_TEST123", {
+      apiKey: FAKE_API_KEY,
+      concurrency: 2,
+    });
+
+    expect(result.succeeded).toBe(6);
+    expect(result.results).toHaveLength(6);
+  });
+
+  it("extracts playlist ID from URL", async () => {
+    const mockFetch = createBatchMock(["dQw4w9WgXcQ"]);
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await transcribePlaylist("https://www.youtube.com/playlist?list=PL_EXTRACTED", {
+      apiKey: FAKE_API_KEY,
+    });
+
+    expect(result.playlistId).toBe("PL_EXTRACTED");
   });
 });

@@ -39,10 +39,14 @@ export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 export type {
   CacheStore,
   CaptionTrack,
+  PlaylistTranscriptOptions,
+  PlaylistTranscriptResult,
   TranscriptLine,
   TranscriptOptions,
   TranscriptWithMeta,
   VideoMeta,
+  VideoTranscriptResult,
+  VideoTranscriptStatus,
 } from "./modules/transcript.js";
 export {
   FsCache,
@@ -55,11 +59,13 @@ export {
   TranscriptInvalidVideoIdError,
   TranscriptLanguageError,
   TranscriptNotFoundError,
+  TranscriptPlaylistError,
   TranscriptRateLimitError,
   TranscriptVideoUnavailableError,
   toPlainText,
   toSRT,
   toVTT,
+  transcribePlaylist,
   transcribeVideo,
 } from "./modules/transcript.js";
 export { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";

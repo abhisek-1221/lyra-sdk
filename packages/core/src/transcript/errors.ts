@@ -60,3 +60,10 @@ export class TranscriptInvalidLangError extends TranscriptError {
     this.name = "TranscriptInvalidLangError";
   }
 }
+
+export class TranscriptPlaylistError extends TranscriptError {
+  constructor(message: string) {
+    super(message);
+    this.name = "TranscriptPlaylistError";
+  }
+}
