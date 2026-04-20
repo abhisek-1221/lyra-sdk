@@ -129,9 +129,38 @@ Demonstrates:
 - Creating a `TranscriptClient` with default language
 - Using `transcribe()` and `availableTracks()` methods
 
+### transcript-cache-bench.ts
+
+Benchmark cache strategies with timing metrics — **no API key required**.
+
+```bash
+npx tsx scripts/transcript-cache-bench.ts
+```
+
+Compares no-cache vs `InMemoryCache` vs `FsCache` across 3 runs each. Displays:
+
+- Cold fetch time (with HTTP request count)
+- Cache hit time (sub-50ms detection)
+- Per-strategy averages and overall speedup ratios
+
+### transcript-retry-bench.ts
+
+Benchmark retry with exponential backoff — **no API key required**.
+
+```bash
+npx tsx scripts/transcript-retry-bench.ts
+```
+
+4 tests with detailed metrics:
+
+1. Baseline — no retries, measures raw fetch time
+2. Recovery — simulates 1 failure then succeeds, shows retry overhead
+3. Exhausted — all requests return 503, shows full backoff timeline
+4. Abort — AbortSignal cancels mid-retry, shows early termination
+
 ## Scripts That Need API Key
 
-All scripts except `url-utils.ts`, `transcript-basic.ts`, `transcript-languages.ts`, `transcript-meta.ts`, and `transcript-client.ts` require `YOUTUBE_API_KEY` to be set in the environment.
+All scripts except `url-utils.ts`, `transcript-*.ts` require `YOUTUBE_API_KEY` to be set in the environment.
 
 If you see:
 
