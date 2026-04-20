@@ -12,8 +12,18 @@ import { getChannel, getChannelVideos } from "./modules/channel.js";
 import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "./modules/playlist.js";
 import { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 import { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
-import { getVideo, getVideos, getVideoTitle, getVideoTitles } from "./modules/video.js";
-import type { Channel, Playlist, PlaylistInfo, RecentVideo, Video, YTOptions } from "./types.js";
+import {
+  getVideo,
+  getVideos,
+  getVideoTitle,
+  getVideoTitles,
+} from "./modules/video.js";
+import {
+  getVideoCategories,
+  getVideoCategoriesByRegion,
+  getVideoCategory,
+} from "./modules/video-category.js";
+import type { Channel, Playlist, PlaylistInfo, RecentVideo, Video, VideoCategory, YTOptions } from "./types.js";
 import { extractChannelId, extractPlaylistId, extractVideoId } from "./utils/url-patterns.js";
 
 /**
@@ -108,6 +118,25 @@ export class YTClient {
   playlistQuery(urlOrId: string): PlaylistQueryBuilder {
     const id = extractPlaylistId(urlOrId) ?? urlOrId;
     return new PlaylistQueryBuilder(this.http, id);
+  }
+
+  // -----------------------------------------------------------------------
+  // Video Category
+  // -----------------------------------------------------------------------
+
+  /** Fetch a single video category by ID. */
+  async videoCategory(id: string): Promise<VideoCategory> {
+    return getVideoCategory(this.http, id);
+  }
+
+  /** Fetch multiple video categories by IDs. */
+  async videoCategories(ids: string[]): Promise<VideoCategory[]> {
+    return getVideoCategories(this.http, ids);
+  }
+
+  /** Fetch all video categories available in a region. */
+  async videoCategoriesByRegion(regionCode: string, hl?: string): Promise<VideoCategory[]> {
+    return getVideoCategoriesByRegion(this.http, regionCode, hl);
   }
 
   // -----------------------------------------------------------------------

@@ -83,6 +83,7 @@ export type {
   Thumbnail,
   Thumbnails,
   Video,
+  VideoCategory,
   VideoTitle,
   YTOptions,
 } from "./types.js";
