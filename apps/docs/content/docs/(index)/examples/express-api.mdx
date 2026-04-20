@@ -41,12 +41,14 @@ Requires `YOUTUBE_API_KEY` in your `.env` file.
       <File name="video.ts" />
       <File name="channel.ts" />
       <File name="playlist.ts" />
+      <File name="transcript.ts" />
       <File name="url.ts" />
     </Folder>
     <Folder name="schemas" defaultOpen>
       <File name="video.ts" />
       <File name="channel.ts" />
       <File name="playlist.ts" />
+      <File name="transcript.ts" />
       <File name="url.ts" />
     </Folder>
   </Folder>
@@ -88,6 +90,78 @@ See the [API Reference](/docs/api-reference) for full interactive documentation 
 | GET | `/api/playlist/:id/ids` | All video IDs in a playlist |
 | POST | `/api/playlist/:id/query` | Filter, sort, and slice playlist videos |
 
+### Transcript
+
+<Callout>
+  Transcript endpoints do **not** require a YouTube API key. They use YouTube's Innertube API directly.
+</Callout>
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/transcript/:id` | Fetch transcript (`?lang=en` optional) |
+| GET | `/api/transcript/:id/languages` | List available caption tracks |
+| GET | `/api/transcript/:id/srt` | Transcript as SRT subtitle format |
+| GET | `/api/transcript/:id/vtt` | Transcript as WebVTT format |
+
+#### `routes/transcript.ts`
+
+```ts title="routes/transcript.ts"
+import type { Request, Response } from 'express'
+import { Router } from 'express'
+import {
+  transcribeVideo,
+  listCaptionTracks,
+  toSRT,
+  toVTT,
+} from 'lyra-sdk/transcript'
+import { transcriptIdParam, transcriptQuery } from '../schemas/transcript.js'
+
+const router = Router()
+
+router.get('/transcript/:id', async (req: Request, res: Response) => {
+  const { id } = transcriptIdParam.parse(req.params)
+  const { lang } = transcriptQuery.parse(req.query)
+  const lines = await transcribeVideo(id, { lang })
+  res.json(lines)
+})
+
+router.get('/transcript/:id/languages', async (req: Request, res: Response) => {
+  const { id } = transcriptIdParam.parse(req.params)
+  const tracks = await listCaptionTracks(id)
+  res.json(tracks)
+})
+
+router.get('/transcript/:id/srt', async (req: Request, res: Response) => {
+  const { id } = transcriptIdParam.parse(req.params)
+  const { lang } = transcriptQuery.parse(req.query)
+  const lines = await transcribeVideo(id, { lang })
+  res.type('text/plain').send(toSRT(lines))
+})
+
+router.get('/transcript/:id/vtt', async (req: Request, res: Response) => {
+  const { id } = transcriptIdParam.parse(req.params)
+  const { lang } = transcriptQuery.parse(req.query)
+  const lines = await transcribeVideo(id, { lang })
+  res.type('text/plain').send(toVTT(lines))
+})
+
+export const transcriptRoutes = router
+```
+
+#### `schemas/transcript.ts`
+
+```ts title="schemas/transcript.ts"
+import { z } from 'zod'
+
+export const transcriptIdParam = z.object({
+  id: z.string().min(1, 'Video ID or URL is required'),
+})
+
+export const transcriptQuery = z.object({
+  lang: z.string().optional(),
+})
+```
+
 ### URL Utilities
 
 | Method | Path | Description |
@@ -112,7 +186,7 @@ All errors follow the same format:
 | ----------- | ----- |
 | 400 | Validation error (Zod) or invalid URL |
 | 401 | Invalid YouTube API key |
-| 404 | Video/channel/playlist not found |
-| 429 | YouTube API quota exceeded |
+| 404 | Video/channel/playlist/transcript not found |
+| 429 | YouTube API quota exceeded or transcript rate limited |
 | 502 | YouTube API error |
 | 500 | Internal server error |
