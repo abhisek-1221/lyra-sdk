@@ -1,0 +1,421 @@
+---
+title: NestJS API Server
+description: REST API with NestJS controllers, modules, and dependency injection
+icon: Box
+---
+
+[NestJS](https://nestjs.com) is a Node.js framework with decorators, dependency injection, and modular architecture. This example shows how to integrate `lyra-sdk` using NestJS patterns.
+
+## Setup
+
+```bash
+nest new lyra-nest-api
+cd lyra-nest-api
+npm install lyra-sdk zod dotenv
+```
+
+Add to `.env`:
+
+```bash
+YOUTUBE_API_KEY=your_key_here
+```
+
+<Callout>
+  Transcript endpoints do **not** require `YOUTUBE_API_KEY`.
+</Callout>
+
+## File structure
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <File name="main.ts" />
+    <File name="app.module.ts" />
+    <Folder name="common" defaultOpen>
+      <File name="lyra.module.ts" />
+      <File name="transcript.util.ts" />
+      <File name="all-exceptions.filter.ts" />
+    </Folder>
+    <Folder name="video" defaultOpen>
+      <File name="video.controller.ts" />
+    </Folder>
+    <Folder name="channel" defaultOpen>
+      <File name="channel.controller.ts" />
+    </Folder>
+    <Folder name="playlist" defaultOpen>
+      <File name="playlist.controller.ts" />
+    </Folder>
+    <Folder name="transcript" defaultOpen>
+      <File name="transcript.controller.ts" />
+    </Folder>
+    <Folder name="url" defaultOpen>
+      <File name="url.controller.ts" />
+    </Folder>
+  </Folder>
+</Files>
+
+## Lyra module
+
+Wraps the `yt()` client in a NestJS provider for dependency injection:
+
+```ts title="src/common/lyra.module.ts"
+import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
+import { yt, YTClient } from 'lyra-sdk'
+
+@Module({
+  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  providers: [
+    {
+      provide: 'YT_CLIENT',
+      useFactory: () => {
+        const key = process.env.YOUTUBE_API_KEY
+        if (!key) throw new Error('YOUTUBE_API_KEY is required')
+        return yt(key)
+      },
+    },
+  ],
+  exports: ['YT_CLIENT'],
+})
+export class LyraModule {}
+```
+
+## Transcript utility
+
+Transcript functions are standalone — no `yt()` client needed:
+
+```ts title="src/common/transcript.util.ts"
+export {
+  transcribeVideo,
+  listCaptionTracks,
+  toSRT,
+  toVTT,
+  toPlainText,
+} from 'lyra-sdk/transcript'
+```
+
+## Exception filter
+
+Maps SDK errors to HTTP responses:
+
+```ts title="src/common/all-exceptions.filter.ts"
+import {
+  Catch,
+  ExceptionFilter,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common'
+import { Response } from 'express'
+import { AuthError, NotFoundError, QuotaError, YTError } from 'lyra-sdk'
+import { TranscriptError } from 'lyra-sdk/transcript'
+import { ZodError } from 'zod'
+
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  catch(err: Error, host: ArgumentsHost) {
+    const ctx = host.switchToHttp()
+    const res = ctx.getResponse<Response>()
+
+    if (err instanceof HttpException) return err
+
+    const map: Record<string, number> = {}
+    if (err instanceof ZodError) {
+      res.status(HttpStatus.BAD_REQUEST).json({
+        error: { code: 400, message: 'Validation error', details: err.issues },
+      })
+      return
+    }
+    if (err instanceof NotFoundError) {
+      res.status(HttpStatus.NOT_FOUND).json({ error: { code: 404, message: err.message } })
+      return
+    }
+    if (err instanceof AuthError) {
+      res.status(HttpStatus.UNAUTHORIZED).json({ error: { code: 401, message: err.message } })
+      return
+    }
+    if (err instanceof QuotaError) {
+      res.status(HttpStatus.TOO_MANY_REQUESTS).json({ error: { code: 429, message: err.message } })
+      return
+    }
+    if (err instanceof TranscriptError) {
+      res.status(404).json({ error: { code: 404, message: err.message } })
+      return
+    }
+    if (err instanceof YTError) {
+      res.status(HttpStatus.BAD_GATEWAY).json({ error: { code: 502, message: err.message } })
+      return
+    }
+
+    res.status(500).json({ error: { code: 500, message: 'Internal server error' } })
+  }
+}
+```
+
+---
+
+## Video controller
+
+```ts title="src/video/video.controller.ts"
+import { Controller, Get, Param, Query, Inject } from '@nestjs/common'
+import { YTClient } from 'lyra-sdk'
+
+@Controller('api/video')
+export class VideoController {
+  constructor(@Inject('YT_CLIENT') private readonly client: YTClient) {}
+
+  @Get(':id')
+  async getVideo(@Param('id') id: string) {
+    return this.client.video(id)
+  }
+
+  @Get(':id/title')
+  async getTitle(@Param('id') id: string) {
+    return this.client.videoTitle(id)
+  }
+}
+
+@Controller('api/videos')
+export class VideosController {
+  constructor(@Inject('YT_CLIENT') private readonly client: YTClient) {}
+
+  @Get()
+  async getVideos(@Query('ids') ids: string) {
+    const idList = ids.split(',').map((s) => s.trim())
+    return this.client.videos(idList)
+  }
+}
+```
+
+---
+
+## Channel controller
+
+```ts title="src/channel/channel.controller.ts"
+import { Controller, Get, Param, Query, Inject } from '@nestjs/common'
+import { YTClient } from 'lyra-sdk'
+
+@Controller('api/channel')
+export class ChannelController {
+  constructor(@Inject('YT_CLIENT') private readonly client: YTClient) {}
+
+  @Get(':id')
+  async getChannel(@Param('id') id: string) {
+    return this.client.channel(id)
+  }
+
+  @Get(':id/videos')
+  async getVideos(@Param('id') id: string, @Query('limit') limit?: string) {
+    return this.client.channelVideos(id, { limit: limit ? Number(limit) : undefined })
+  }
+}
+```
+
+---
+
+## Playlist controller
+
+```ts title="src/playlist/playlist.controller.ts"
+import { Controller, Get, Post, Param, Body, Inject } from '@nestjs/common'
+import { YTClient } from 'lyra-sdk'
+
+@Controller('api/playlist')
+export class PlaylistController {
+  constructor(@Inject('YT_CLIENT') private readonly client: YTClient) {}
+
+  @Get(':id')
+  async getPlaylist(@Param('id') id: string) {
+    return this.client.playlist(id)
+  }
+
+  @Get(':id/info')
+  async getInfo(@Param('id') id: string) {
+    return this.client.playlistInfo(id)
+  }
+
+  @Get(':id/ids')
+  async getIds(@Param('id') id: string) {
+    const ids = await this.client.playlistVideoIds(id)
+    return { id, videoIds: ids, count: ids.length }
+  }
+
+  @Post(':id/query')
+  async query(@Param('id') id: string, @Body() body: any) {
+    let query = this.client.playlistQuery(id)
+
+    if (body.filter?.duration) query = query.filterByDuration(body.filter.duration)
+    if (body.filter?.views) query = query.filterByViews(body.filter.views)
+    if (body.filter?.likes) query = query.filterByLikes(body.filter.likes)
+    if (body.sort) query = query.sortBy(body.sort.field, body.sort.order)
+    if (body.range) query = query.between(body.range.start, body.range.end)
+
+    return query.execute()
+  }
+}
+```
+
+---
+
+## Transcript controller
+
+```ts title="src/transcript/transcript.controller.ts"
+import { Controller, Get, Param, Query, Res } from '@nestjs/common'
+import { Response } from 'express'
+import { transcribeVideo, listCaptionTracks, toSRT, toVTT, toPlainText } from 'lyra-sdk/transcript'
+
+@Controller('api/transcript')
+export class TranscriptController {
+  @Get(':id')
+  async getTranscript(@Param('id') id: string, @Query('lang') lang?: string) {
+    return transcribeVideo(id, { lang })
+  }
+
+  @Get(':id/languages')
+  async getLanguages(@Param('id') id: string) {
+    return listCaptionTracks(id)
+  }
+
+  @Get(':id/srt')
+  async getSrt(@Param('id') id: string, @Query('lang') lang?: string, @Res() res?: Response) {
+    const lines = await transcribeVideo(id, { lang })
+    res!.type('text/plain').send(toSRT(lines))
+  }
+
+  @Get(':id/vtt')
+  async getVtt(@Param('id') id: string, @Query('lang') lang?: string, @Res() res?: Response) {
+    const lines = await transcribeVideo(id, { lang })
+    res!.type('text/plain').send(toVTT(lines))
+  }
+
+  @Get(':id/text')
+  async getText(@Param('id') id: string, @Query('lang') lang?: string, @Res() res?: Response) {
+    const lines = await transcribeVideo(id, { lang })
+    res!.type('text/plain').send(toPlainText(lines))
+  }
+}
+```
+
+<Callout>
+  The transcript controller does not inject `YT_CLIENT`. It uses standalone functions from `lyra-sdk/transcript` directly.
+</Callout>
+
+---
+
+## URL controller
+
+```ts title="src/url/url.controller.ts"
+import { Controller, Post, Body, Inject } from '@nestjs/common'
+import { YTClient } from 'lyra-sdk'
+
+@Controller('api/url')
+export class UrlController {
+  constructor(@Inject('YT_CLIENT') private readonly client: YTClient) {}
+
+  @Post('parse')
+  parse(@Body() body: { url: string }) {
+    return this.client.url.parse(body.url)
+  }
+
+  @Post('extract')
+  extract(@Body() body: { url: string; type?: string }) {
+    const { url, type } = body
+
+    if (type === 'video' || (!type && this.client.url.isVideo(url))) {
+      return { type: 'video', videoId: this.client.url.extractVideoId(url) }
+    }
+    if (type === 'playlist' || (!type && this.client.url.isPlaylist(url))) {
+      return { type: 'playlist', playlistId: this.client.url.extractPlaylistId(url) }
+    }
+    const channelId = this.client.url.extractChannelId(url)
+    if (channelId) return { type: 'channel', channelId }
+
+    return { type: 'unknown', id: null }
+  }
+}
+```
+
+---
+
+## App module
+
+```ts title="src/app.module.ts"
+import { Module } from '@nestjs/common'
+import { LyraModule } from './common/lyra.module.js'
+import { VideoController, VideosController } from './video/video.controller.js'
+import { ChannelController } from './channel/channel.controller.js'
+import { PlaylistController } from './playlist/playlist.controller.js'
+import { TranscriptController } from './transcript/transcript.controller.js'
+import { UrlController } from './url/url.controller.js'
+
+@Module({
+  imports: [LyraModule],
+  controllers: [
+    VideoController,
+    VideosController,
+    ChannelController,
+    PlaylistController,
+    TranscriptController,
+    UrlController,
+  ],
+})
+export class AppModule {}
+```
+
+## Main bootstrap
+
+```ts title="src/main.ts"
+import { NestFactory } from '@nestjs/core'
+import { AppModule } from './app.module.js'
+import { AllExceptionsFilter } from './common/all-exceptions.filter.js'
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule)
+  app.useGlobalFilters(new AllExceptionsFilter())
+  await app.listen(3000)
+  console.log('NestJS API running at http://localhost:3000')
+}
+bootstrap()
+```
+
+## Endpoints
+
+### Video & Channel (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video/:id` | Fetch full video details |
+| GET | `/api/videos?ids=...` | Batch fetch videos |
+| GET | `/api/video/:id/title` | Title-only lookup |
+| GET | `/api/channel/:id` | Channel metadata |
+| GET | `/api/channel/:id/videos` | Recent uploads |
+
+### Playlist (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/playlist/:id` | Full playlist with videos |
+| GET | `/api/playlist/:id/info` | Metadata only |
+| GET | `/api/playlist/:id/ids` | Video IDs only |
+| POST | `/api/playlist/:id/query` | Filter/sort/range query |
+
+### Transcript (no API key)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/transcript/:id` | Fetch transcript (`?lang=en`) |
+| GET | `/api/transcript/:id/languages` | Available caption tracks |
+| GET | `/api/transcript/:id/srt` | SRT format |
+| GET | `/api/transcript/:id/vtt` | WebVTT format |
+| GET | `/api/transcript/:id/text` | Plain text |
+
+### URL Utilities (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/url/parse` | Parse YouTube URL |
+| POST | `/api/url/extract` | Extract IDs from URL |
+
+## Running
+
+```bash
+npm run start:dev
+```
