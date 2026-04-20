@@ -83,6 +83,26 @@ relativeTime(new Date('2025-01-01'))    // '3 months ago'
 formatDurationClock(214)  // '3:34'
 ```
 
+## Fetch video transcripts (no API key needed)
+
+The `lyra-sdk/transcript` subpath fetches YouTube captions without a Data API key:
+
+```ts
+import { transcribeVideo, toPlainText } from 'lyra-sdk/transcript'
+
+const lines = await transcribeVideo('dQw4w9WgXcQ')
+
+console.log(lines[0].text)   // "♪ We're no strangers to love ♪"
+console.log(lines[0].offset) // 0
+console.log(lines[0].lang)   // "en"
+
+console.log(toPlainText(lines)) // Full transcript as plain text
+```
+
+<Callout>
+  The transcript module uses YouTube's internal Innertube API — no quota consumption, no API key.
+</Callout>
+
 ## Next steps
 
 <Cards>
