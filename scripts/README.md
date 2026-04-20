@@ -174,6 +174,35 @@ Demonstrates:
 
 Defaults to a sample playlist if no argument is provided.
 
+### video-category.ts
+
+Fetch video categories for a region, single and batch lookups.
+
+```bash
+source .env && npx tsx scripts/video-category.ts [REGION_CODE]
+```
+
+Demonstrates:
+
+- `videoCategoriesByRegion()` — all categories for a country (default: US)
+- `videoCategory()` — single category by ID
+- `videoCategories()` — batch lookup by IDs
+
+### i18n.ts
+
+List supported YouTube regions and languages, with category cross-reference.
+
+```bash
+source .env && npx tsx scripts/i18n.ts [hl]
+```
+
+Demonstrates:
+
+- `regions()` — all supported content regions
+- `languages()` — all supported UI languages
+- Optional `hl` parameter for localized names
+- Combining regions with `videoCategoriesByRegion()`
+
 ## Scripts That Need API Key
 
 All scripts except `url-utils.ts`, `transcript-*.ts` require `YOUTUBE_API_KEY` to be set in the environment.

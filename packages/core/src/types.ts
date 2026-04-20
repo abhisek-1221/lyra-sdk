@@ -146,6 +146,33 @@ export interface PlaylistQueryResult {
 }
 
 // ---------------------------------------------------------------------------
+// Video Category
+// ---------------------------------------------------------------------------
+
+export interface VideoCategory {
+  id: string;
+  title: string;
+  assignable: boolean;
+  channelId: string;
+}
+
+// ---------------------------------------------------------------------------
+// I18n
+// ---------------------------------------------------------------------------
+
+export interface I18nRegion {
+  id: string;
+  gl: string;
+  name: string;
+}
+
+export interface I18nLanguage {
+  id: string;
+  hl: string;
+  name: string;
+}
+
+// ---------------------------------------------------------------------------
 // URL parsing
 // ---------------------------------------------------------------------------
 
