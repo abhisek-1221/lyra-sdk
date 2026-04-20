@@ -1,0 +1,207 @@
+---
+title: Transcript — Architecture
+description: How the transcript module works internally
+icon: Code
+---
+
+## Overview
+
+The transcript module fetches YouTube captions without using the YouTube Data API v3. Instead, it interacts with YouTube's internal **Innertube API** — the same API used by the YouTube web player and mobile apps.
+
+---
+
+## Three-phase fetch flow
+
+Every `transcribeVideo()` call performs up to 3 HTTP requests:
+
+```
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  1. Watch    │────▶│  2. Innertube    │────▶│  3. Transcript  │
+│     Page     │     │     Player API   │     │     XML         │
+│  (GET)       │     │  (POST)          │     │  (GET)          │
+└─────────────┘     └──────────────────┘     └─────────────────┘
+│                   │                        │
+│ Extract API key   │ Get caption tracks     │ Parse XML into
+│ from HTML         │ and video details      │ TranscriptLine[]
+```
+
+### Phase 1: Watch page
+
+A `GET` request to `https://www.youtube.com/watch?v={videoId}` fetches the video's HTML page. The module extracts the `INNERTUBE_API_KEY` from embedded JavaScript.
+
+```ts
+const watchUrl = `https://www.youtube.com/watch?v=${identifier}`
+const watchRes = await fetch(watchUrl, { headers: { 'User-Agent': userAgent } })
+const watchBody = await watchRes.text()
+const apiKey = watchBody.match(/"INNERTUBE_API_KEY":"([^"]+)"/)[1]
+```
+
+### Phase 2: Innertube Player API
+
+A `POST` request to `https://www.youtube.com/youtubei/v1/player?key={apiKey}` using the Android client context. This returns:
+
+- **Caption tracks** — available languages with transcript URLs
+- **Video details** — title, author, view count, description (when `includeMeta: true`)
+- **Playability status** — whether the video is playable
+
+```ts
+const playerBody = JSON.stringify({
+  context: {
+    client: {
+      clientName: 'ANDROID',
+      clientVersion: '20.10.38',
+    },
+  },
+  videoId: identifier,
+})
+```
+
+<Callout>
+  The Android client context is used because it provides caption track URLs in the player response, which some other client contexts do not.
+</Callout>
+
+### Phase 3: Transcript XML
+
+A `GET` request to the caption track URL (extracted from phase 2) downloads the raw XML transcript. The `fmt` query parameter is stripped to get the raw XML format.
+
+```xml
+<transcript>
+  <text start="0" dur="3.36">Hello and welcome to this video.</text>
+  <text start="3.36" dur="2.64">Today we are going to talk about</text>
+</transcript>
+```
+
+---
+
+## Video ID resolution
+
+The module reuses the existing `extractVideoId()` utility from `lyra-sdk/url` to support multiple input formats:
+
+```ts
+import { extractVideoId } from '../utils/url-patterns.js'
+
+// All of these resolve to 'dQw4w9WgXcQ'
+resolveVideoId('dQw4w9WgXcQ')
+resolveVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+resolveVideoId('https://youtu.be/dQw4w9WgXcQ')
+resolveVideoId('https://www.youtube.com/embed/dQw4w9WgXcQ')
+resolveVideoId('https://www.youtube.com/shorts/dQw4w9WgXcQ')
+```
+
+The function first checks if the input is a raw 11-character ID (`/^[a-zA-Z0-9_-]{11}$/`), then falls back to URL pattern extraction.
+
+---
+
+## XML parsing and entity decoding
+
+Transcript XML uses standard XML entities that need decoding:
+
+```ts
+const XML_ENTITIES = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&apos;': "'",
+}
+```
+
+The parser uses a regex (`/<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g`) to extract `start`, `dur`, and text content from each `<text>` element.
+
+---
+
+## Module structure
+
+```
+packages/core/src/
+  modules/
+    transcript.ts              # Public API: TranscriptClient, transcribeVideo, listCaptionTracks
+  transcript/
+    constants.ts               # Default UA, regex patterns, Innertube config, cache/retry defaults
+    types.ts                   # All transcript types + CacheStore interface
+    errors.ts                  # 7 error classes extending TranscriptError
+    parse.ts                   # resolveVideoId, validateLang, parseTranscriptXml, decodeXmlEntities
+    fetch.ts                   # 3-phase HTTP flow, cache integration, retry wrapping
+    format.ts                  # toSRT, toVTT, toPlainText converters
+    retry.ts                   # fetchWithRetry with exponential backoff
+    cache/
+      index.ts                 # Barrel exports
+      memory-store.ts          # InMemoryCache (Map-based, TTL, maxEntries)
+      file-store.ts            # FsCache (JSON files, TTL, auto-mkdir)
+```
+
+---
+
+## Error detection logic
+
+The module distinguishes several failure scenarios based on the Innertube API response:
+
+| Condition                                    | Error thrown                     |
+| -------------------------------------------- | -------------------------------- |
+| Watch page returns non-200                   | `TranscriptVideoUnavailableError` |
+| Watch page contains reCAPTCHA                | `TranscriptRateLimitError`        |
+| No `INNERTUBE_API_KEY` found in page         | `TranscriptNotFoundError`         |
+| Player response has no captions + playable   | `TranscriptDisabledError`         |
+| Player response has no captions + unplayable | `TranscriptNotFoundError`         |
+| Captions exist but requested lang missing    | `TranscriptLanguageError`         |
+| Transcript XML has zero parsed lines         | `TranscriptNotFoundError`         |
+| Transcript fetch returns 429                 | `TranscriptRateLimitError`        |
+
+---
+
+## Caching integration
+
+When a `cache` option is provided, the module checks cache **before** making any HTTP requests and stores the result **after** a successful fetch:
+
+```
+transcribeVideo()
+  │
+  ├── cache.get(key) → hit? → return parsed JSON
+  │
+  ├── (miss) → Phase 1 → Phase 2 → Phase 3 → parse XML
+  │
+  └── cache.set(key, JSON.stringify(result)) → return result
+```
+
+Cache keys include the video ID, language code, and whether metadata was requested. Cache failures are silently caught — they never break a request.
+
+---
+
+## Retry integration
+
+All three HTTP phases are independently wrapped with `fetchWithRetry()`. Each phase gets its own retry counter:
+
+```
+Phase 1: fetchWithRetry(watchPage, retries, delay, signal)
+Phase 2: fetchWithRetry(playerAPI, retries, delay, signal)
+Phase 3: fetchWithRetry(transcriptXML, retries, delay, signal)
+```
+
+The retry logic uses `delay * 2^attempt` for exponential backoff and checks `AbortSignal` between attempts.
+
+---
+
+## Rate limiting considerations
+
+Since this module doesn't use the YouTube Data API, there's no formal quota system. However, YouTube may still rate-limit requests:
+
+- YouTube may show a reCAPTCHA page if too many requests come from the same IP
+- The module detects reCAPTCHA and throws `TranscriptRateLimitError`
+- Use the `customFetch` option to route through rotating proxies if needed
+- Caching dramatically reduces the number of HTTP requests
+- Retry with backoff helps handle transient 429 responses
+
+---
+
+## Comparison with the core SDK
+
+| Aspect              | Core SDK                  | Transcript module            |
+| --------------------| ------------------------- | ---------------------------- |
+| Authentication       | API key (`yt(key)`)       | None                         |
+| Data source          | `googleapis.com/youtube/v3`| `youtube.com` (Innertube)   |
+| HTTP client          | `HttpClient` class        | Native `fetch`               |
+| Quota                | Consumed                 | Not applicable               |
+| Rate limiting        | Formal quota system       | Informal (reCAPTCHA)         |
+| Import path          | `lyra-sdk`                | `lyra-sdk/transcript`        |
+| Sub-entry exports    | `/url`, `/fmt`            | `/transcript`                |

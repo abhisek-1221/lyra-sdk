@@ -37,6 +37,7 @@ export {
 } from "./errors.js";
 export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 export type {
+  CacheStore,
   CaptionTrack,
   TranscriptLine,
   TranscriptOptions,
@@ -44,6 +45,8 @@ export type {
   VideoMeta,
 } from "./modules/transcript.js";
 export {
+  FsCache,
+  InMemoryCache,
   listCaptionTracks,
   TranscriptClient,
   TranscriptDisabledError,

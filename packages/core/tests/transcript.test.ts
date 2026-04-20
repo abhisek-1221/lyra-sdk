@@ -1,7 +1,10 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { listCaptionTracks, TranscriptClient, transcribeVideo } from "../src/modules/transcript.js";
+import { FsCache } from "../src/transcript/cache/file-store.js";
+import { InMemoryCache } from "../src/transcript/cache/memory-store.js";
 import {
   TranscriptDisabledError,
   TranscriptError,
@@ -19,6 +22,7 @@ import {
   resolveVideoId,
   validateLang,
 } from "../src/transcript/parse.js";
+import { fetchWithRetry, isRetryable } from "../src/transcript/retry.js";
 import type { TranscriptLine } from "../src/transcript/types.js";
 
 const FIXTURES = join(__dirname, "fixtures");
@@ -409,5 +413,278 @@ describe("TranscriptClient", () => {
 
     expect(tracks).toHaveLength(2);
     expect(tracks[0].languageCode).toBe("en");
+  });
+});
+
+describe("InMemoryCache", () => {
+  it("stores and retrieves values", async () => {
+    const cache = new InMemoryCache();
+    await cache.set("key1", "value1");
+    expect(await cache.get("key1")).toBe("value1");
+  });
+
+  it("returns null for missing keys", async () => {
+    const cache = new InMemoryCache();
+    expect(await cache.get("missing")).toBeNull();
+  });
+
+  it("expires entries based on TTL", async () => {
+    const cache = new InMemoryCache(60000);
+    await cache.set("key1", "value1", 1);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(await cache.get("key1")).toBeNull();
+  });
+
+  it("uses default TTL when none provided to set()", async () => {
+    const cache = new InMemoryCache(1);
+    await cache.set("key1", "value1");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(await cache.get("key1")).toBeNull();
+  });
+
+  it("evicts oldest entry when maxEntries is exceeded", async () => {
+    const cache = new InMemoryCache(60000, 3);
+    await cache.set("a", "1");
+    await cache.set("b", "2");
+    await cache.set("c", "3");
+    await cache.set("d", "4");
+    expect(await cache.get("a")).toBeNull();
+    expect(await cache.get("d")).toBe("4");
+    expect(cache.size).toBe(3);
+  });
+
+  it("clear() removes all entries", async () => {
+    const cache = new InMemoryCache();
+    await cache.set("a", "1");
+    await cache.set("b", "2");
+    cache.clear();
+    expect(cache.size).toBe(0);
+    expect(await cache.get("a")).toBeNull();
+  });
+
+  it("size getter returns current count", async () => {
+    const cache = newMemoryCache();
+    expect(cache.size).toBe(0);
+    await cache.set("a", "1");
+    expect(cache.size).toBe(1);
+  });
+});
+
+function newMemoryCache() {
+  return new InMemoryCache();
+}
+
+describe("FsCache", () => {
+  const testCacheDir = join(tmpdir(), `lyra-test-fscache-${Date.now()}`);
+
+  afterAll(() => {
+    rmSync(testCacheDir, { recursive: true, force: true });
+  });
+
+  it("stores and retrieves values", async () => {
+    const cache = new FsCache(testCacheDir);
+    await cache.set("key1", "value1");
+    expect(await cache.get("key1")).toBe("value1");
+  });
+
+  it("returns null for missing keys", async () => {
+    const cache = new FsCache(testCacheDir);
+    expect(await cache.get("nonexistent_key_xyz")).toBeNull();
+  });
+
+  it("expires entries based on TTL", async () => {
+    const cache = new FsCache(testCacheDir);
+    await cache.set("expiring", "gone", 1);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(await cache.get("expiring")).toBeNull();
+  });
+
+  it("clear() removes all cache files", async () => {
+    const subDir = join(tmpdir(), `lyra-test-clear-${Date.now()}`);
+    const cache = new FsCache(subDir);
+    await cache.set("a", "1");
+    await cache.set("b", "2");
+    await cache.clear();
+    expect(await cache.get("a")).toBeNull();
+    expect(await cache.get("b")).toBeNull();
+    rmSync(subDir, { recursive: true, force: true });
+  });
+
+  it("handles concurrent operations", async () => {
+    const cache = new FsCache(testCacheDir);
+    await Promise.all([cache.set("c1", "v1"), cache.set("c2", "v2"), cache.set("c3", "v3")]);
+    expect(await cache.get("c1")).toBe("v1");
+    expect(await cache.get("c2")).toBe("v2");
+    expect(await cache.get("c3")).toBe("v3");
+  });
+});
+
+describe("Cache integration with fetchTranscript", () => {
+  it("returns cached result on second call without fetching", async () => {
+    let fetchCount = 0;
+    const mockFetch = vi.fn(async (url: string) => {
+      fetchCount++;
+      if (url.includes("api/timedtext")) {
+        return new Response(TRANSCRIPT_XML, { status: 200 });
+      }
+      if (/youtubei\/v1\/player/.test(url)) {
+        return new Response(JSON.stringify(PLAYER_SUCCESS), { status: 200 });
+      }
+      if (url.includes("youtube.com/watch")) {
+        return new Response(WATCH_HTML_SUCCESS, { status: 200 });
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+
+    const cache = new InMemoryCache();
+
+    const result1 = await transcribeVideo("dQw4w9WgXcQ", {
+      cache,
+      customFetch: mockFetch,
+    });
+
+    expect(fetchCount).toBe(3);
+
+    const result2 = await transcribeVideo("dQw4w9WgXcQ", {
+      cache,
+      customFetch: mockFetch,
+    });
+
+    expect(fetchCount).toBe(3);
+    expect(result1).toEqual(result2);
+  });
+
+  it("caches differently for different languages", async () => {
+    const mockFetch = vi.fn(async (url: string) => {
+      if (url.includes("api/timedtext")) {
+        return new Response(TRANSCRIPT_XML, { status: 200 });
+      }
+      if (/youtubei\/v1\/player/.test(url)) {
+        return new Response(JSON.stringify(PLAYER_SUCCESS), { status: 200 });
+      }
+      return new Response(WATCH_HTML_SUCCESS, { status: 200 });
+    });
+
+    const cache = new InMemoryCache();
+
+    await transcribeVideo("dQw4w9WgXcQ", { lang: "en", cache, customFetch: mockFetch });
+    await transcribeVideo("dQw4w9WgXcQ", { lang: "es", cache, customFetch: mockFetch });
+
+    expect(cache.size).toBe(2);
+  });
+
+  it("uses separate cache keys for includeMeta", async () => {
+    const mockFetch = vi.fn(async (url: string) => {
+      if (url.includes("api/timedtext")) {
+        return new Response(TRANSCRIPT_XML, { status: 200 });
+      }
+      if (/youtubei\/v1\/player/.test(url)) {
+        return new Response(JSON.stringify(PLAYER_SUCCESS), { status: 200 });
+      }
+      return new Response(WATCH_HTML_SUCCESS, { status: 200 });
+    });
+
+    const cache = new InMemoryCache();
+
+    await transcribeVideo("dQw4w9WgXcQ", { cache, customFetch: mockFetch });
+    await transcribeVideo("dQw4w9WgXcQ", { includeMeta: true, cache, customFetch: mockFetch });
+
+    expect(cache.size).toBe(2);
+  });
+});
+
+describe("Retry logic", () => {
+  it("isRetryable identifies 429 and 5xx", () => {
+    expect(isRetryable(429)).toBe(true);
+    expect(isRetryable(500)).toBe(true);
+    expect(isRetryable(503)).toBe(true);
+    expect(isRetryable(200)).toBe(false);
+    expect(isRetryable(400)).toBe(false);
+    expect(isRetryable(404)).toBe(false);
+  });
+
+  it("returns immediately on success", async () => {
+    const fn = vi.fn(async () => new Response("ok", { status: 200 }));
+    const res = await fetchWithRetry(fn, 3, 10);
+    expect(res.status).toBe(200);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries on 429 and eventually succeeds", async () => {
+    let call = 0;
+    const fn = vi.fn(async () => {
+      call++;
+      if (call <= 2) return new Response("rate limited", { status: 429 });
+      return new Response("ok", { status: 200 });
+    });
+
+    const res = await fetchWithRetry(fn, 3, 1);
+    expect(res.status).toBe(200);
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on 5xx and eventually succeeds", async () => {
+    let call = 0;
+    const fn = vi.fn(async () => {
+      call++;
+      if (call === 1) return new Response("error", { status: 500 });
+      return new Response("ok", { status: 200 });
+    });
+
+    const res = await fetchWithRetry(fn, 2, 1);
+    expect(res.status).toBe(200);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns last response when retries exhausted", async () => {
+    const fn = vi.fn(async () => new Response("still failing", { status: 503 }));
+    const res = await fetchWithRetry(fn, 2, 1);
+    expect(res.status).toBe(503);
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry on 4xx (except 429)", async () => {
+    const fn = vi.fn(async () => new Response("not found", { status: 404 }));
+    const res = await fetchWithRetry(fn, 3, 1);
+    expect(res.status).toBe(404);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects AbortSignal between retries", async () => {
+    const controller = new AbortController();
+    const fn = vi.fn(async () => new Response("rate limited", { status: 429 }));
+
+    setTimeout(() => controller.abort(), 5);
+
+    await expect(fetchWithRetry(fn, 5, 50, controller.signal)).rejects.toThrow();
+
+    expect(fn.mock.calls.length).toBeLessThan(5);
+  });
+
+  it("retries are applied in transcribeVideo with retries option", async () => {
+    let watchCall = 0;
+    const mockFetch = vi.fn(async (url: string) => {
+      if (url.includes("youtube.com/watch")) {
+        watchCall++;
+        if (watchCall === 1) return new Response("rate limited", { status: 429 });
+        return new Response(WATCH_HTML_SUCCESS, { status: 200 });
+      }
+      if (/youtubei\/v1\/player/.test(url)) {
+        return new Response(JSON.stringify(PLAYER_SUCCESS), { status: 200 });
+      }
+      if (url.includes("api/timedtext")) {
+        return new Response(TRANSCRIPT_XML, { status: 200 });
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+
+    const lines = await transcribeVideo("dQw4w9WgXcQ", {
+      retries: 2,
+      retryDelay: 1,
+      customFetch: mockFetch,
+    });
+
+    expect((lines as TranscriptLine[]).length).toBeGreaterThan(0);
+    expect(watchCall).toBe(2);
   });
 });

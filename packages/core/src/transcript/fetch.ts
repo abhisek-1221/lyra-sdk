@@ -1,4 +1,6 @@
 import {
+  DEFAULT_CACHE_TTL,
+  DEFAULT_RETRY_DELAY,
   DEFAULT_USER_AGENT,
   INNERTUBE_CLIENT_NAME,
   INNERTUBE_CLIENT_VERSION,
@@ -11,6 +13,7 @@ import {
   TranscriptVideoUnavailableError,
 } from "./errors.js";
 import { parseTranscriptXml, resolveVideoId, validateLang } from "./parse.js";
+import { fetchWithRetry } from "./retry.js";
 import type {
   CaptionTrack,
   InnertubePlayerResponse,
@@ -21,13 +24,26 @@ import type {
   VideoMeta,
 } from "./types.js";
 
-async function doFetch(
+function buildCacheKey(videoId: string, lang: string | undefined, withMeta: boolean): string {
+  const l = lang ?? "";
+  return withMeta ? `lyra:tc:${videoId}:${l}:full` : `lyra:tc:${videoId}:${l}`;
+}
+
+function doFetch(
   url: string,
-  init: RequestInit & { lang?: string; userAgent?: string },
+  init: RequestInit,
   customFetch?: TranscriptOptions["customFetch"]
 ): Promise<Response> {
   if (customFetch) return customFetch(url, init);
   return fetch(url, init);
+}
+
+function retryConfig(options?: TranscriptOptions) {
+  return {
+    retries: options?.retries ?? 0,
+    retryDelay: options?.retryDelay ?? DEFAULT_RETRY_DELAY,
+    signal: options?.signal,
+  };
 }
 
 async function fetchCaptionTracks(
@@ -44,15 +60,17 @@ async function fetchCaptionTracks(
   const userAgent = options?.userAgent ?? DEFAULT_USER_AGENT;
   const protocol = options?.useHttp ? "http" : "https";
   const signal = options?.signal;
+  const { retries, retryDelay } = retryConfig(options);
 
   const headers: Record<string, string> = { "User-Agent": userAgent };
   if (lang) headers["Accept-Language"] = lang;
 
   const watchUrl = `${protocol}://www.youtube.com/watch?v=${identifier}`;
-  const watchRes = await doFetch(
-    watchUrl,
-    { method: "GET", headers, signal },
-    options?.customFetch
+  const watchRes = await fetchWithRetry(
+    () => doFetch(watchUrl, { method: "GET", headers, signal }, options?.customFetch),
+    retries,
+    retryDelay,
+    signal
   );
 
   if (!watchRes.ok) throw new TranscriptVideoUnavailableError(identifier);
@@ -81,15 +99,21 @@ async function fetchCaptionTracks(
     videoId: identifier,
   });
 
-  const playerRes = await doFetch(
-    playerUrl,
-    {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: playerBody,
-      signal,
-    },
-    options?.customFetch
+  const playerRes = await fetchWithRetry(
+    () =>
+      doFetch(
+        playerUrl,
+        {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: playerBody,
+          signal,
+        },
+        options?.customFetch
+      ),
+    retries,
+    retryDelay,
+    signal
   );
 
   if (!playerRes.ok) throw new TranscriptVideoUnavailableError(identifier);
@@ -140,6 +164,20 @@ export async function fetchTranscript(
   const lang = options?.lang;
   if (lang) validateLang(lang);
 
+  const withMeta = options?.includeMeta === true;
+  const cacheKey = buildCacheKey(identifier, lang, withMeta);
+
+  if (options?.cache) {
+    const cached = await options.cache.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached) as TranscriptLine[] | TranscriptWithMeta;
+      } catch {
+        // stale entry — fall through to fresh fetch
+      }
+    }
+  }
+
   const { tracks, playerJson } = await fetchCaptionTracks(identifier, options);
 
   const selected = lang ? tracks.find((t) => t.languageCode === lang) : tracks[0];
@@ -161,10 +199,13 @@ export async function fetchTranscript(
   const headers: Record<string, string> = { "User-Agent": userAgent };
   if (lang) headers["Accept-Language"] = lang;
 
-  const transcriptRes = await doFetch(
-    transcriptUrl,
-    { method: "GET", headers, signal: options?.signal },
-    options?.customFetch
+  const { retries, retryDelay, signal } = retryConfig(options);
+
+  const transcriptRes = await fetchWithRetry(
+    () => doFetch(transcriptUrl, { method: "GET", headers, signal }, options?.customFetch),
+    retries,
+    retryDelay,
+    signal
   );
 
   if (!transcriptRes.ok) {
@@ -178,14 +219,23 @@ export async function fetchTranscript(
 
   if (lines.length === 0) throw new TranscriptNotFoundError(identifier);
 
-  if (options?.includeMeta) {
-    return {
-      meta: extractVideoMeta(playerJson, identifier),
-      lines,
-    };
+  const result: TranscriptLine[] | TranscriptWithMeta = withMeta
+    ? { meta: extractVideoMeta(playerJson, identifier), lines }
+    : lines;
+
+  if (options?.cache) {
+    try {
+      await options.cache.set(
+        cacheKey,
+        JSON.stringify(result),
+        options.cacheTTL ?? DEFAULT_CACHE_TTL
+      );
+    } catch {
+      // non-fatal
+    }
   }
 
-  return lines;
+  return result;
 }
 
 export async function fetchCaptionList(

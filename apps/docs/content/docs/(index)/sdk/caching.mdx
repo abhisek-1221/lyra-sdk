@@ -1,0 +1,175 @@
+---
+title: Caching
+description: InMemoryCache, FsCache, and custom cache implementations for transcripts
+icon: Database
+---
+
+## Overview
+
+The transcript module supports caching to avoid redundant HTTP requests. When a cache is provided, `transcribeVideo()` checks the cache before making any network calls and stores the result after a successful fetch.
+
+```ts
+import { transcribeVideo, InMemoryCache } from 'lyra-sdk/transcript'
+
+const cache = new InMemoryCache()
+
+// First call — fetches from YouTube (3 HTTP requests)
+const lines = await transcribeVideo('dQw4w9WgXcQ', { cache })
+
+// Second call — returns cached result (~0.03ms)
+const cached = await transcribeVideo('dQw4w9WgXcQ', { cache })
+```
+
+---
+
+## Cache keys
+
+Cache keys are generated automatically based on the video ID, language, and whether metadata was requested:
+
+| Scenario                        | Cache key format                    |
+| ------------------------------- | ----------------------------------- |
+| Basic transcript                | `lyra:tc:{videoId}:{lang}`         |
+| With `includeMeta: true`        | `lyra:tc:{videoId}:{lang}:full`    |
+
+Different languages and `includeMeta` values produce separate cache entries for the same video.
+
+---
+
+## `CacheStore` interface
+
+Implement this interface to create a custom cache backend:
+
+```ts
+interface CacheStore {
+  /** Retrieve a cached value. Returns null if not found or expired. */
+  get(key: string): Promise<string | null>
+
+  /** Store a value with an optional TTL in milliseconds. */
+  set(key: string, value: string, ttl?: number): Promise<void>
+}
+```
+
+### Custom cache example
+
+```ts
+import type { CacheStore } from 'lyra-sdk/transcript'
+
+class RedisCache implements CacheStore {
+  constructor(private client: RedisClient) {}
+
+  async get(key: string): Promise<string | null> {
+    return this.client.get(`lyra:${key}`)
+  }
+
+  async set(key: string, value: string, ttl?: number): Promise<void> {
+    if (ttl) {
+      await this.client.setex(`lyra:${key}`, Math.round(ttl / 1000), value)
+    } else {
+      await this.client.set(`lyra:${key}`, value)
+    }
+  }
+}
+```
+
+---
+
+## `InMemoryCache`
+
+Map-based in-process cache with TTL and size limits.
+
+```ts
+import { InMemoryCache } from 'lyra-sdk/transcript'
+
+// Default: 1 hour TTL, max 500 entries
+const cache = new InMemoryCache()
+
+// Custom TTL and max entries
+const cache = new InMemoryCache(1800000, 200) // 30 min, 200 entries
+```
+
+### Constructor
+
+| Parameter     | Type     | Default     | Description                        |
+| ------------- | -------- | ----------- | ---------------------------------- |
+| `defaultTTL`  | `number` | `3600000`   | Default time-to-live in ms (1 hour) |
+| `maxEntries`  | `number` | `500`       | Maximum cache entries before eviction |
+
+### Properties and methods
+
+| Property/Method | Type                      | Description                              |
+| --------------- | ------------------------- | ---------------------------------------- |
+| `size`          | `number`                  | Current number of entries                |
+| `clear()`       | `void`                    | Remove all entries                       |
+| `get(key)`      | `Promise<string \| null>` | Retrieve entry (null if expired/missing) |
+| `set(key, value, ttl?)` | `Promise<void>`    | Store entry with optional TTL override   |
+
+### Eviction policy
+
+When `maxEntries` is reached, the oldest entry (by insertion order) is evicted. Expired entries are lazily removed on `get()`.
+
+---
+
+## `FsCache`
+
+File-system cache with JSON files persisted to disk.
+
+```ts
+import { FsCache } from 'lyra-sdk/transcript'
+
+// Default: ./cache directory, 1 hour TTL
+const cache = new FsCache()
+
+// Custom directory and TTL
+const cache = new FsCache('./my-cache', 86400000) // 1 day TTL
+```
+
+### Constructor
+
+| Parameter     | Type     | Default    | Description                          |
+| ------------- | -------- | ---------- | ------------------------------------ |
+| `cacheDir`    | `string` | `'./cache'`| Directory for cache files (auto-created) |
+| `defaultTTL`  | `number` | `3600000`  | Default time-to-live in ms (1 hour)  |
+
+### Properties and methods
+
+| Property/Method | Type                      | Description                              |
+| --------------- | ------------------------- | ---------------------------------------- |
+| `get(key)`      | `Promise<string \| null>` | Retrieve entry (null if expired/missing) |
+| `set(key, value, ttl?)` | `Promise<void>`    | Store entry with optional TTL override   |
+| `clear()`       | `Promise<void>`           | Delete all `.json` cache files           |
+
+### Key sanitization
+
+Cache keys are sanitized to filesystem-safe names. Long keys (>200 chars) are truncated with a SHA-256 hash suffix to avoid filesystem path limits while preserving uniqueness.
+
+---
+
+## Usage with TranscriptClient
+
+Pass a cache instance as a default option to share it across all requests:
+
+```ts
+import { TranscriptClient, InMemoryCache } from 'lyra-sdk/transcript'
+
+const cache = new InMemoryCache()
+const client = new TranscriptClient({ cache, lang: 'en' })
+
+// All calls share the same cache
+const lines1 = await client.transcribe('dQw4w9WgXcQ')     // cold fetch
+const lines2 = await client.transcribe('dQw4w9WgXcQ')     // cache hit
+const tracks = await client.availableTracks('dQw4w9WgXcQ') // separate HTTP call
+```
+
+---
+
+## Which cache to use?
+
+| Cache           | Best for                                         | Persistence | Speed (hit) |
+| --------------- | ------------------------------------------------ | ----------- | ----------- |
+| `InMemoryCache` | Short-lived processes, serverless functions       | Process-only| ~0.03ms     |
+| `FsCache`       | CLI tools, long-running services, dev scripts    | Disk        | ~0.3ms      |
+| Custom          | Redis, Memcached, shared state across instances  | External    | Varies      |
+
+<Callout>
+  Cache read and write failures are non-fatal — if the cache is unavailable, the module falls back to a fresh HTTP fetch.
+</Callout>

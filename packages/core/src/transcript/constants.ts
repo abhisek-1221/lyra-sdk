@@ -9,3 +9,6 @@ export const RE_BCP47_LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
 export const INNERTUBE_CLIENT_NAME = "ANDROID";
 export const INNERTUBE_CLIENT_VERSION = "20.10.38";
+
+export const DEFAULT_CACHE_TTL = 3_600_000;
+export const DEFAULT_RETRY_DELAY = 1_000;

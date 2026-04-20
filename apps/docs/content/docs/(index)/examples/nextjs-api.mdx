@@ -1,0 +1,541 @@
+---
+title: Next.js API Routes
+description: REST API using Next.js App Router route.ts files
+icon: Globe
+---
+
+[Next.js App Router](https://nextjs.org/docs/app/building-your-application/routing/router-handlers) uses `route.ts` files to create API endpoints. This example shows how to use `lyra-sdk` in Next.js server-side route handlers.
+
+## Setup
+
+```bash
+npx create-next-app@latest lyra-next-api --typescript --app
+cd lyra-next-api
+npm install lyra-sdk
+```
+
+Add to `.env.local`:
+
+```bash
+YOUTUBE_API_KEY=your_key_here
+```
+
+<Callout>
+  Transcript routes do **not** require `YOUTUBE_API_KEY`.
+</Callout>
+
+## File structure
+
+<Files>
+  <Folder name="src/app/api" defaultOpen>
+    <Folder name="video" defaultOpen>
+      <Folder name="[id]" defaultOpen>
+        <File name="route.ts" />
+      </Folder>
+      <Folder name="title" defaultOpen>
+        <Folder name="[id]" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="videos" defaultOpen>
+      <File name="route.ts" />
+    </Folder>
+    <Folder name="channel" defaultOpen>
+      <Folder name="[id]" defaultOpen>
+        <File name="route.ts" />
+        <Folder name="videos" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="playlist" defaultOpen>
+      <Folder name="[id]" defaultOpen>
+        <File name="route.ts" />
+        <Folder name="info" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+        <Folder name="ids" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+        <Folder name="query" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="transcript" defaultOpen>
+      <Folder name="[id]" defaultOpen>
+        <File name="route.ts" />
+        <Folder name="languages" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+        <Folder name="srt" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+        <Folder name="vtt" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+        <Folder name="text" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="url" defaultOpen>
+      <Folder name="parse" defaultOpen>
+        <File name="route.ts" />
+      </Folder>
+      <Folder name="extract" defaultOpen>
+        <File name="route.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+  <Folder name="src/lib" defaultOpen>
+    <File name="youtube.ts" />
+    <File name="errors.ts" />
+  </Folder>
+</Files>
+
+## Shared utilities
+
+### Client initialization
+
+```ts title="src/lib/youtube.ts"
+import { yt } from 'lyra-sdk'
+
+const apiKey = process.env.YOUTUBE_API_KEY ?? ''
+
+export const client = apiKey ? yt(apiKey) : null
+```
+
+### Error helper
+
+```ts title="src/lib/errors.ts"
+import { NextResponse } from 'next/server'
+import { AuthError, NotFoundError, QuotaError, YTError } from 'lyra-sdk'
+import { TranscriptError } from 'lyra-sdk/transcript'
+
+export function handleError(err: unknown) {
+  if (err instanceof NotFoundError) {
+    return NextResponse.json({ error: { code: 404, message: err.message } }, { status: 404 })
+  }
+  if (err instanceof AuthError) {
+    return NextResponse.json({ error: { code: 401, message: err.message } }, { status: 401 })
+  }
+  if (err instanceof QuotaError) {
+    return NextResponse.json({ error: { code: 429, message: err.message } }, { status: 429 })
+  }
+  if (err instanceof TranscriptError) {
+    return NextResponse.json({ error: { code: 404, message: err.message } }, { status: 404 })
+  }
+  if (err instanceof YTError) {
+    return NextResponse.json({ error: { code: 502, message: err.message } }, { status: 502 })
+  }
+  return NextResponse.json(
+    { error: { code: 500, message: 'Internal server error' } },
+    { status: 500 },
+  )
+}
+```
+
+---
+
+## Video routes
+
+```ts title="src/app/api/video/[id]/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const video = await client!.video(id)
+    return NextResponse.json(video)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/video/title/[id]/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const title = await client!.videoTitle(id)
+    return NextResponse.json(title)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/videos/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const ids = (searchParams.get('ids') ?? '').split(',').map((s) => s.trim())
+    const videos = await client!.videos(ids)
+    return NextResponse.json(videos)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+---
+
+## Channel routes
+
+```ts title="src/app/api/channel/[id]/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const channel = await client!.channel(id)
+    return NextResponse.json(channel)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/channel/[id]/videos/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const limit = Number(searchParams.get('limit')) || undefined
+    const videos = await client!.channelVideos(id, { limit })
+    return NextResponse.json(videos)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+---
+
+## Playlist routes
+
+```ts title="src/app/api/playlist/[id]/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const playlist = await client!.playlist(id)
+    return NextResponse.json(playlist)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/playlist/[id]/info/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const info = await client!.playlistInfo(id)
+    return NextResponse.json(info)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/playlist/[id]/ids/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const ids = await client!.playlistVideoIds(id)
+    return NextResponse.json({ id, videoIds: ids, count: ids.length })
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/playlist/[id]/query/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+
+    let query = client!.playlistQuery(id)
+
+    if (body.filter?.duration) query = query.filterByDuration(body.filter.duration)
+    if (body.filter?.views) query = query.filterByViews(body.filter.views)
+    if (body.filter?.likes) query = query.filterByLikes(body.filter.likes)
+    if (body.sort) query = query.sortBy(body.sort.field, body.sort.order)
+    if (body.range) query = query.between(body.range.start, body.range.end)
+
+    const result = await query.execute()
+    return NextResponse.json(result)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+---
+
+## Transcript routes
+
+```ts title="src/app/api/transcript/[id]/route.ts"
+import { NextResponse } from 'next/server'
+import { transcribeVideo } from 'lyra-sdk/transcript'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const lang = searchParams.get('lang') ?? undefined
+    const lines = await transcribeVideo(id, { lang })
+    return NextResponse.json(lines)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/transcript/[id]/languages/route.ts"
+import { NextResponse } from 'next/server'
+import { listCaptionTracks } from 'lyra-sdk/transcript'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const tracks = await listCaptionTracks(id)
+    return NextResponse.json(tracks)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/transcript/[id]/srt/route.ts"
+import { NextResponse } from 'next/server'
+import { transcribeVideo, toSRT } from 'lyra-sdk/transcript'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const lang = searchParams.get('lang') ?? undefined
+    const lines = await transcribeVideo(id, { lang })
+    return new NextResponse(toSRT(lines), {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/transcript/[id]/vtt/route.ts"
+import { NextResponse } from 'next/server'
+import { transcribeVideo, toVTT } from 'lyra-sdk/transcript'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const lang = searchParams.get('lang') ?? undefined
+    const lines = await transcribeVideo(id, { lang })
+    return new NextResponse(toVTT(lines), {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/transcript/[id]/text/route.ts"
+import { NextResponse } from 'next/server'
+import { transcribeVideo, toPlainText } from 'lyra-sdk/transcript'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const lang = searchParams.get('lang') ?? undefined
+    const lines = await transcribeVideo(id, { lang })
+    return new NextResponse(toPlainText(lines), {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+<Callout>
+  Transcript route files import from `lyra-sdk/transcript` — no API key or `client` singleton needed.
+</Callout>
+
+---
+
+## URL routes
+
+```ts title="src/app/api/url/parse/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function POST(request: Request) {
+  try {
+    const { url } = await request.json()
+    const result = client!.url.parse(url)
+    return NextResponse.json(result)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/url/extract/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function POST(request: Request) {
+  try {
+    const { url, type } = await request.json()
+
+    if (type === 'video' || (!type && client!.url.isVideo(url))) {
+      return NextResponse.json({ type: 'video', videoId: client!.url.extractVideoId(url) })
+    }
+    if (type === 'playlist' || (!type && client!.url.isPlaylist(url))) {
+      return NextResponse.json({ type: 'playlist', playlistId: client!.url.extractPlaylistId(url) })
+    }
+    const channelId = client!.url.extractChannelId(url)
+    if (channelId) return NextResponse.json({ type: 'channel', channelId })
+
+    return NextResponse.json({ type: 'unknown', id: null })
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+---
+
+## Endpoints
+
+### Video & Channel (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video/:id` | Fetch full video details |
+| GET | `/api/video/title/:id` | Title-only lookup |
+| GET | `/api/videos?ids=...` | Batch fetch videos |
+| GET | `/api/channel/:id` | Channel metadata |
+| GET | `/api/channel/:id/videos?limit=5` | Recent uploads |
+
+### Playlist (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/playlist/:id` | Full playlist with videos |
+| GET | `/api/playlist/:id/info` | Metadata only |
+| GET | `/api/playlist/:id/ids` | Video IDs only |
+| POST | `/api/playlist/:id/query` | Filter/sort/range query |
+
+### Transcript (no API key)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/transcript/:id` | Fetch transcript (`?lang=en`) |
+| GET | `/api/transcript/:id/languages` | Available caption tracks |
+| GET | `/api/transcript/:id/srt` | SRT format |
+| GET | `/api/transcript/:id/vtt` | WebVTT format |
+| GET | `/api/transcript/:id/text` | Plain text |
+
+### URL Utilities (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/url/parse` | Parse YouTube URL |
+| POST | `/api/url/extract` | Extract IDs from URL |
+
+## Running
+
+```bash
+npm run dev
+```
+
+Deploy to [Vercel](https://vercel.com) with zero configuration — each `route.ts` becomes a serverless function.
