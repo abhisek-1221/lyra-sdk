@@ -8,6 +8,17 @@
 // ---------------------------------------------------------------------------
 
 import { HttpClient } from "./http.js";
+import {
+  flattenComments,
+  getChannelComments,
+  getCommentReplies,
+  getCommentStats,
+  getCommentsWithReplies,
+  getTopComments,
+  getVideoComments,
+  searchComments,
+} from "./modules/comment.js";
+import { CommentQueryBuilder } from "./modules/comment-query.js";
 import { getChannel, getChannelVideos } from "./modules/channel.js";
 import { getLanguages, getRegions } from "./modules/i18n.js";
 import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "./modules/playlist.js";
@@ -21,6 +32,11 @@ import {
 } from "./modules/video-category.js";
 import type {
   Channel,
+  Comment,
+  CommentOptions,
+  CommentStats,
+  CommentTextFormat,
+  CommentThread,
   I18nLanguage,
   I18nRegion,
   Playlist,
@@ -157,6 +173,66 @@ export class YTClient {
   /** Fetch all supported application languages. */
   async languages(hl?: string): Promise<I18nLanguage[]> {
     return getLanguages(this.http, hl);
+  }
+
+  // -----------------------------------------------------------------------
+  // Comments
+  // -----------------------------------------------------------------------
+
+  /** Fetch all comment threads for a video. Auto-paginates. */
+  async comments(videoUrlOrId: string, opts?: CommentOptions): Promise<CommentThread[]> {
+    return getVideoComments(this.http, videoUrlOrId, opts);
+  }
+
+  /** Fetch all replies to a specific comment. Auto-paginates. */
+  async commentReplies(commentId: string, textFormat?: CommentTextFormat): Promise<Comment[]> {
+    return getCommentReplies(this.http, commentId, textFormat);
+  }
+
+  /** Fetch comment threads with all replies auto-fetched. */
+  async commentsWithReplies(videoUrlOrId: string, opts?: CommentOptions): Promise<CommentThread[]> {
+    return getCommentsWithReplies(this.http, videoUrlOrId, opts);
+  }
+
+  /** Fetch top comments sorted by relevance. */
+  async topComments(videoUrlOrId: string, limit?: number): Promise<CommentThread[]> {
+    return getTopComments(this.http, videoUrlOrId, limit);
+  }
+
+  /** Search comments by keyword. */
+  async searchComments(videoUrlOrId: string, query: string): Promise<CommentThread[]> {
+    return searchComments(this.http, videoUrlOrId, query);
+  }
+
+  /** Fetch all comment threads for a channel. */
+  async channelComments(channelId: string, opts?: CommentOptions): Promise<CommentThread[]> {
+    return getChannelComments(this.http, channelId, opts);
+  }
+
+  /** Compute aggregate stats from comment threads. */
+  commentStats(videoId: string, threads: CommentThread[]): CommentStats {
+    return getCommentStats(videoId, threads);
+  }
+
+  /** Flatten threads + replies into a single flat array. */
+  flattenComments(threads: CommentThread[]): Comment[] {
+    return flattenComments(threads);
+  }
+
+  /**
+   * Create a comment query builder for filtering, sorting, and slicing.
+   *
+   * ```ts
+   * const result = await client.commentQuery("dQw4w9WgXcQ")
+   *   .order("relevance")
+   *   .search("love this")
+   *   .limit(50)
+   *   .withAllReplies()
+   *   .execute()
+   * ```
+   */
+  commentQuery(videoUrlOrId: string): CommentQueryBuilder {
+    return new CommentQueryBuilder(this.http, videoUrlOrId);
   }
 
   // -----------------------------------------------------------------------

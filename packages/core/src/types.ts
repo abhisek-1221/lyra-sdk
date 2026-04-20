@@ -173,6 +173,61 @@ export interface I18nLanguage {
 }
 
 // ---------------------------------------------------------------------------
+// Comment
+// ---------------------------------------------------------------------------
+
+export interface Comment {
+  id: string;
+  authorName: string;
+  authorProfileImage: string;
+  authorChannelUrl: string;
+  authorChannelId: string;
+  text: string;
+  likeCount: number;
+  publishedAt: Date;
+  updatedAt: Date;
+  parentId?: string;
+}
+
+export interface CommentThread {
+  id: string;
+  videoId: string;
+  channelId: string;
+  topLevelComment: Comment;
+  totalReplyCount: number;
+  canReply: boolean;
+  isPublic: boolean;
+  replies?: Comment[];
+}
+
+export interface CommentStats {
+  videoId: string;
+  totalComments: number;
+  totalReplies: number;
+  uniqueAuthors: number;
+  mostLikedComment: Comment | null;
+  avgLikes: number;
+  replyRatio: number;
+}
+
+export interface CommentQueryResult {
+  videoId: string;
+  threads: CommentThread[];
+  totalResults: number;
+  stats: CommentStats;
+}
+
+export type CommentOrder = "time" | "relevance";
+export type CommentTextFormat = "html" | "plainText";
+
+export interface CommentOptions {
+  order?: CommentOrder;
+  maxResults?: number;
+  searchTerms?: string;
+  textFormat?: CommentTextFormat;
+}
+
+// ---------------------------------------------------------------------------
 // URL parsing
 // ---------------------------------------------------------------------------
 
