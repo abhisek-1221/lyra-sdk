@@ -1,23 +1,24 @@
+import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { rmSync } from "node:fs";
-import {
-  transcribeVideo,
-  InMemoryCache,
-  FsCache,
-} from "../packages/core/src/modules/transcript.js";
 import type { CacheStore, TranscriptLine } from "../packages/core/src/modules/transcript.js";
+import {
+  FsCache,
+  InMemoryCache,
+  transcribeVideo,
+} from "../packages/core/src/modules/transcript.js";
 
 const VIDEO_ID = "dQw4w9WgXcQ";
 const RUNS = 3;
 
-function hr(start: number): string {
+function _hr(start: number): string {
   return `${(performance.now() - start).toFixed(0)}ms`;
 }
 
-function avg(values: number[]): string {
+function avg(values: number[], decimals: number = 0): string {
   if (values.length === 0) return "0ms";
-  return `${Math.round(values.reduce((a, b) => a + b, 0) / values.length)}ms`;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  return `${mean.toFixed(decimals)}ms`;
 }
 
 function speedup(base: number, improved: number): string {
@@ -33,7 +34,7 @@ async function runBench(
   label: string,
   videoId: string,
   cache?: CacheStore,
-  cacheLabel?: string
+  _cacheLabel?: string
 ): Promise<{ times: number[]; hitTimes: number[]; missTimes: number[] }> {
   const times: number[] = [];
   const hitTimes: number[] = [];
@@ -52,14 +53,14 @@ async function runBench(
 
     if (isHit) {
       hitTimes.push(elapsed);
-      console.log(`  Run ${i + 1}: ${elapsed.toFixed(0)}ms  (cache HIT — ${lines.length} lines from cache)`);
+      console.log(`  Run ${i + 1}: ${elapsed.toFixed(2)}ms  (cache HIT — ${lines.length} lines from cache)`);
     } else {
       missTimes.push(elapsed);
       console.log(`  Run ${i + 1}: ${elapsed.toFixed(0)}ms  (cold — ${countHttpCalls(lines)})`);
     }
   }
 
-  console.log(`  Avg:   ${avg(times)}  |  Cold: ${avg(missTimes)}  |  Hit: ${avg(hitTimes)}`);
+  console.log(`  Avg:   ${avg(times, 0)}  |  Cold: ${avg(missTimes, 0)}  |  Hit: ${avg(hitTimes, 2)}`);
   if (cache && "size" in cache) {
     console.log(`  Cache entries: ${(cache as InMemoryCache).size}`);
   }
@@ -82,22 +83,28 @@ async function main() {
   rmSync(fsDir, { recursive: true, force: true });
 
   const noCacheAvg = noCacheResult.times.reduce((a, b) => a + b, 0) / noCacheResult.times.length;
-  const memHitAvg = memResult.hitTimes.length > 0
-    ? memResult.hitTimes.reduce((a, b) => a + b, 0) / memResult.hitTimes.length
-    : 0;
-  const fsHitAvg = fsResult.hitTimes.length > 0
-    ? fsResult.hitTimes.reduce((a, b) => a + b, 0) / fsResult.hitTimes.length
-    : 0;
+  const memHitAvg =
+    memResult.hitTimes.length > 0
+      ? memResult.hitTimes.reduce((a, b) => a + b, 0) / memResult.hitTimes.length
+      : 0;
+  const fsHitAvg =
+    fsResult.hitTimes.length > 0
+      ? fsResult.hitTimes.reduce((a, b) => a + b, 0) / fsResult.hitTimes.length
+      : 0;
 
   console.log("\n=== Summary ===");
-  console.log(`  No Cache avg:        ${avg(noCacheResult.times)}`);
-  console.log(`  InMemoryCache avg:   ${avg(memResult.times)}  (${speedup(noCacheAvg, memResult.times.reduce((a, b) => a + b, 0) / memResult.times.length)} faster overall)`);
-  console.log(`  FsCache avg:         ${avg(fsResult.times)}  (${speedup(noCacheAvg, fsResult.times.reduce((a, b) => a + b, 0) / fsResult.times.length)} faster overall)`);
+  console.log(`  No Cache avg:        ${avg(noCacheResult.times, 0)}`);
+  console.log(
+    `  InMemoryCache avg:   ${avg(memResult.times, 0)}  (${speedup(noCacheAvg, memResult.times.reduce((a, b) => a + b, 0) / memResult.times.length)} faster overall)`
+  );
+  console.log(
+    `  FsCache avg:         ${avg(fsResult.times, 0)}  (${speedup(noCacheAvg, fsResult.times.reduce((a, b) => a + b, 0) / fsResult.times.length)} faster overall)`
+  );
   if (memHitAvg > 0) {
-    console.log(`  InMemoryCache hit:   ~${Math.round(memHitAvg)}ms  (${speedup(noCacheAvg, memHitAvg)} faster than no-cache)`);
+    console.log(`  InMemoryCache hit:   ~${memHitAvg.toFixed(2)}ms  (${speedup(noCacheAvg, memHitAvg)} faster than no-cache)`);
   }
   if (fsHitAvg > 0) {
-    console.log(`  FsCache hit:         ~${Math.round(fsHitAvg)}ms  (${speedup(noCacheAvg, fsHitAvg)} faster than no-cache)`);
+    console.log(`  FsCache hit:         ~${fsHitAvg.toFixed(2)}ms  (${speedup(noCacheAvg, fsHitAvg)} faster than no-cache)`);
   }
 }
 
