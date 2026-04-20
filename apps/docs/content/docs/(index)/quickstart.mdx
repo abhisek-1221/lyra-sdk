@@ -103,11 +103,46 @@ console.log(toPlainText(lines)) // Full transcript as plain text
   The transcript module uses YouTube's internal Innertube API — no quota consumption, no API key.
 </Callout>
 
+## Batch transcript for playlists
+
+Fetch transcripts for every video in a playlist. Requires an API key for the playlist video list:
+
+```ts
+import { transcribePlaylist } from 'lyra-sdk'
+
+const result = await transcribePlaylist('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf', {
+  apiKey: process.env.YOUTUBE_API_KEY!,
+  concurrency: 3,
+})
+
+console.log(`Succeeded: ${result.succeeded}, Failed: ${result.failed}`)
+```
+
+## Regions, languages & categories
+
+Discover supported YouTube regions, languages, and video categories:
+
+```ts
+const regions = await client.regions()           // 110+ regions
+const languages = await client.languages()       // 80+ languages
+const categories = await client.videoCategoriesByRegion('US')  // 32 US categories
+
+// Get localized category names
+const jaCategories = await client.videoCategoriesByRegion('JP', 'ja')
+// [{ id: '10', title: '音楽' }, ...]
+```
+
 ## Next steps
 
 <Cards>
   <Card title="SDK Reference" icon={<BookIcon />} href="/docs/sdk/video">
     Explore every function the SDK offers.
+  </Card>
+  <Card title="Batch Transcript" icon={<ListChecksIcon />} href="/docs/sdk/batch-transcript">
+    Fetch transcripts for entire playlists.
+  </Card>
+  <Card title="Regions & Categories" icon={<GlobeIcon />} href="/docs/sdk/i18n">
+    Regions, languages, and video categories.
   </Card>
   <Card title="API Reference" icon={<WebhookIcon />} href="/docs/api-reference">
     Browse the REST API endpoints with interactive examples.

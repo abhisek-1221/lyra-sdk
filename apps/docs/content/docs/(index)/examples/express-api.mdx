@@ -169,6 +169,111 @@ export const transcriptQuery = z.object({
 | POST | `/api/url/parse` | Parse a YouTube URL into structured data |
 | POST | `/api/url/extract` | Extract IDs from a YouTube URL |
 
+### Batch Transcript
+
+<Callout>
+  Batch transcript requires a YouTube API key to fetch the playlist's video list.
+</Callout>
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/playlist/:id/transcript` | Batch fetch transcripts for all videos in a playlist |
+
+#### `routes/batch-transcript.ts`
+
+```ts title="routes/batch-transcript.ts"
+import type { Request, Response } from 'express'
+import { Router } from 'express'
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+import { z } from 'zod'
+
+const router = Router()
+
+const batchSchema = z.object({
+  concurrency: z.coerce.number().min(1).max(20).optional().default(3),
+  from: z.coerce.number().min(1).optional(),
+  to: z.coerce.number().min(1).optional(),
+  lang: z.string().optional(),
+})
+
+router.post('/playlist/:id/transcript', async (req: Request, res: Response) => {
+  const { id } = req.params
+  const opts = batchSchema.parse(req.body)
+
+  const result = await transcribePlaylist(id, {
+    apiKey: process.env.YOUTUBE_API_KEY!,
+    ...opts,
+    onProgress(done, total, videoId, status) {
+      console.log(`  [${status}] ${done}/${total} — ${videoId}`)
+    },
+  })
+
+  res.json(result)
+})
+
+export const batchTranscriptRoutes = router
+```
+
+### Video Categories
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video-categories?regionCode=US` | Fetch categories for a region |
+| GET | `/api/video-category/:id` | Fetch a single category |
+
+#### `routes/video-category.ts`
+
+```ts title="routes/video-category.ts"
+import type { Request, Response } from 'express'
+import { Router } from 'express'
+import { client } from '../lib.js'
+
+const router = Router()
+
+router.get('/video-categories', async (req: Request, res: Response) => {
+  const regionCode = (req.query.regionCode as string) ?? 'US'
+  const hl = req.query.hl as string | undefined
+  const categories = await client!.videoCategoriesByRegion(regionCode, hl)
+  res.json(categories)
+})
+
+router.get('/video-category/:id', async (req: Request, res: Response) => {
+  const category = await client!.videoCategory(req.params.id)
+  res.json(category)
+})
+
+export const videoCategoryRoutes = router
+```
+
+### I18n
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/regions` | List supported regions |
+| GET | `/api/languages` | List supported languages |
+
+#### `routes/i18n.ts`
+
+```ts title="routes/i18n.ts"
+import type { Request, Response } from 'express'
+import { Router } from 'express'
+import { client } from '../lib.js'
+
+const router = Router()
+
+router.get('/regions', async (req: Request, res: Response) => {
+  const regions = await client!.regions(req.query.hl as string | undefined)
+  res.json(regions)
+})
+
+router.get('/languages', async (req: Request, res: Response) => {
+  const languages = await client!.languages(req.query.hl as string | undefined)
+  res.json(languages)
+})
+
+export const i18nRoutes = router
+```
+
 ## Error Handling
 
 All errors follow the same format:

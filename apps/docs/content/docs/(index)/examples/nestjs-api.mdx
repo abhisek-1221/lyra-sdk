@@ -414,6 +414,91 @@ bootstrap()
 | POST | `/api/url/parse` | Parse YouTube URL |
 | POST | `/api/url/extract` | Extract IDs from URL |
 
+### Batch Transcript (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/playlist/:id/transcript` | Batch transcripts for a playlist |
+
+```ts title="src/batch-transcript/batch-transcript.controller.ts"
+import { Controller, Post, Param, Body } from '@nestjs/common'
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+
+@Controller('api')
+export class BatchTranscriptController {
+  @Post('playlist/:id/transcript')
+  async batchTranscript(
+    @Param('id') id: string,
+    @Body() body: { concurrency?: number; from?: number; to?: number; lang?: string },
+  ) {
+    return transcribePlaylist(id, {
+      apiKey: process.env.YOUTUBE_API_KEY!,
+      concurrency: body.concurrency ?? 3,
+      from: body.from,
+      to: body.to,
+      lang: body.lang,
+    })
+  }
+}
+```
+
+### Video Categories (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video-categories?regionCode=US` | Categories for a region |
+| GET | `/api/video-category/:id` | Single category by ID |
+
+```ts title="src/video-category/video-category.controller.ts"
+import { Controller, Get, Param, Query, Inject } from '@nestjs/common'
+import { YTClient } from 'lyra-sdk'
+
+@Controller('api')
+export class VideoCategoryController {
+  constructor(@Inject('YT_CLIENT') private client: YTClient) {}
+
+  @Get('video-categories')
+  async categoriesByRegion(
+    @Query('regionCode') regionCode = 'US',
+    @Query('hl') hl?: string,
+  ) {
+    return this.client.videoCategoriesByRegion(regionCode, hl)
+  }
+
+  @Get('video-category/:id')
+  async category(@Param('id') id: string) {
+    return this.client.videoCategory(id)
+  }
+}
+```
+
+### I18n (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/regions` | List supported regions |
+| GET | `/api/languages` | List supported languages |
+
+```ts title="src/i18n/i18n.controller.ts"
+import { Controller, Get, Query, Inject } from '@nestjs/common'
+import { YTClient } from 'lyra-sdk'
+
+@Controller('api')
+export class I18nController {
+  constructor(@Inject('YT_CLIENT') private client: YTClient) {}
+
+  @Get('regions')
+  async regions(@Query('hl') hl?: string) {
+    return this.client.regions(hl)
+  }
+
+  @Get('languages')
+  async languages(@Query('hl') hl?: string) {
+    return this.client.languages(hl)
+  }
+}
+```
+
 ## Running
 
 ```bash

@@ -532,6 +532,119 @@ export async function POST(request: Request) {
 | POST | `/api/url/parse` | Parse YouTube URL |
 | POST | `/api/url/extract` | Extract IDs from URL |
 
+### Batch Transcript (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/playlist/:id/transcript` | Batch transcripts for a playlist |
+
+```ts title="src/app/api/playlist/[id]/transcript/route.ts"
+import { NextResponse } from 'next/server'
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+import { handleError } from '@/lib/errors'
+
+export async function POST(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  try {
+    const body = await request.json().catch(() => ({}))
+    const result = await transcribePlaylist(params.id, {
+      apiKey: process.env.YOUTUBE_API_KEY!,
+      concurrency: body.concurrency ?? 3,
+      from: body.from,
+      to: body.to,
+      lang: body.lang,
+    })
+    return NextResponse.json(result)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+### Video Categories (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video-categories?regionCode=US` | Categories for a region |
+| GET | `/api/video-category/[id]` | Single category by ID |
+
+```ts title="src/app/api/video-categories/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const regionCode = searchParams.get('regionCode') ?? 'US'
+    const hl = searchParams.get('hl') ?? undefined
+    const categories = await client!.videoCategoriesByRegion(regionCode, hl)
+    return NextResponse.json(categories)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/video-category/[id]/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  try {
+    const category = await client!.videoCategory(params.id)
+    return NextResponse.json(category)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+### I18n (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/regions` | List supported regions |
+| GET | `/api/languages` | List supported languages |
+
+```ts title="src/app/api/regions/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const regions = await client!.regions(searchParams.get('hl') ?? undefined)
+    return NextResponse.json(regions)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/languages/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const languages = await client!.languages(searchParams.get('hl') ?? undefined)
+    return NextResponse.json(languages)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
 ## Running
 
 ```bash

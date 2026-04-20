@@ -1,0 +1,169 @@
+---
+title: Batch Transcript Scripts
+description: Batch transcript demo scripts with progress tracking, range filtering, and partial failure handling
+icon: Terminal
+---
+
+Ready-to-run scripts demonstrating the batch transcript feature. The `scripts/transcript-playlist.ts` script fetches transcripts for an entire YouTube playlist.
+
+---
+
+## Prerequisites
+
+Batch transcript requires a YouTube Data API key (to fetch the playlist's video list).
+
+```bash
+export YT_API_KEY=your_key_here
+```
+
+---
+
+## Basic batch transcript
+
+Fetches transcripts for every video in a playlist with progress tracking.
+
+```ts title="scripts/transcript-playlist.ts"
+import { transcribePlaylist, toPlainText } from '../packages/core/src/modules/transcript.js'
+
+const API_KEY = process.env.YT_API_KEY!
+const PLAYLIST_ID = process.argv[2] ?? 'PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf'
+
+async function main() {
+  console.log('=== Batch Transcript: Playlist ===\n')
+  console.log(`Playlist: ${PLAYLIST_ID}\n`)
+
+  const result = await transcribePlaylist(PLAYLIST_ID, {
+    apiKey: API_KEY,
+    concurrency: 3,
+    onProgress(done, total, videoId, status) {
+      const icon = status === 'success' ? '+' : 'x'
+      console.log(`  [${icon}] ${done}/${total} — ${videoId}`)
+    },
+  })
+
+  console.log(`\n--- Summary ---`)
+  console.log(`Playlist ID:    ${result.playlistId}`)
+  console.log(`Total videos:   ${result.totalVideos}`)
+  console.log(`Range:          ${result.requestedRange[0]}–${result.requestedRange[1]}`)
+  console.log(`Succeeded:      ${result.succeeded}`)
+  console.log(`Failed:         ${result.failed}`)
+
+  const first = result.results.find(r => r.status === 'success' && 'lines' in r)
+  if (first && 'lines' in first) {
+    console.log(`\n--- First 3 lines of "${first.title}" (${first.videoId}) ---\n`)
+    console.log(toPlainText(first.lines.slice(0, 3)))
+  }
+
+  const failures = result.results.filter(r => r.status === 'failed')
+  if (failures.length > 0) {
+    console.log('\n--- Failed videos ---\n')
+    for (const f of failures) {
+      console.log(`  ${f.position}. ${f.videoId} — ${f.error}`)
+    }
+  }
+}
+
+main().catch(console.error)
+```
+
+### Run it
+
+```bash
+YT_API_KEY=your_key npx tsx scripts/transcript-playlist.ts
+```
+
+### Expected output
+
+```
+=== Batch Transcript: Playlist ===
+
+Playlist: PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
+
+  [+] 1/2 — dQw4w9WgXcQ
+  [+] 2/2 — LXb3EKsInyt
+
+--- Summary ---
+Playlist ID:    PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
+Total videos:   2
+Range:          1–2
+Succeeded:      2
+Failed:         0
+
+--- First 3 lines of "Rick Astley - Never Gonna Give You Up" (dQw4w9WgXcQ) ---
+
+♪ We're no strangers to love ♪
+♪ You know the rules and so do I ♪
+♪ A full commitment's what I'm thinking of ♪
+```
+
+---
+
+## How it works
+
+<div className='fd-steps [&_h3]:fd-step'>
+
+### Step 1: Resolve playlist ID
+
+The script accepts either a raw playlist ID or a full YouTube playlist URL. The SDK extracts the ID automatically.
+
+### Step 2: Fetch video list
+
+Uses the YouTube Data API v3 (`playlistItems.list`) with auto-pagination to collect all video IDs from the playlist. Batches in chunks of 50.
+
+### Step 3: Fetch video titles
+
+Makes a separate `videos.list` call (batched in chunks of 50) to get titles for each video. These titles appear in the results.
+
+### Step 4: Concurrent transcript fetch
+
+A bounded concurrency pool processes videos in parallel (default: 3 at a time). Each video goes through the full 3-phase Innertube transcript flow (watch page → player API → XML).
+
+### Step 5: Collect results
+
+Results are collected in playlist order. Successful videos get `status: "success"` with `lines`. Failed videos get `status: "failed"` with an `error` message. Failures don't stop the batch.
+
+</div>
+
+---
+
+## Partial failures
+
+Some videos in a playlist may not have transcripts (private, deleted, captions disabled). These appear as failed results without stopping the batch:
+
+```
+  [+] 1/5 — dQw4w9WgXcQ
+  [x] 2/5 — privateVideo01
+  [+] 3/5 — LXb3EKsInyt
+  [x] 4/5 — noCaptionVideo
+  [+] 5/5 — anotherGoodOne
+
+--- Summary ---
+Succeeded:      3
+Failed:         2
+
+--- Failed videos ---
+
+  2. privateVideo01 — Video unavailable
+  4. noCaptionVideo — Transcripts are disabled for this video
+```
+
+---
+
+## Range filtering
+
+Pass a playlist URL as an argument to fetch a different playlist:
+
+```bash
+YT_API_KEY=your_key npx tsx scripts/transcript-playlist.ts "https://youtube.com/playlist?list=PLxxxx"
+```
+
+To fetch only a subset, modify the script to use `from` and `to`:
+
+```ts
+const result = await transcribePlaylist(PLAYLIST_ID, {
+  apiKey: API_KEY,
+  from: 5,
+  to: 15,
+  concurrency: 3,
+})
+```
