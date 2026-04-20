@@ -8,7 +8,7 @@ icon: ListChecks
 
 `transcribePlaylist()` fetches transcripts for every video in a YouTube playlist. It combines the YouTube Data API v3 (to list playlist videos) with the Innertube transcript module (to fetch each transcript).
 
-<<Callout type="warn" title="API key required">
+<Callout type="warn" title="API key required">
   Unlike single-video transcripts, batch operations require a YouTube Data API key to fetch the playlist's video list. Each video's transcript still uses the Innertube API (no additional quota).
 </Callout>
 
@@ -142,7 +142,7 @@ Results are placed into a pre-allocated array at the original index. The output 
 | `5–10`  | Large playlists (100+ videos) on stable connections  |
 | `10+`   | Only with caching or proxy rotation                  |
 
-<<Callout type="warn">
+<Callout type="warn">
   Higher concurrency increases the chance of YouTube rate-limiting. If you see frequent failures, lower the concurrency or enable caching + retries.
 </Callout>
 
@@ -272,6 +272,6 @@ try {
 | `NotFoundError`              | Playlist does not exist                         |
 | `YTError`                    | YouTube Data API failure (quota, network, etc.) |
 
-<<Callout>
+<Callout>
   Individual transcript failures for specific videos are **not thrown** — they appear as `{ status: "failed", error: "..." }` in the results array. Only playlist-level errors (auth, not found, invalid range) throw.
 </Callout>
