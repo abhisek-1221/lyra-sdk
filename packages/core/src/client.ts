@@ -8,6 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { HttpClient } from "./http.js";
+import { getChannel, getChannelVideos } from "./modules/channel.js";
 import {
   flattenComments,
   getChannelComments,
@@ -19,7 +20,6 @@ import {
   searchComments,
 } from "./modules/comment.js";
 import { CommentQueryBuilder } from "./modules/comment-query.js";
-import { getChannel, getChannelVideos } from "./modules/channel.js";
 import { getLanguages, getRegions } from "./modules/i18n.js";
 import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "./modules/playlist.js";
 import { PlaylistQueryBuilder } from "./modules/playlist-query.js";

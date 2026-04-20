@@ -22,7 +22,7 @@ function createMockHttp(responses: Record<string, unknown>): HttpClient {
       const res = responses[key] ?? responses[path];
       if (!res) throw new Error(`Unmocked request: ${key}`);
       return res;
-    },
+    }
   );
 
   return http;
@@ -146,7 +146,10 @@ describe("getVideoComments", () => {
     const threads = await getVideoComments(http, "https://youtu.be/dQw4w9WgXcQ");
 
     expect(threads).toHaveLength(2);
-    expect(http.get).toHaveBeenCalledWith("commentThreads", expect.objectContaining({ videoId: "dQw4w9WgXcQ" }));
+    expect(http.get).toHaveBeenCalledWith(
+      "commentThreads",
+      expect.objectContaining({ videoId: "dQw4w9WgXcQ" })
+    );
   });
 
   it("auto-paginates through pages", async () => {
@@ -190,10 +193,13 @@ describe("getVideoComments", () => {
     const http = createMockHttp({ commentThreads: SINGLE_PAGE });
     await getVideoComments(http, "dQw4w9WgXcQ", { order: "relevance", searchTerms: "love" });
 
-    expect(http.get).toHaveBeenCalledWith("commentThreads", expect.objectContaining({
-      order: "relevance",
-      searchTerms: "love",
-    }));
+    expect(http.get).toHaveBeenCalledWith(
+      "commentThreads",
+      expect.objectContaining({
+        order: "relevance",
+        searchTerms: "love",
+      })
+    );
   });
 });
 
@@ -211,10 +217,13 @@ describe("getCommentReplies", () => {
     const http = createMockHttp({ comments: REPLY_PAGE });
     await getCommentReplies(http, "comment1", "html");
 
-    expect(http.get).toHaveBeenCalledWith("comments", expect.objectContaining({
-      parentId: "comment1",
-      textFormat: "html",
-    }));
+    expect(http.get).toHaveBeenCalledWith(
+      "comments",
+      expect.objectContaining({
+        parentId: "comment1",
+        textFormat: "html",
+      })
+    );
   });
 });
 
@@ -287,9 +296,12 @@ describe("getTopComments", () => {
     const threads = await getTopComments(http, "dQw4w9WgXcQ", 1);
 
     expect(threads).toHaveLength(1);
-    expect(http.get).toHaveBeenCalledWith("commentThreads", expect.objectContaining({
-      order: "relevance",
-    }));
+    expect(http.get).toHaveBeenCalledWith(
+      "commentThreads",
+      expect.objectContaining({
+        order: "relevance",
+      })
+    );
   });
 });
 
@@ -299,9 +311,12 @@ describe("searchComments", () => {
     const threads = await searchComments(http, "dQw4w9WgXcQ", "love");
 
     expect(threads).toHaveLength(2);
-    expect(http.get).toHaveBeenCalledWith("commentThreads", expect.objectContaining({
-      searchTerms: "love",
-    }));
+    expect(http.get).toHaveBeenCalledWith(
+      "commentThreads",
+      expect.objectContaining({
+        searchTerms: "love",
+      })
+    );
   });
 });
 
@@ -311,9 +326,12 @@ describe("getChannelComments", () => {
     const threads = await getChannelComments(http, "UCxxx");
 
     expect(threads).toHaveLength(2);
-    expect(http.get).toHaveBeenCalledWith("commentThreads", expect.objectContaining({
-      allThreadsRelatedToChannelId: "UCxxx",
-    }));
+    expect(http.get).toHaveBeenCalledWith(
+      "commentThreads",
+      expect.objectContaining({
+        allThreadsRelatedToChannelId: "UCxxx",
+      })
+    );
   });
 });
 
@@ -406,16 +424,31 @@ describe("flattenComments", () => {
         videoId: "vid1",
         channelId: "ch1",
         topLevelComment: {
-          id: "c1", authorName: "Alice", authorProfileImage: "", authorChannelUrl: "",
-          authorChannelId: "UCalice", text: "Great", likeCount: 10,
-          publishedAt: new Date(), updatedAt: new Date(),
+          id: "c1",
+          authorName: "Alice",
+          authorProfileImage: "",
+          authorChannelUrl: "",
+          authorChannelId: "UCalice",
+          text: "Great",
+          likeCount: 10,
+          publishedAt: new Date(),
+          updatedAt: new Date(),
         },
-        totalReplyCount: 1, canReply: true, isPublic: true,
+        totalReplyCount: 1,
+        canReply: true,
+        isPublic: true,
         replies: [
           {
-            id: "r1", authorName: "Bob", authorProfileImage: "", authorChannelUrl: "",
-            authorChannelId: "UCbob", text: "Thanks", likeCount: 5,
-            publishedAt: new Date(), updatedAt: new Date(), parentId: "c1",
+            id: "r1",
+            authorName: "Bob",
+            authorProfileImage: "",
+            authorChannelUrl: "",
+            authorChannelId: "UCbob",
+            text: "Thanks",
+            likeCount: 5,
+            publishedAt: new Date(),
+            updatedAt: new Date(),
+            parentId: "c1",
           },
         ],
       },
@@ -424,11 +457,19 @@ describe("flattenComments", () => {
         videoId: "vid1",
         channelId: "ch1",
         topLevelComment: {
-          id: "c2", authorName: "Charlie", authorProfileImage: "", authorChannelUrl: "",
-          authorChannelId: "UCcharlie", text: "Nice", likeCount: 50,
-          publishedAt: new Date(), updatedAt: new Date(),
+          id: "c2",
+          authorName: "Charlie",
+          authorProfileImage: "",
+          authorChannelUrl: "",
+          authorChannelId: "UCcharlie",
+          text: "Nice",
+          likeCount: 50,
+          publishedAt: new Date(),
+          updatedAt: new Date(),
         },
-        totalReplyCount: 0, canReply: true, isPublic: true,
+        totalReplyCount: 0,
+        canReply: true,
+        isPublic: true,
       },
     ];
 
@@ -457,22 +498,21 @@ describe("CommentQueryBuilder", () => {
 
   it("applies limit to results", async () => {
     const http = createMockHttp({ commentThreads: SINGLE_PAGE });
-    const result = await new CommentQueryBuilder(http, "dQw4w9WgXcQ")
-      .limit(1)
-      .execute();
+    const result = await new CommentQueryBuilder(http, "dQw4w9WgXcQ").limit(1).execute();
 
     expect(result.threads).toHaveLength(1);
   });
 
   it("passes search terms", async () => {
     const http = createMockHttp({ commentThreads: SINGLE_PAGE });
-    await new CommentQueryBuilder(http, "dQw4w9WgXcQ")
-      .search("love this")
-      .execute();
+    await new CommentQueryBuilder(http, "dQw4w9WgXcQ").search("love this").execute();
 
-    expect(http.get).toHaveBeenCalledWith("commentThreads", expect.objectContaining({
-      searchTerms: "love this",
-    }));
+    expect(http.get).toHaveBeenCalledWith(
+      "commentThreads",
+      expect.objectContaining({
+        searchTerms: "love this",
+      })
+    );
   });
 
   it("fetches all replies when withAllReplies is set", async () => {
@@ -489,9 +529,7 @@ describe("CommentQueryBuilder", () => {
       throw new Error(`Unexpected path: ${path}`);
     });
 
-    const result = await new CommentQueryBuilder(http, "dQw4w9WgXcQ")
-      .withAllReplies()
-      .execute();
+    const result = await new CommentQueryBuilder(http, "dQw4w9WgXcQ").withAllReplies().execute();
 
     expect(result.threads[0].replies).toHaveLength(1);
     expect(result.threads[0].replies![0].authorName).toBe("Bob");
@@ -499,8 +537,7 @@ describe("CommentQueryBuilder", () => {
 
   it("resolves video URLs", async () => {
     const http = createMockHttp({ commentThreads: SINGLE_PAGE });
-    const result = await new CommentQueryBuilder(http, "https://youtu.be/dQw4w9WgXcQ")
-      .execute();
+    const result = await new CommentQueryBuilder(http, "https://youtu.be/dQw4w9WgXcQ").execute();
 
     expect(result.videoId).toBe("dQw4w9WgXcQ");
   });

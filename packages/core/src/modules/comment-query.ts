@@ -1,11 +1,12 @@
 import type { HttpClient } from "../http.js";
-import type { CommentOptions, CommentOrder, CommentQueryResult, CommentTextFormat } from "../types.js";
+import type {
+  CommentOptions,
+  CommentOrder,
+  CommentQueryResult,
+  CommentTextFormat,
+} from "../types.js";
 import { extractVideoId } from "../utils/index.js";
-import {
-  getCommentReplies,
-  getCommentStats,
-  getVideoComments,
-} from "./comment.js";
+import { getCommentReplies, getCommentStats, getVideoComments } from "./comment.js";
 
 export class CommentQueryBuilder {
   private readonly http: HttpClient;
@@ -62,7 +63,7 @@ export class CommentQueryBuilder {
 
     if (this.fetchAllReplies) {
       const needsReplies = threads.filter(
-        (t) => t.totalReplyCount > 0 && (!t.replies || t.replies.length < t.totalReplyCount),
+        (t) => t.totalReplyCount > 0 && (!t.replies || t.replies.length < t.totalReplyCount)
       );
 
       const textFormat = this.textFormatValue ?? "plainText";
@@ -71,7 +72,7 @@ export class CommentQueryBuilder {
           const idx = threads.indexOf(t);
           const allReplies = await getCommentReplies(this.http, t.topLevelComment.id, textFormat);
           threads[idx] = { ...t, replies: allReplies };
-        }),
+        })
       );
     }
 
