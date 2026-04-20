@@ -1,0 +1,7 @@
+{
+  "playabilityStatus": { "status": "OK" },
+  "videoDetails": {
+    "videoId": "disabledCap",
+    "title": "A video without captions"
+  }
+}

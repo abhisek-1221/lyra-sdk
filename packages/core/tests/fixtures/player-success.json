@@ -1,0 +1,36 @@
+{
+  "playabilityStatus": { "status": "OK" },
+  "videoDetails": {
+    "videoId": "dQw4w9WgXcQ",
+    "title": "Rick Astley - Never Gonna Give You Up",
+    "author": "Rick Astley",
+    "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+    "lengthSeconds": "212",
+    "viewCount": "1600000000",
+    "shortDescription": "The official video for Never Gonna Give You Up by Rick Astley",
+    "keywords": ["rick astley", "never gonna give you up", "official video"],
+    "thumbnail": {
+      "thumbnails": [
+        { "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg", "width": 1280, "height": 720 }
+      ]
+    },
+    "isLiveContent": false
+  },
+  "captions": {
+    "playerCaptionsTracklistRenderer": {
+      "captionTracks": [
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=en&fmt=srv3",
+          "languageCode": "en",
+          "name": { "simpleText": "English" },
+          "kind": "asr"
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=es&fmt=srv3",
+          "languageCode": "es",
+          "name": { "simpleText": "Spanish" }
+        }
+      ]
+    }
+  }
+}

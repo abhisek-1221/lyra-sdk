@@ -1,19 +1,23 @@
-import { DEFAULT_USER_AGENT, INNERTUBE_CLIENT_NAME, INNERTUBE_CLIENT_VERSION } from "./constants.js";
 import {
-  TranscriptVideoUnavailableError,
-  TranscriptRateLimitError,
+  DEFAULT_USER_AGENT,
+  INNERTUBE_CLIENT_NAME,
+  INNERTUBE_CLIENT_VERSION,
+} from "./constants.js";
+import {
   TranscriptDisabledError,
-  TranscriptNotFoundError,
   TranscriptLanguageError,
+  TranscriptNotFoundError,
+  TranscriptRateLimitError,
+  TranscriptVideoUnavailableError,
 } from "./errors.js";
-import { resolveVideoId, validateLang, parseTranscriptXml } from "./parse.js";
+import { parseTranscriptXml, resolveVideoId, validateLang } from "./parse.js";
 import type {
-  TranscriptOptions,
-  TranscriptLine,
-  TranscriptWithMeta,
   CaptionTrack,
-  InternalCaptionTrack,
   InnertubePlayerResponse,
+  InternalCaptionTrack,
+  TranscriptLine,
+  TranscriptOptions,
+  TranscriptWithMeta,
   VideoMeta,
 } from "./types.js";
 
@@ -90,7 +94,7 @@ async function fetchCaptionTracks(
 
   if (!playerRes.ok) throw new TranscriptVideoUnavailableError(identifier);
 
-  const playerJson: InnertubePlayerResponse = await playerRes.json();
+  const playerJson = (await playerRes.json()) as InnertubePlayerResponse;
 
   const tracklist =
     playerJson.captions?.playerCaptionsTracklistRenderer ??
@@ -112,10 +116,7 @@ async function fetchCaptionTracks(
   return { tracks, playerJson };
 }
 
-function extractVideoMeta(
-  playerJson: InnertubePlayerResponse,
-  fallbackId: string
-): VideoMeta {
+function extractVideoMeta(playerJson: InnertubePlayerResponse, fallbackId: string): VideoMeta {
   const raw = playerJson.videoDetails;
   return {
     videoId: raw?.videoId ?? fallbackId,
@@ -141,9 +142,7 @@ export async function fetchTranscript(
 
   const { tracks, playerJson } = await fetchCaptionTracks(identifier, options);
 
-  const selected = lang
-    ? tracks.find((t) => t.languageCode === lang)
-    : tracks[0];
+  const selected = lang ? tracks.find((t) => t.languageCode === lang) : tracks[0];
 
   if (!selected) {
     const available = tracks.map((t) => t.languageCode).filter(Boolean);
