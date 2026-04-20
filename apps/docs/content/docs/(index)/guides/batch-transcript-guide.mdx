@@ -1,0 +1,232 @@
+---
+title: Batch Transcript Guide
+description: Best practices for fetching transcripts at scale — concurrency tuning, caching, partial failures, and memory
+icon: ListChecks
+---
+
+## When to use batch transcript
+
+| Scenario                         | Use `transcribeVideo()` | Use `transcribePlaylist()` |
+| -------------------------------- | ----------------------- | -------------------------- |
+| 1–3 videos                       | Yes                     | No                         |
+| Full playlist (any size)         | Manual loop             | Yes                        |
+| Playlist with range (e.g. 10–30) | Manual loop             | Yes (with `from`/`to`)     |
+| Need progress tracking           | Manual                  | Yes (built-in)             |
+
+---
+
+## Concurrency tuning
+
+The `concurrency` option controls how many transcripts are fetched in parallel. The default is `3`.
+
+### Low concurrency (1–2)
+
+Use when:
+- Running on a server with limited bandwidth
+- YouTube is rate-limiting your IP frequently
+- You need strict sequential processing
+
+```ts
+const result = await transcribePlaylist(playlistId, {
+  apiKey,
+  concurrency: 1,
+})
+```
+
+### Default concurrency (3)
+
+Good for most use cases. Balances speed with YouTube's tolerance for parallel requests.
+
+### High concurrency (5–10)
+
+Use when:
+- Fetching large playlists (100+ videos)
+- Running behind a proxy with IP rotation
+- Caching is enabled (most requests won't hit YouTube)
+
+```ts
+const result = await transcribePlaylist(playlistId, {
+  apiKey,
+  concurrency: 8,
+  cache: new InMemoryCache(),
+  retries: 2,
+})
+```
+
+### Concurrency and failures
+
+Higher concurrency means more simultaneous connections to YouTube. If failures increase when you raise concurrency, that's a sign of rate limiting. Either lower the value or add retries.
+
+---
+
+## Combining with cache
+
+Batch transcript benefits massively from caching. On the first run, all transcripts are fetched from YouTube. On subsequent runs with the same cache instance, only new or expired entries hit the network.
+
+```ts
+import { transcribePlaylist, InMemoryCache } from 'lyra-sdk/transcript'
+
+const cache = new InMemoryCache()
+
+// First run — fetches everything (N * 3 HTTP requests)
+const result1 = await transcribePlaylist(playlistId, {
+  apiKey,
+  cache,
+})
+
+// Second run — all transcripts from cache (0 HTTP requests for transcripts)
+const result2 = await transcribePlaylist(playlistId, {
+  apiKey,
+  cache,
+})
+```
+
+<<Callout>
+  The cache stores individual video transcripts, not the entire playlist result. Adding or removing videos from the playlist only affects cache misses for the changed videos.
+</Callout>
+
+### FsCache for persistent caching
+
+For CLI tools or long-running services, use `FsCache` to persist across restarts:
+
+```ts
+import { FsCache } from 'lyra-sdk/transcript'
+
+const cache = new FsCache('./transcript-cache', 86400000) // 24-hour TTL
+```
+
+---
+
+## Handling partial failures
+
+In any playlist, some videos will fail to transcribe. Common reasons:
+
+| Reason                      | Error message                                   |
+| --------------------------- | ----------------------------------------------- |
+| Video is private            | `Video unavailable`                             |
+| Video is deleted            | `Video unavailable`                             |
+| Captions disabled           | `Transcripts are disabled for this video`       |
+| No captions available       | `Could not find a transcript`                   |
+| Language not available      | `Language "de" is not available`                |
+| Rate limited                | `You are receiving rate limit errors`           |
+
+### Pattern: retry failed videos
+
+```ts
+const result = await transcribePlaylist(playlistId, { apiKey, retries: 2 })
+
+if (result.failed > 0) {
+  const failedIds = result.results
+    .filter(r => r.status === 'failed')
+    .map(r => r.videoId)
+
+  console.log(`Retrying ${failedIds.length} failed videos...`)
+
+  // Retry individually with longer delay
+  for (const id of failedIds) {
+    try {
+      const lines = await transcribeVideo(id, { retries: 3, retryDelay: 2000 })
+      console.log(`  ✓ ${id}`)
+    } catch {
+      console.log(`  ✗ ${id} — still failing`)
+    }
+  }
+}
+```
+
+### Pattern: log and continue
+
+```ts
+const result = await transcribePlaylist(playlistId, {
+  apiKey,
+  onProgress(done, total, videoId, status) {
+    if (status === 'failed') {
+      // Log to your error tracking service
+      captureFailedTranscript(videoId, playlistId)
+    }
+  },
+})
+```
+
+---
+
+## Memory considerations
+
+Each `TranscriptLine` is a small object (~100 bytes). A typical 10-minute video produces 50–150 lines. For a 1000-video playlist:
+
+- Lines data: ~1000 × 100 lines × 100 bytes ≈ **10 MB**
+- Video titles + metadata: ~100 KB
+- Total result object: **~10 MB**
+
+This fits comfortably in memory for playlists up to several thousand videos. For very large playlists (10,000+), process in ranges:
+
+```ts
+const BATCH_SIZE = 500
+const info = await client.playlistInfo(playlistId)
+const totalVideos = info.videoCount
+
+for (let from = 1; from <= totalVideos; from += BATCH_SIZE) {
+  const to = Math.min(from + BATCH_SIZE - 1, totalVideos)
+  const result = await transcribePlaylist(playlistId, { apiKey, from, to })
+
+  // Process this batch, then allow GC to collect the result
+  await processBatch(result)
+}
+```
+
+---
+
+## Progress patterns
+
+### CLI progress bar
+
+```ts
+const result = await transcribePlaylist(playlistId, {
+  apiKey,
+  onProgress(done, total, videoId, status) {
+    const pct = Math.round((done / total) * 100)
+    const bar = '█'.repeat(Math.floor(pct / 2)) + '░'.repeat(50 - Math.floor(pct / 2))
+    process.stdout.write(`\r  [${bar}] ${pct}% (${done}/${total})`)
+  },
+})
+console.log('\n')
+```
+
+### WebSocket progress
+
+```ts
+// Server-side: broadcast progress to connected clients
+wss.on('connection', (ws) => {
+  ws.on('message', async (msg) => {
+    const { playlistId } = JSON.parse(msg.toString())
+
+    const result = await transcribePlaylist(playlistId, {
+      apiKey,
+      onProgress(done, total, videoId, status) {
+        ws.send(JSON.stringify({ type: 'progress', done, total, videoId, status }))
+      },
+    })
+
+    ws.send(JSON.stringify({ type: 'complete', result }))
+  })
+})
+```
+
+---
+
+## Next steps
+
+<Cards>
+  <Card title="Batch Transcript API" icon={<BookIcon />} href="/docs/sdk/batch-transcript">
+    Full API reference for all options and response types.
+  </Card>
+  <Card title="Caching" icon={<DatabaseIcon />} href="/docs/sdk/caching">
+    InMemoryCache, FsCache, and custom cache backends.
+  </Card>
+  <Card title="Retry" icon={<RotateCwIcon />} href="/docs/sdk/retry">
+    Exponential backoff and AbortSignal integration.
+  </Card>
+  <Card title="Transcript Scripts" icon={<TerminalIcon />} href="/docs/examples/batch-transcript-scripts">
+    Ready-to-run batch transcript scripts.
+  </Card>
+</Cards>
