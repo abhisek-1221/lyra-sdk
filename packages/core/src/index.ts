@@ -36,6 +36,29 @@ export {
   YTError,
 } from "./errors.js";
 export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
+export type {
+  CaptionTrack,
+  TranscriptLine,
+  TranscriptOptions,
+  TranscriptWithMeta,
+  VideoMeta,
+} from "./modules/transcript.js";
+export {
+  listCaptionTracks,
+  TranscriptClient,
+  TranscriptDisabledError,
+  TranscriptError,
+  TranscriptInvalidLangError,
+  TranscriptInvalidVideoIdError,
+  TranscriptLanguageError,
+  TranscriptNotFoundError,
+  TranscriptRateLimitError,
+  TranscriptVideoUnavailableError,
+  toPlainText,
+  toSRT,
+  toVTT,
+  transcribeVideo,
+} from "./modules/transcript.js";
 export { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
 export type {
   Channel,
@@ -54,15 +77,12 @@ export type {
   VideoTitle,
   YTOptions,
 } from "./types.js";
-
 export {
   formatDuration,
   formatDurationClock,
   parseDuration,
 } from "./utils/duration.js";
-
 export { formatDate, formatNumber, relativeTime } from "./utils/format.js";
-
 export {
   extractChannelId,
   extractPlaylistId,

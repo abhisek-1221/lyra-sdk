@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     url: "src/modules/url.ts",
     fmt: "src/utils/format.ts",
+    transcript: "src/modules/transcript.ts",
   },
   format: ["esm", "cjs"],
   dts: true,
