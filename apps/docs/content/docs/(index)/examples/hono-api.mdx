@@ -1,0 +1,354 @@
+---
+title: Hono API Server
+description: REST API with Hono — works on Bun, Deno, Node, and edge runtimes
+icon: Zap
+---
+
+[Hono](https://hono.dev) is a lightweight web framework that runs on any JavaScript runtime. This example wraps every `lyra-sdk` function as REST endpoints using Hono.
+
+## Setup
+
+```bash
+mkdir lyra-hono-api && cd lyra-hono-api
+npm init -y
+npm install hono lyra-sdk zod dotenv
+npm install -D @hono/node-server tsx
+```
+
+Add to `.env`:
+
+```bash
+YOUTUBE_API_KEY=your_key_here
+```
+
+<Callout>
+  Transcript endpoints do **not** require `YOUTUBE_API_KEY`.
+</Callout>
+
+## File structure
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <File name="index.ts" />
+    <File name="lib.ts" />
+    <File name="errors.ts" />
+    <Folder name="routes" defaultOpen>
+      <File name="video.ts" />
+      <File name="channel.ts" />
+      <File name="playlist.ts" />
+      <File name="transcript.ts" />
+      <File name="url.ts" />
+    </Folder>
+  </Folder>
+</Files>
+
+## Initialization
+
+```ts title="src/lib.ts"
+import { config } from 'dotenv'
+config()
+
+import { yt } from 'lyra-sdk'
+
+const API_KEY = process.env.YOUTUBE_API_KEY ?? ''
+
+export const client = API_KEY ? yt(API_KEY) : null
+```
+
+## Error handling
+
+```ts title="src/errors.ts"
+import type { ErrorHandler } from 'hono'
+import { AuthError, NotFoundError, QuotaError, YTError } from 'lyra-sdk'
+import { TranscriptError } from 'lyra-sdk/transcript'
+
+export const onError: ErrorHandler = (err, c) => {
+  if (err instanceof NotFoundError) {
+    return c.json({ error: { code: 404, message: err.message } }, 404)
+  }
+  if (err instanceof AuthError) {
+    return c.json({ error: { code: 401, message: err.message } }, 401)
+  }
+  if (err instanceof QuotaError) {
+    return c.json({ error: { code: 429, message: err.message } }, 429)
+  }
+  if (err instanceof TranscriptError) {
+    const status = 'status' in err ? (err as any).status ?? 500 : 500
+    return c.json({ error: { code: status, message: err.message } }, status)
+  }
+  if (err instanceof YTError) {
+    return c.json({ error: { code: 502, message: err.message } }, 502)
+  }
+  console.error('Unhandled error:', err)
+  return c.json({ error: { code: 500, message: 'Internal server error' } }, 500)
+}
+```
+
+---
+
+## Video routes
+
+```ts title="src/routes/video.ts"
+import { Hono } from 'hono'
+import { client } from '../lib.js'
+
+const app = new Hono()
+
+app.get('/video/:id', async (c) => {
+  const id = c.req.param('id')
+  const video = await client!.video(id)
+  return c.json(video)
+})
+
+app.get('/videos', async (c) => {
+  const ids = c.req.query('ids')?.split(',').map((s) => s.trim()) ?? []
+  const videos = await client!.videos(ids)
+  return c.json(videos)
+})
+
+app.get('/video/:id/title', async (c) => {
+  const id = c.req.param('id')
+  const result = await client!.videoTitle(id)
+  return c.json(result)
+})
+
+export const videoRoutes = app
+```
+
+---
+
+## Channel routes
+
+```ts title="src/routes/channel.ts"
+import { Hono } from 'hono'
+import { client } from '../lib.js'
+
+const app = new Hono()
+
+app.get('/channel/:id', async (c) => {
+  const id = c.req.param('id')
+  const channel = await client!.channel(id)
+  return c.json(channel)
+})
+
+app.get('/channel/:id/videos', async (c) => {
+  const id = c.req.param('id')
+  const limit = Number(c.req.query('limit')) || 5
+  const videos = await client!.channelVideos(id, { limit })
+  return c.json(videos)
+})
+
+export const channelRoutes = app
+```
+
+---
+
+## Playlist routes
+
+```ts title="src/routes/playlist.ts"
+import { Hono } from 'hono'
+import { client } from '../lib.js'
+
+const app = new Hono()
+
+app.get('/playlist/:id', async (c) => {
+  const id = c.req.param('id')
+  const playlist = await client!.playlist(id)
+  return c.json(playlist)
+})
+
+app.get('/playlist/:id/info', async (c) => {
+  const id = c.req.param('id')
+  const info = await client!.playlistInfo(id)
+  return c.json(info)
+})
+
+app.get('/playlist/:id/ids', async (c) => {
+  const id = c.req.param('id')
+  const ids = await client!.playlistVideoIds(id)
+  return c.json({ id, videoIds: ids, count: ids.length })
+})
+
+app.post('/playlist/:id/query', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+
+  let query = client!.playlistQuery(id)
+
+  if (body.filter?.duration) query = query.filterByDuration(body.filter.duration)
+  if (body.filter?.views) query = query.filterByViews(body.filter.views)
+  if (body.filter?.likes) query = query.filterByLikes(body.filter.likes)
+  if (body.sort) query = query.sortBy(body.sort.field, body.sort.order)
+  if (body.range) query = query.between(body.range.start, body.range.end)
+
+  const result = await query.execute()
+  return c.json(result)
+})
+
+export const playlistRoutes = app
+```
+
+---
+
+## Transcript routes
+
+```ts title="src/routes/transcript.ts"
+import { Hono } from 'hono'
+import {
+  transcribeVideo,
+  listCaptionTracks,
+  toSRT,
+  toVTT,
+  toPlainText,
+} from 'lyra-sdk/transcript'
+
+const app = new Hono()
+
+app.get('/transcript/:id', async (c) => {
+  const id = c.req.param('id')
+  const lang = c.req.query('lang')
+  const lines = await transcribeVideo(id, { lang })
+  return c.json(lines)
+})
+
+app.get('/transcript/:id/languages', async (c) => {
+  const id = c.req.param('id')
+  const tracks = await listCaptionTracks(id)
+  return c.json(tracks)
+})
+
+app.get('/transcript/:id/srt', async (c) => {
+  const id = c.req.param('id')
+  const lang = c.req.query('lang')
+  const lines = await transcribeVideo(id, { lang })
+  return c.text(toSRT(lines))
+})
+
+app.get('/transcript/:id/vtt', async (c) => {
+  const id = c.req.param('id')
+  const lang = c.req.query('lang')
+  const lines = await transcribeVideo(id, { lang })
+  return c.text(toVTT(lines))
+})
+
+app.get('/transcript/:id/text', async (c) => {
+  const id = c.req.param('id')
+  const lang = c.req.query('lang')
+  const lines = await transcribeVideo(id, { lang })
+  return c.text(toPlainText(lines))
+})
+
+export const transcriptRoutes = app
+```
+
+<Callout>
+  Transcript routes import from `lyra-sdk/transcript` — no API key or `yt()` client needed.
+</Callout>
+
+---
+
+## URL routes
+
+```ts title="src/routes/url.ts"
+import { Hono } from 'hono'
+import { client } from '../lib.js'
+
+const app = new Hono()
+
+app.post('/url/parse', async (c) => {
+  const { url } = await c.req.json()
+  const result = client!.url.parse(url)
+  return c.json(result)
+})
+
+app.post('/url/extract', async (c) => {
+  const { url, type } = await c.req.json()
+
+  if (type === 'video' || (!type && client!.url.isVideo(url))) {
+    return c.json({ type: 'video', videoId: client!.url.extractVideoId(url) })
+  }
+  if (type === 'playlist' || (!type && client!.url.isPlaylist(url))) {
+    return c.json({ type: 'playlist', playlistId: client!.url.extractPlaylistId(url) })
+  }
+  const channelId = client!.url.extractChannelId(url)
+  if (channelId) return c.json({ type: 'channel', channelId })
+
+  return c.json({ type: 'unknown', id: null })
+})
+
+export const urlRoutes = app
+```
+
+---
+
+## App entry point
+
+```ts title="src/index.ts"
+import { Hono } from 'hono'
+import { serve } from '@hono/node-server'
+import { videoRoutes } from './routes/video.js'
+import { channelRoutes } from './routes/channel.js'
+import { playlistRoutes } from './routes/playlist.js'
+import { transcriptRoutes } from './routes/transcript.js'
+import { urlRoutes } from './routes/url.js'
+import { onError } from './errors.js'
+
+const app = new Hono()
+
+app.route('/api', videoRoutes)
+app.route('/api', channelRoutes)
+app.route('/api', playlistRoutes)
+app.route('/api', transcriptRoutes)
+app.route('/api', urlRoutes)
+
+app.onError(onError)
+
+const PORT = Number(process.env.PORT) || 3000
+serve({ fetch: app.fetch, port: PORT }, () => {
+  console.log(`Hono API running at http://localhost:${PORT}`)
+})
+```
+
+## Endpoints
+
+### Video & Channel (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video/:id` | Fetch full video details |
+| GET | `/api/videos?ids=...` | Batch fetch videos |
+| GET | `/api/video/:id/title` | Title-only lookup |
+| GET | `/api/channel/:id` | Channel metadata |
+| GET | `/api/channel/:id/videos` | Recent uploads |
+
+### Playlist (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/playlist/:id` | Full playlist with videos |
+| GET | `/api/playlist/:id/info` | Metadata only |
+| GET | `/api/playlist/:id/ids` | Video IDs only |
+| POST | `/api/playlist/:id/query` | Filter/sort/range query |
+
+### Transcript (no API key)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/transcript/:id` | Fetch transcript (`?lang=en`) |
+| GET | `/api/transcript/:id/languages` | Available caption tracks |
+| GET | `/api/transcript/:id/srt` | SRT format |
+| GET | `/api/transcript/:id/vtt` | WebVTT format |
+| GET | `/api/transcript/:id/text` | Plain text |
+
+### URL Utilities (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/url/parse` | Parse YouTube URL |
+| POST | `/api/url/extract` | Extract IDs from URL |
+
+## Running
+
+```bash
+npx tsx src/index.ts
+```
