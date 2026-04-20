@@ -1,0 +1,246 @@
+---
+title: Regions, Languages & Categories
+description: Fetch supported YouTube regions, languages, and video categories
+icon: Globe
+---
+
+## Overview
+
+YouTube groups content by region and language. The SDK provides three related APIs:
+
+- **Regions** — countries/territories YouTube operates in (used as `regionCode` in other methods)
+- **Languages** — UI languages YouTube supports (used as `hl` in other methods)
+- **Video Categories** — content categories (Music, Gaming, Education, etc.) that vary by region
+
+All three are accessible from the main `yt()` client and cost 1 quota unit per call.
+
+---
+
+## Regions
+
+### `client.regions(hl?)`
+
+List all regions where YouTube is available. Each region has a `gl` code (ISO 3166-1 alpha-2) used as the `regionCode` parameter in `videoCategoriesByRegion()` and other API methods.
+
+```ts
+const regions = await client.regions()
+
+for (const region of regions) {
+  console.log(`${region.gl} — ${region.name}`)
+}
+// US — United States
+// GB — United Kingdom
+// IN — India
+// ...
+```
+
+### Response
+
+Returns an array of `I18nRegion`:
+
+| Property | Type     | Description                         |
+| -------- | -------- | ----------------------------------- |
+| `id`     | `string` | YouTube's internal region ID        |
+| `gl`     | `string` | ISO 3166-1 alpha-2 country code     |
+| `name`   | `string` | Region display name                 |
+
+### Localized names
+
+Pass a `hl` parameter to get region names in a specific language:
+
+```ts
+const regions = await client.regions('fr')
+// { gl: 'US', name: 'États-Unis' }
+// { gl: 'DE', name: 'Allemagne' }
+```
+
+---
+
+## Languages
+
+### `client.languages(hl?)`
+
+List all languages YouTube supports. Each language has an `hl` code (BCP-47) used as the `hl` parameter in other methods.
+
+```ts
+const languages = await client.languages()
+
+for (const lang of languages) {
+  console.log(`${lang.hl} — ${lang.name}`)
+}
+// en — English
+// fr — French
+// zh-Hans — Chinese (Simplified)
+// ...
+```
+
+### Response
+
+Returns an array of `I18nLanguage`:
+
+| Property | Type     | Description                         |
+| -------- | -------- | ----------------------------------- |
+| `id`     | `string` | YouTube's internal language ID      |
+| `hl`     | `string` | BCP-47 language code                |
+| `name`   | `string` | Language display name               |
+
+### Localized names
+
+```ts
+const languages = await client.languages('ja')
+// { hl: 'en', name: '英語' }
+// { hl: 'fr', name: 'フランス語' }
+```
+
+---
+
+## Video Categories
+
+Video categories are region-specific. The categories available in the US differ from those in Japan or India.
+
+### `client.videoCategoriesByRegion(regionCode, hl?)`
+
+Fetch all video categories available in a region.
+
+```ts
+const categories = await client.videoCategoriesByRegion('US')
+
+for (const cat of categories) {
+  const badge = cat.assignable ? '' : ' (not assignable)'
+  console.log(`${cat.id}: ${cat.title}${badge}`)
+}
+```
+
+### `client.videoCategory(id)`
+
+Fetch a single video category by ID.
+
+```ts
+const music = await client.videoCategory('10')
+console.log(music.title)      // "Music"
+console.log(music.assignable) // true
+```
+
+### `client.videoCategories(ids)`
+
+Fetch multiple categories by ID.
+
+```ts
+const categories = await client.videoCategories(['1', '10', '20'])
+// [
+//   { id: '1', title: 'Film & Animation', assignable: true, ... },
+//   { id: '10', title: 'Music', assignable: true, ... },
+//   { id: '20', title: 'Gaming', assignable: true, ... }
+// ]
+```
+
+### Response
+
+Returns `VideoCategory` objects:
+
+| Property     | Type      | Description                                    |
+| ------------ | --------- | ---------------------------------------------- |
+| `id`         | `string`  | Category ID                                    |
+| `title`      | `string`  | Category name                                  |
+| `assignable` | `boolean` | Whether videos can be assigned this category    |
+| `channelId`  | `string`  | Channel that created the category               |
+
+### Category IDs
+
+Common category IDs (US region):
+
+| ID  | Title                | Assignable |
+| --- | -------------------- | ---------- |
+| 1   | Film & Animation     | Yes        |
+| 2   | Autos & Vehicles     | Yes        |
+| 10  | Music                | Yes        |
+| 15  | Pets & Animals       | Yes        |
+| 17  | Sports               | Yes        |
+| 19  | Travel & Events      | Yes        |
+| 20  | Gaming               | Yes        |
+| 22  | People & Blogs       | Yes        |
+| 23  | Comedy               | Yes        |
+| 24  | Entertainment        | Yes        |
+| 25  | News & Politics      | Yes        |
+| 26  | Howto & Style        | Yes        |
+| 27  | Education            | Yes        |
+| 28  | Science & Technology | Yes        |
+| 29  | Nonprofits & Activism| Yes        |
+
+Non-assignable categories (30–44) include Movies, Shows, and Trailers — reserved by YouTube.
+
+---
+
+## The `hl` parameter
+
+The `hl` parameter controls the language of text values in API responses. It's accepted by `regions()`, `languages()`, and `videoCategoriesByRegion()`.
+
+### How `hl` connects everything
+
+<div className='fd-steps [&_h3]:fd-step'>
+
+### Discover languages
+
+Call `client.languages()` to get all valid `hl` values.
+
+```ts
+const languages = await client.languages()
+// [{ hl: 'en', name: 'English' }, { hl: 'fr', name: 'French' }, ...]
+```
+
+### Discover regions
+
+Call `client.regions()` to get all valid `regionCode` values.
+
+```ts
+const regions = await client.regions()
+// [{ gl: 'US', name: 'United States' }, { gl: 'JP', name: 'Japan' }, ...]
+```
+
+### Fetch localized categories
+
+Combine a `regionCode` and `hl` to get categories in a specific language for a specific region.
+
+```ts
+const categories = await client.videoCategoriesByRegion('JP', 'ja')
+// [{ id: '10', title: '音楽', ... }, { id: '20', title: 'ゲーム', ... }]
+```
+
+</div>
+
+### Cross-reference example
+
+```ts
+// Get all regions with Japanese names
+const regions = await client.regions('ja')
+
+// Get all languages with Japanese names
+const languages = await client.languages('ja')
+
+// Get Japanese categories for Japan
+const categories = await client.videoCategoriesByRegion('JP', 'ja')
+```
+
+---
+
+## Error handling
+
+```ts
+import { yt, NotFoundError, AuthError } from 'lyra-sdk'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+
+try {
+  const category = await client.videoCategory('99999')
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    console.log('Category not found')
+  }
+}
+```
+
+| Error            | When it's thrown                                    |
+| ---------------- | --------------------------------------------------- |
+| `NotFoundError`  | Category ID does not exist                          |
+| `AuthError`      | Invalid or missing API key                          |
+| `YTError`        | General API failure (quota, network, etc.)          |

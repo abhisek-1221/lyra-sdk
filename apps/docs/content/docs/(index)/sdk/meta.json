@@ -1,5 +1,5 @@
 {
   "title": "SDK Reference",
   "icon": "Code",
-  "pages": ["video", "channel", "playlist", "transcript", "caching", "retry", "url-utils", "formatting"]
+  "pages": ["video", "channel", "playlist", "transcript", "batch-transcript", "caching", "retry", "i18n", "url-utils", "formatting"]
 }

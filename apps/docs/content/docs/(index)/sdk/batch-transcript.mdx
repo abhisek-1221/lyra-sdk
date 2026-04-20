@@ -1,0 +1,277 @@
+---
+title: Batch Transcript
+description: Fetch transcripts for entire playlists with concurrency control, progress tracking, and partial failure handling
+icon: ListChecks
+---
+
+## Overview
+
+`transcribePlaylist()` fetches transcripts for every video in a YouTube playlist. It combines the YouTube Data API v3 (to list playlist videos) with the Innertube transcript module (to fetch each transcript).
+
+<<Callout type="warn" title="API key required">
+  Unlike single-video transcripts, batch operations require a YouTube Data API key to fetch the playlist's video list. Each video's transcript still uses the Innertube API (no additional quota).
+</Callout>
+
+Import from the main entry point:
+
+```ts
+import { transcribePlaylist } from 'lyra-sdk'
+```
+
+Or from the transcript subpath:
+
+```ts
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+```
+
+---
+
+## `transcribePlaylist(playlistUrlOrId, options)`
+
+Fetch transcripts for all videos in a playlist. Accepts a playlist ID or URL.
+
+```ts
+import { transcribePlaylist } from 'lyra-sdk'
+
+const result = await transcribePlaylist('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf', {
+  apiKey: process.env.YOUTUBE_API_KEY!,
+})
+```
+
+Also accepts playlist URLs:
+
+```ts
+const result = await transcribePlaylist(
+  'https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf',
+  { apiKey: process.env.YOUTUBE_API_KEY! }
+)
+```
+
+### Options
+
+| Property      | Type                                                                       | Default | Description                                              |
+| ------------- | -------------------------------------------------------------------------- | ------- | -------------------------------------------------------- |
+| `apiKey`      | `string`                                                                   | —       | **Required.** YouTube Data API v3 key                    |
+| `lang`        | `string`                                                                   | —       | BCP 47 language code for transcripts                     |
+| `concurrency` | `number`                                                                   | `3`     | Max parallel transcript fetches                          |
+| `from`        | `number`                                                                   | —       | 1-indexed start position in the playlist                 |
+| `to`          | `number`                                                                   | —       | 1-indexed end position in the playlist                   |
+| `onProgress`  | `(done: number, total: number, videoId: string, status: string) => void`   | —       | Progress callback fired after each video                 |
+| `cache`       | `CacheStore`                                                               | —       | Cache instance for transcript data                       |
+| `retries`     | `number`                                                                   | `0`     | Max retry attempts per video's transcript fetch          |
+| `retryDelay`  | `number`                                                                   | `1000`  | Base delay in ms for exponential backoff                 |
+| `customFetch` | `(url: string, init?: RequestInit) => Promise<Response>`                   | `fetch` | Custom fetch function for proxy/networking support       |
+
+All options except `apiKey`, `concurrency`, `from`, `to`, and `onProgress` are forwarded to the transcript fetch for each video.
+
+### Response
+
+Returns a `PlaylistTranscriptResult`:
+
+| Property        | Type                     | Description                                      |
+| --------------- | ------------------------ | ------------------------------------------------ |
+| `playlistId`    | `string`                 | Resolved playlist ID                             |
+| `totalVideos`   | `number`                 | Total videos in the playlist                     |
+| `requestedRange`| `[number, number]`       | Actual range fetched `[from, to]`                |
+| `succeeded`     | `number`                 | Number of successfully transcribed videos        |
+| `failed`        | `number`                 | Number of videos that failed                     |
+| `results`       | `VideoTranscriptResult[]`| Per-video results (see below)                    |
+
+### VideoTranscriptResult
+
+Each item in `results` is either a success or a failure:
+
+**Success:**
+
+| Property   | Type              | Description                          |
+| ---------- | ----------------- | ------------------------------------ |
+| `videoId`  | `string`          | YouTube video ID                     |
+| `title`    | `string`          | Video title from the playlist        |
+| `position` | `number`          | 1-indexed position in the playlist   |
+| `status`   | `"success"`       | Result status                        |
+| `lines`    | `TranscriptLine[]`| Transcript lines                     |
+
+**Failed:**
+
+| Property   | Type     | Description                          |
+| ---------- | -------- | ------------------------------------ |
+| `videoId`  | `string` | YouTube video ID                     |
+| `title`    | `string` | Video title from the playlist        |
+| `position` | `number` | 1-indexed position in the playlist   |
+| `status`   | `"failed"` | Result status                      |
+| `error`    | `string` | Error message                        |
+
+---
+
+## Concurrency control
+
+The `concurrency` option controls how many transcripts are fetched in parallel. A bounded concurrency pool ensures at most N requests are in-flight at any time.
+
+```ts
+// Fetch 6 videos at a time
+const result = await transcribePlaylist(playlistId, {
+  apiKey,
+  concurrency: 6,
+})
+```
+
+### How the pool works
+
+<div className='fd-steps [&_h3]:fd-step'>
+
+### Worker creation
+
+The pool spawns `min(concurrency, totalVideos)` workers. For a 50-video playlist with `concurrency: 3`, only 3 workers are created.
+
+### Shared index counter
+
+Each worker pulls the next video ID from a shared atomic counter (`next++`). This guarantees every video is processed exactly once, in order, regardless of completion timing.
+
+### Result placement
+
+Results are placed into a pre-allocated array at the original index. The output order always matches the playlist order, even though fetches complete out of order.
+
+</div>
+
+### Choosing a concurrency value
+
+| Value   | Best for                                            |
+| ------- | --------------------------------------------------- |
+| `1`     | Strict sequential processing, minimal network load  |
+| `3`     | Default — balances speed and YouTube rate limits     |
+| `5–10`  | Large playlists (100+ videos) on stable connections  |
+| `10+`   | Only with caching or proxy rotation                  |
+
+<<Callout type="warn">
+  Higher concurrency increases the chance of YouTube rate-limiting. If you see frequent failures, lower the concurrency or enable caching + retries.
+</Callout>
+
+---
+
+## Range filtering
+
+Use `from` and `to` to fetch transcripts for a subset of the playlist. Both are 1-indexed (matching YouTube's playlist position numbering).
+
+```ts
+// Fetch only videos 5 through 15
+const result = await transcribePlaylist(playlistId, {
+  apiKey,
+  from: 5,
+  to: 15,
+})
+```
+
+Omitting `from` starts at position 1. Omitting `to` goes to the end of the playlist.
+
+### Validation
+
+| Condition                    | Error                                                    |
+| ---------------------------- | -------------------------------------------------------- |
+| `from < 1`                   | `TranscriptPlaylistError: "from" must be >= 1`          |
+| `to < 1`                     | `TranscriptPlaylistError: "to" must be >= 1`            |
+| `to < from`                  | `TranscriptPlaylistError: "to" must be >= "from"`       |
+
+If `from` exceeds the playlist length, an empty result set is returned (no error).
+
+---
+
+## Progress callback
+
+Track progress as transcripts are fetched. The callback fires after each video completes (success or failure).
+
+```ts
+const result = await transcribePlaylist(playlistId, {
+  apiKey,
+  onProgress(done, total, videoId, status) {
+    const pct = ((done / total) * 100).toFixed(1)
+    const icon = status === 'success' ? '✓' : '✗'
+    console.log(`[${icon}] ${done}/${total} (${pct}%) — ${videoId}`)
+  },
+})
+```
+
+### Callback parameters
+
+| Parameter | Type     | Description                                     |
+| --------- | -------- | ----------------------------------------------- |
+| `done`    | `number` | Videos completed so far (including this one)    |
+| `total`   | `number` | Total videos in the requested range             |
+| `videoId` | `string` | ID of the video that just completed             |
+| `status`  | `string` | `"success"` or `"failed"`                       |
+
+---
+
+## Partial failure handling
+
+Individual video failures are **caught and recorded**, not thrown. This means a 100-video playlist where 3 videos fail still returns results for the other 97.
+
+```ts
+const result = await transcribePlaylist(playlistId, { apiKey })
+
+console.log(`Succeeded: ${result.succeeded}`)
+console.log(`Failed: ${result.failed}`)
+
+// Check which videos failed
+const failures = result.results.filter(r => r.status === 'failed')
+for (const f of failures) {
+  console.log(`  #${f.position} ${f.videoId}: ${f.error}`)
+}
+
+// Process successful transcripts
+const successes = result.results.filter(
+  (r): r is Extract<typeof r, { status: 'success' }> => r.status === 'success'
+)
+for (const s of successes) {
+  console.log(`#${s.position} ${s.title}: ${s.lines.length} lines`)
+}
+```
+
+---
+
+## Usage with TranscriptClient
+
+The `TranscriptClient` class also supports `transcribePlaylist()`. Constructor defaults are merged with per-call overrides:
+
+```ts
+import { TranscriptClient, InMemoryCache } from 'lyra-sdk/transcript'
+
+const client = new TranscriptClient({
+  retries: 2,
+  retryDelay: 500,
+  cache: new InMemoryCache(),
+})
+
+const result = await client.transcribePlaylist(playlistId, {
+  apiKey: process.env.YOUTUBE_API_KEY!,
+  concurrency: 5,
+})
+```
+
+---
+
+## Error handling
+
+```ts
+import { transcribePlaylist, TranscriptPlaylistError } from 'lyra-sdk'
+
+try {
+  const result = await transcribePlaylist(playlistId, { apiKey, from: -1 })
+} catch (error) {
+  if (error instanceof TranscriptPlaylistError) {
+    console.log('Invalid range:', error.message)
+  }
+}
+```
+
+### Errors
+
+| Error                        | When it's thrown                                |
+| ---------------------------- | ----------------------------------------------- |
+| `TranscriptPlaylistError`    | Invalid `from`/`to` range                      |
+| `AuthError`                  | Invalid or missing API key                      |
+| `NotFoundError`              | Playlist does not exist                         |
+| `YTError`                    | YouTube Data API failure (quota, network, etc.) |
+
+<<Callout>
+  Individual transcript failures for specific videos are **not thrown** — they appear as `{ status: "failed", error: "..." }` in the results array. Only playlist-level errors (auth, not found, invalid range) throw.
+</Callout>
