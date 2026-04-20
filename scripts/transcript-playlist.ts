@@ -1,4 +1,4 @@
-import { transcribePlaylist, toPlainText } from "../packages/core/src/modules/transcript.js";
+import { toPlainText, transcribePlaylist } from "../packages/core/src/modules/transcript.js";
 
 const API_KEY = process.env.YT_API_KEY!;
 const PLAYLIST_ID = process.argv[2] ?? "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf";

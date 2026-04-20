@@ -2,8 +2,8 @@ import { readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { transcribePlaylist } from "../src/transcript/batch.js";
 import { listCaptionTracks, TranscriptClient, transcribeVideo } from "../src/modules/transcript.js";
+import { transcribePlaylist } from "../src/transcript/batch.js";
 import { FsCache } from "../src/transcript/cache/file-store.js";
 import { InMemoryCache } from "../src/transcript/cache/memory-store.js";
 import {
@@ -699,7 +699,7 @@ describe("transcribePlaylist (batch)", () => {
     options?: {
       failVideoIds?: string[];
       titles?: Record<string, string>;
-    },
+    }
   ) {
     const titles = options?.titles ?? {};
     const failSet = new Set(options?.failVideoIds ?? []);
@@ -712,7 +712,7 @@ describe("transcribePlaylist (batch)", () => {
           JSON.stringify({
             items: videoIds.map((id) => ({ contentDetails: { videoId: id } })),
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
 
@@ -726,7 +726,7 @@ describe("transcribePlaylist (batch)", () => {
               snippet: { title: titles[id] ?? `Video ${id}` },
             })),
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
 
@@ -828,7 +828,7 @@ describe("transcribePlaylist (batch)", () => {
       transcribePlaylist("PL_TEST123", {
         apiKey: FAKE_API_KEY,
         from: -1,
-      }),
+      })
     ).rejects.toThrow(TranscriptPlaylistError);
 
     await expect(
@@ -836,7 +836,7 @@ describe("transcribePlaylist (batch)", () => {
         apiKey: FAKE_API_KEY,
         from: 5,
         to: 2,
-      }),
+      })
     ).rejects.toThrow(TranscriptPlaylistError);
   });
 
@@ -891,12 +891,9 @@ describe("transcribePlaylist (batch)", () => {
     const mockFetch = createBatchMock(["dQw4w9WgXcQ"]);
     vi.stubGlobal("fetch", mockFetch);
 
-    const result = await transcribePlaylist(
-      "https://www.youtube.com/playlist?list=PL_EXTRACTED",
-      {
-        apiKey: FAKE_API_KEY,
-      },
-    );
+    const result = await transcribePlaylist("https://www.youtube.com/playlist?list=PL_EXTRACTED", {
+      apiKey: FAKE_API_KEY,
+    });
 
     expect(result.playlistId).toBe("PL_EXTRACTED");
   });

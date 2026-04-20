@@ -49,8 +49,8 @@ export function transcribeVideo(
   return fetchTranscript(videoId, options);
 }
 
+export { transcribePlaylist } from "../transcript/batch.js";
 export { FsCache, InMemoryCache } from "../transcript/cache/index.js";
-export { TranscriptPlaylistError } from "../transcript/errors.js";
 export {
   TranscriptDisabledError,
   TranscriptError,
@@ -58,11 +58,11 @@ export {
   TranscriptInvalidVideoIdError,
   TranscriptLanguageError,
   TranscriptNotFoundError,
+  TranscriptPlaylistError,
   TranscriptRateLimitError,
   TranscriptVideoUnavailableError,
 } from "../transcript/errors.js";
 export { toPlainText, toSRT, toVTT } from "../transcript/format.js";
-export { transcribePlaylist } from "../transcript/batch.js";
 export type {
   CacheStore,
   CaptionTrack,

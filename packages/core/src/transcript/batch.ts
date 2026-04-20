@@ -1,14 +1,13 @@
 import { HttpClient } from "../http.js";
 import { extractPlaylistId } from "../utils/url-patterns.js";
-import { fetchTranscript } from "./fetch.js";
 import { TranscriptPlaylistError } from "./errors.js";
+import { fetchTranscript } from "./fetch.js";
 import { resolveVideoId } from "./parse.js";
 import type {
   PlaylistTranscriptOptions,
   PlaylistTranscriptResult,
   TranscriptLine,
   TranscriptOptions,
-  VideoTranscriptResult,
 } from "./types.js";
 
 const PAGE_SIZE = 50;
@@ -62,7 +61,7 @@ async function fetchAllVideoIds(http: HttpClient, playlistId: string): Promise<s
 
 async function fetchVideoTitles(
   http: HttpClient,
-  videoIds: string[],
+  videoIds: string[]
 ): Promise<Map<string, string>> {
   if (videoIds.length === 0) return new Map();
 
@@ -77,8 +76,8 @@ async function fetchVideoTitles(
       http.get<YTVideoListResponse>("videos", {
         part: "snippet",
         id: chunk.join(","),
-      }),
-    ),
+      })
+    )
   );
 
   for (const res of results) {
@@ -93,7 +92,7 @@ async function fetchVideoTitles(
 async function pool<T, R>(
   items: T[],
   limit: number,
-  fn: (item: T, index: number) => Promise<R>,
+  fn: (item: T, index: number) => Promise<R>
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let next = 0;
@@ -124,7 +123,7 @@ function validateRange(from: number | undefined, to: number | undefined): void {
 
 export async function transcribePlaylist(
   playlistUrlOrId: string,
-  options: PlaylistTranscriptOptions,
+  options: PlaylistTranscriptOptions
 ): Promise<PlaylistTranscriptResult> {
   const playlistId = resolvePlaylistId(playlistUrlOrId);
   const { apiKey, from, to, concurrency = 3, onProgress, ...transcriptOpts } = options;
@@ -174,7 +173,10 @@ export async function transcribePlaylist(
 
     try {
       const resolved = resolveVideoId(videoId);
-      const lines = (await fetchTranscript(resolved, transcriptOpts as TranscriptOptions)) as TranscriptLine[];
+      const lines = (await fetchTranscript(
+        resolved,
+        transcriptOpts as TranscriptOptions
+      )) as TranscriptLine[];
       done++;
       succeeded++;
       onProgress?.(done, total, videoId, "success");
