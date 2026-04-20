@@ -347,6 +347,88 @@ serve({ fetch: app.fetch, port: PORT }, () => {
 | POST | `/api/url/parse` | Parse YouTube URL |
 | POST | `/api/url/extract` | Extract IDs from URL |
 
+### Batch Transcript (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST | `/api/playlist/:id/transcript` | Batch transcripts for a playlist |
+
+```ts title="src/routes/batch-transcript.ts"
+import { Hono } from 'hono'
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+
+const app = new Hono()
+
+app.post('/playlist/:id/transcript', async (c) => {
+  const { id } = c.req.param()
+  const body = await c.req.json().catch(() => ({}))
+  const result = await transcribePlaylist(id, {
+    apiKey: process.env.YOUTUBE_API_KEY!,
+    concurrency: body.concurrency ?? 3,
+    from: body.from,
+    to: body.to,
+    lang: body.lang,
+  })
+  return c.json(result)
+})
+
+export const batchTranscriptRoutes = app
+```
+
+### Video Categories (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/video-categories?regionCode=US` | Categories for a region |
+| GET | `/api/video-category/:id` | Single category by ID |
+
+```ts title="src/routes/video-category.ts"
+import { Hono } from 'hono'
+import { client } from '../lib.js'
+
+const app = new Hono()
+
+app.get('/video-categories', async (c) => {
+  const regionCode = c.req.query('regionCode') ?? 'US'
+  const hl = c.req.query('hl')
+  const categories = await client!.videoCategoriesByRegion(regionCode, hl)
+  return c.json(categories)
+})
+
+app.get('/video-category/:id', async (c) => {
+  const category = await client!.videoCategory(c.req.param('id'))
+  return c.json(category)
+})
+
+export const videoCategoryRoutes = app
+```
+
+### I18n (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/regions` | List supported regions |
+| GET | `/api/languages` | List supported languages |
+
+```ts title="src/routes/i18n.ts"
+import { Hono } from 'hono'
+import { client } from '../lib.js'
+
+const app = new Hono()
+
+app.get('/regions', async (c) => {
+  const regions = await client!.regions(c.req.query('hl'))
+  return c.json(regions)
+})
+
+app.get('/languages', async (c) => {
+  const languages = await client!.languages(c.req.query('hl'))
+  return c.json(languages)
+})
+
+export const i18nRoutes = app
+```
+
 ## Running
 
 ```bash
