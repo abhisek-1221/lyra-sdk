@@ -1,0 +1,153 @@
+---
+title: Retry
+description: Configurable retry with exponential backoff for transcript requests
+icon: RotateCw
+---
+
+## Overview
+
+The transcript module supports automatic retry with exponential backoff for transient HTTP failures. This is useful when YouTube returns rate-limit responses (429) or server errors (5xx).
+
+```ts
+import { transcribeVideo } from 'lyra-sdk/transcript'
+
+const lines = await transcribeVideo('dQw4w9WgXcQ', {
+  retries: 3,
+  retryDelay: 1000,
+})
+```
+
+---
+
+## How it works
+
+When a fetch request returns a retryable status code, the module waits with exponential backoff before retrying:
+
+```
+delay * 2^attempt
+```
+
+| Attempt | Wait time (delay=1000ms) |
+| ------- | ----------------------- |
+| 0       | 1000ms                  |
+| 1       | 2000ms                  |
+| 2       | 4000ms                  |
+| 3       | 8000ms                  |
+
+### Retryable status codes
+
+| Status              | Meaning              |
+| ------------------- | -------------------- |
+| `429`               | Rate limited         |
+| `500`–`599`         | Server error         |
+
+Non-retryable responses (e.g. `404`, `403`) are returned immediately without retry.
+
+---
+
+## Options
+
+| Property     | Type     | Default  | Description                              |
+| ------------ | -------- | -------- | ---------------------------------------- |
+| `retries`    | `number` | `0`      | Maximum retry attempts (0 = no retries)  |
+| `retryDelay` | `number` | `1000`   | Base delay in milliseconds for backoff   |
+
+Both options are part of `TranscriptOptions` and work with `transcribeVideo()`, `listCaptionTracks()`, and `TranscriptClient`.
+
+---
+
+## Basic usage
+
+```ts
+import { transcribeVideo } from 'lyra-sdk/transcript'
+
+// Retry up to 3 times with 500ms base delay
+const lines = await transcribeVideo('dQw4w9WgXcQ', {
+  retries: 3,
+  retryDelay: 500,
+})
+```
+
+## With TranscriptClient
+
+```ts
+import { TranscriptClient } from 'lyra-sdk/transcript'
+
+const client = new TranscriptClient({
+  retries: 2,
+  retryDelay: 1000,
+})
+
+// All requests through this client inherit retry settings
+const lines = await client.transcribe('dQw4w9WgXcQ')
+```
+
+---
+
+## AbortSignal support
+
+The retry loop checks `AbortSignal` between attempts. If aborted, the pending retry is cancelled immediately:
+
+```ts
+const controller = new AbortController()
+
+// Abort after 5 seconds
+setTimeout(() => controller.abort(), 5000)
+
+try {
+  const lines = await transcribeVideo('dQw4w9WgXcQ', {
+    retries: 5,
+    retryDelay: 1000,
+    signal: controller.signal,
+  })
+} catch (error) {
+  console.log('Request was aborted or failed after retries')
+}
+```
+
+---
+
+## What gets retried
+
+All three HTTP phases of a transcript fetch are wrapped with retry:
+
+| Phase           | URL                                    | Method |
+| --------------- | -------------------------------------- | ------ |
+| Watch page      | `youtube.com/watch?v=...`              | GET    |
+| Innertube API   | `youtube.com/youtubei/v1/player?...`   | POST   |
+| Transcript XML  | `youtube.com/api/timedtext?...`        | GET    |
+
+Each phase retries independently. A failure in the watch page triggers a retry of just that request, not the entire flow.
+
+---
+
+## Error handling with retries
+
+When all retries are exhausted, the module throws the appropriate error based on the last response:
+
+```ts
+import {
+  transcribeVideo,
+  TranscriptVideoUnavailableError,
+  TranscriptRateLimitError,
+} from 'lyra-sdk/transcript'
+
+try {
+  const lines = await transcribeVideo('dQw4w9WgXcQ', {
+    retries: 2,
+    retryDelay: 500,
+  })
+} catch (error) {
+  if (error instanceof TranscriptRateLimitError) {
+    // All retries returned 429 — still rate limited
+    console.log('Rate limited after 3 attempts')
+  } else if (error instanceof TranscriptVideoUnavailableError) {
+    // Non-retryable error returned immediately (no retries)
+    console.log('Video unavailable')
+  }
+}
+```
+
+<Callout type="info">
+  `retries: 0` (default) means no retries — the first response is returned or thrown immediately. This preserves backward compatibility.
+</Callout>
