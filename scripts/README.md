@@ -158,6 +158,22 @@ npx tsx scripts/transcript-retry-bench.ts
 3. Exhausted — all requests return 503, shows full backoff timeline
 4. Abort — AbortSignal cancels mid-retry, shows early termination
 
+### transcript-playlist.ts
+
+Batch fetch transcripts for an entire playlist — **requires API key**.
+
+```bash
+YT_API_KEY=your_key npx tsx scripts/transcript-playlist.ts [PLAYLIST_ID_OR_URL]
+```
+
+Demonstrates:
+
+- `transcribePlaylist()` with concurrency control and progress callback
+- Partial failure handling (some videos may not have captions)
+- Range filtering with `from`/`to` options
+
+Defaults to a sample playlist if no argument is provided.
+
 ## Scripts That Need API Key
 
 All scripts except `url-utils.ts`, `transcript-*.ts` require `YOUTUBE_API_KEY` to be set in the environment.
