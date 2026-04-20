@@ -2,6 +2,7 @@ import {
   DEFAULT_USER_AGENT,
   INNERTUBE_CLIENT_NAME,
   INNERTUBE_CLIENT_VERSION,
+  DEFAULT_CACHE_TTL,
 } from "./constants.js";
 import {
   TranscriptDisabledError,
@@ -20,6 +21,11 @@ import type {
   TranscriptWithMeta,
   VideoMeta,
 } from "./types.js";
+
+function buildCacheKey(videoId: string, lang: string | undefined, withMeta: boolean): string {
+  const l = lang ?? "";
+  return withMeta ? `lyra:tc:${videoId}:${l}:full` : `lyra:tc:${videoId}:${l}`;
+}
 
 async function doFetch(
   url: string,
@@ -140,6 +146,20 @@ export async function fetchTranscript(
   const lang = options?.lang;
   if (lang) validateLang(lang);
 
+  const withMeta = options?.includeMeta === true;
+  const cacheKey = buildCacheKey(identifier, lang, withMeta);
+
+  if (options?.cache) {
+    const cached = await options.cache.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached) as TranscriptLine[] | TranscriptWithMeta;
+      } catch {
+        // stale entry — fall through to fresh fetch
+      }
+    }
+  }
+
   const { tracks, playerJson } = await fetchCaptionTracks(identifier, options);
 
   const selected = lang ? tracks.find((t) => t.languageCode === lang) : tracks[0];
@@ -178,14 +198,19 @@ export async function fetchTranscript(
 
   if (lines.length === 0) throw new TranscriptNotFoundError(identifier);
 
-  if (options?.includeMeta) {
-    return {
-      meta: extractVideoMeta(playerJson, identifier),
-      lines,
-    };
+  const result: TranscriptLine[] | TranscriptWithMeta = withMeta
+    ? { meta: extractVideoMeta(playerJson, identifier), lines }
+    : lines;
+
+  if (options?.cache) {
+    try {
+      await options.cache.set(cacheKey, JSON.stringify(result), options.cacheTTL ?? DEFAULT_CACHE_TTL);
+    } catch {
+      // non-fatal
+    }
   }
 
-  return lines;
+  return result;
 }
 
 export async function fetchCaptionList(

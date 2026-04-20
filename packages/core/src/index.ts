@@ -55,6 +55,7 @@ export {
   TranscriptNotFoundError,
   TranscriptRateLimitError,
   TranscriptVideoUnavailableError,
+  InMemoryCache,
   toPlainText,
   toSRT,
   toVTT,

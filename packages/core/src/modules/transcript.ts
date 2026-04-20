@@ -49,6 +49,7 @@ export {
   TranscriptVideoUnavailableError,
 } from "../transcript/errors.js";
 export { toPlainText, toSRT, toVTT } from "../transcript/format.js";
+export { InMemoryCache } from "../transcript/cache/index.js";
 export type {
   CacheStore,
   CaptionTrack,
