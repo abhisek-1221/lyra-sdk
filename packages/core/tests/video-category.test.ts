@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HttpClient } from "../src/http.js";
-import { getVideoCategories, getVideoCategoriesByRegion, getVideoCategory } from "../src/modules/video-category.js";
 import { NotFoundError } from "../src/errors.js";
+import { HttpClient } from "../src/http.js";
+import {
+  getVideoCategories,
+  getVideoCategoriesByRegion,
+  getVideoCategory,
+} from "../src/modules/video-category.js";
 
 function createMockHttp(responses: Record<string, unknown>): HttpClient {
   const http = new HttpClient({ apiKey: "test-key" });
@@ -12,7 +16,7 @@ function createMockHttp(responses: Record<string, unknown>): HttpClient {
       const res = responses[key] ?? responses[path];
       if (!res) throw new Error(`Unmocked request: ${key}`);
       return res;
-    },
+    }
   );
 
   return http;
@@ -49,7 +53,7 @@ beforeEach(() => {
 describe("getVideoCategory", () => {
   it("fetches a single category by ID", async () => {
     const http = createMockHttp({
-      "videoCategories": { items: [CATEGORY_MUSIC] },
+      videoCategories: { items: [CATEGORY_MUSIC] },
     });
 
     const cat = await getVideoCategory(http, "10");
@@ -62,7 +66,7 @@ describe("getVideoCategory", () => {
 
   it("throws NotFoundError when category does not exist", async () => {
     const http = createMockHttp({
-      "videoCategories": { items: [] },
+      videoCategories: { items: [] },
     });
 
     await expect(getVideoCategory(http, "99999")).rejects.toThrow(NotFoundError);
@@ -70,7 +74,7 @@ describe("getVideoCategory", () => {
 
   it("passes correct params to http.get", async () => {
     const http = createMockHttp({
-      "videoCategories": { items: [CATEGORY_MUSIC] },
+      videoCategories: { items: [CATEGORY_MUSIC] },
     });
 
     await getVideoCategory(http, "10");
@@ -85,7 +89,7 @@ describe("getVideoCategory", () => {
 describe("getVideoCategories", () => {
   it("fetches multiple categories by IDs", async () => {
     const http = createMockHttp({
-      "videoCategories": { items: [CATEGORY_MUSIC, CATEGORY_GAMING, CATEGORY_TRAILER] },
+      videoCategories: { items: [CATEGORY_MUSIC, CATEGORY_GAMING, CATEGORY_TRAILER] },
     });
 
     const cats = await getVideoCategories(http, ["10", "20", "44"]);
@@ -108,7 +112,7 @@ describe("getVideoCategories", () => {
 
   it("returns empty array when no items found", async () => {
     const http = createMockHttp({
-      "videoCategories": { items: [] },
+      videoCategories: { items: [] },
     });
 
     const cats = await getVideoCategories(http, ["99998", "99999"]);
@@ -118,7 +122,7 @@ describe("getVideoCategories", () => {
 
   it("joins IDs with comma", async () => {
     const http = createMockHttp({
-      "videoCategories": { items: [CATEGORY_MUSIC, CATEGORY_GAMING] },
+      videoCategories: { items: [CATEGORY_MUSIC, CATEGORY_GAMING] },
     });
 
     await getVideoCategories(http, ["10", "20"]);
@@ -149,7 +153,12 @@ describe("getVideoCategoriesByRegion", () => {
   it("passes hl parameter when provided", async () => {
     const http = createMockHttp({
       "videoCategories?hl=fr&part=snippet&regionCode=FR": {
-        items: [{ id: "10", snippet: { channelId: "UCBR8-60-B28hp2BmDPdntcQ", title: "Musique", assignable: true } }],
+        items: [
+          {
+            id: "10",
+            snippet: { channelId: "UCBR8-60-B28hp2BmDPdntcQ", title: "Musique", assignable: true },
+          },
+        ],
       },
     });
 

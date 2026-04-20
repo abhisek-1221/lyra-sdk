@@ -38,7 +38,7 @@ export async function getVideoCategory(http: HttpClient, id: string): Promise<Vi
 
 export async function getVideoCategories(
   http: HttpClient,
-  ids: string[],
+  ids: string[]
 ): Promise<VideoCategory[]> {
   if (ids.length === 0) return [];
 
@@ -53,7 +53,7 @@ export async function getVideoCategories(
 export async function getVideoCategoriesByRegion(
   http: HttpClient,
   regionCode: string,
-  hl?: string,
+  hl?: string
 ): Promise<VideoCategory[]> {
   const params: Record<string, string> = {
     part: "snippet",

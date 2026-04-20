@@ -11,7 +11,7 @@ function createMockHttp(responses: Record<string, unknown>): HttpClient {
       const res = responses[key] ?? responses[path];
       if (!res) throw new Error(`Unmocked request: ${key}`);
       return res;
-    },
+    }
   );
 
   return http;
@@ -61,9 +61,7 @@ describe("getRegions", () => {
   it("passes hl parameter when provided", async () => {
     const http = createMockHttp({
       "i18nRegions?hl=fr&part=snippet": {
-        items: [
-          { id: "US", snippet: { gl: "US", name: "États-Unis" } },
-        ],
+        items: [{ id: "US", snippet: { gl: "US", name: "États-Unis" } }],
       },
     });
 
@@ -109,9 +107,7 @@ describe("getLanguages", () => {
   it("passes hl parameter when provided", async () => {
     const http = createMockHttp({
       "i18nLanguages?hl=fr&part=snippet": {
-        items: [
-          { id: "en", snippet: { hl: "en", name: "Anglais" } },
-        ],
+        items: [{ id: "en", snippet: { hl: "en", name: "Anglais" } }],
       },
     });
 

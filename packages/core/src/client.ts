@@ -8,8 +8,8 @@
 // ---------------------------------------------------------------------------
 
 import { HttpClient } from "./http.js";
-import { getLanguages, getRegions } from "./modules/i18n.js";
 import { getChannel, getChannelVideos } from "./modules/channel.js";
+import { getLanguages, getRegions } from "./modules/i18n.js";
 import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "./modules/playlist.js";
 import { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 import { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
