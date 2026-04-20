@@ -132,19 +132,32 @@ const jaCategories = await client.videoCategoriesByRegion('JP', 'ja')
 // [{ id: '10', title: '音楽' }, ...]
 ```
 
+## Fetch video comments
+
+Fetch comments, replies, and aggregate stats for any video:
+
+```ts
+const threads = await client.comments('dQw4w9WgXcQ')
+const top5 = await client.topComments('dQw4w9WgXcQ', 5)
+const stats = client.commentStats('dQw4w9WgXcQ', threads)
+
+console.log(stats.mostLikedComment?.text)   // Most liked comment
+console.log(`Unique authors: ${stats.uniqueAuthors}`)
+```
+
 ## Next steps
 
 <Cards>
   <Card title="SDK Reference" icon={<BookIcon />} href="/docs/sdk/video">
     Explore every function the SDK offers.
   </Card>
+  <Card title="Comments" icon={<MessageSquareIcon />} href="/docs/sdk/comment">
+    Fetch comments, replies, stats, and search.
+  </Card>
   <Card title="Batch Transcript" icon={<ListChecksIcon />} href="/docs/sdk/batch-transcript">
     Fetch transcripts for entire playlists.
   </Card>
   <Card title="Regions & Categories" icon={<GlobeIcon />} href="/docs/sdk/i18n">
     Regions, languages, and video categories.
-  </Card>
-  <Card title="API Reference" icon={<WebhookIcon />} href="/docs/api-reference">
-    Browse the REST API endpoints with interactive examples.
   </Card>
 </Cards>

@@ -162,6 +162,48 @@ export const transcriptQuery = z.object({
 })
 ```
 
+### Comments (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/comments/:videoId` | Fetch comment threads for a video (`?order=relevance&search=keyword`) |
+| GET | `/api/comments/:videoId/top` | Top comments by relevance (`?limit=10`) |
+| GET | `/api/comment-replies/:id` | All replies for a comment |
+
+#### `routes/comment.ts`
+
+```ts title="routes/comment.ts"
+import type { Request, Response } from 'express'
+import { Router } from 'express'
+import { client } from '../lib.js'
+
+const router = Router()
+
+router.get('/comments/:videoId', async (req: Request, res: Response) => {
+  const { videoId } = req.params
+  const threads = await client!.comments(videoId, {
+    order: req.query.order as any,
+    searchTerms: req.query.search as string,
+    maxResults: req.query.maxResults ? Number(req.query.maxResults) : undefined,
+  })
+  res.json(threads)
+})
+
+router.get('/comments/:videoId/top', async (req: Request, res: Response) => {
+  const { videoId } = req.params
+  const limit = req.query.limit ? Number(req.query.limit) : 10
+  const threads = await client!.topComments(videoId, limit)
+  res.json(threads)
+})
+
+router.get('/comment-replies/:id', async (req: Request, res: Response) => {
+  const replies = await client!.commentReplies(req.params.id)
+  res.json(replies)
+})
+
+export const commentRoutes = router
+```
+
 ### URL Utilities
 
 | Method | Path | Description |
