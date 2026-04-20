@@ -181,10 +181,11 @@ const router = Router()
 
 router.get('/comments/:videoId', async (req: Request, res: Response) => {
   const { videoId } = req.params
+  const maxResults = req.query.maxResults ? Number(req.query.maxResults) : 100
   const threads = await client!.comments(videoId, {
     order: req.query.order as any,
     searchTerms: req.query.search as string,
-    maxResults: req.query.maxResults ? Number(req.query.maxResults) : undefined,
+    maxResults,
   })
   res.json(threads)
 })

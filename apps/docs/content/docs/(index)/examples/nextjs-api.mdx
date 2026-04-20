@@ -544,9 +544,11 @@ export async function GET(
 ) {
   try {
     const { searchParams } = new URL(request.url)
+    const maxResults = searchParams.get('maxResults') ? Number(searchParams.get('maxResults')) : 100
     const threads = await client!.comments(params.videoId, {
       order: searchParams.get('order') as any,
       searchTerms: searchParams.get('search') ?? undefined,
+      maxResults,
     })
     return NextResponse.json(threads)
   } catch (err) {

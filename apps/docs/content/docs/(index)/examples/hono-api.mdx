@@ -355,9 +355,11 @@ import { client } from '../lib.js'
 const app = new Hono()
 
 app.get('/comments/:videoId', async (c) => {
+  const maxResults = c.req.query('maxResults') ? Number(c.req.query('maxResults')) : 100
   const threads = await client!.comments(c.req.param('videoId'), {
     order: c.req.query('order') as any,
     searchTerms: c.req.query('search'),
+    maxResults,
   })
   return c.json(threads)
 })

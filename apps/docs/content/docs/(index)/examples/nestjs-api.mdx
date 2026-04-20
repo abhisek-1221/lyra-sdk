@@ -428,10 +428,12 @@ export class CommentController {
     @Param('videoId') videoId: string,
     @Query('order') order?: string,
     @Query('search') search?: string,
+    @Query('maxResults') maxResults?: string,
   ) {
     return this.client.comments(videoId, {
       order: order as any,
       searchTerms: search,
+      maxResults: maxResults ? Number(maxResults) : 100,
     })
   }
 

@@ -40,7 +40,7 @@ const threads = await client.comments('https://youtu.be/dQw4w9WgXcQ')
 | Property      | Type                                | Default       | Description                              |
 | ------------- | ----------------------------------- | ------------- | ---------------------------------------- |
 | `order`       | `"time"` \| `"relevance"`           | `"time"`      | Sort order for comments                  |
-| `maxResults`  | `number`                            | `100`         | Max results per page (1–100)             |
+| `maxResults`  | `number`                            | `100`         | Max total results to return (caps pagination) |
 | `searchTerms` | `string`                            | —             | Filter comments by keyword               |
 | `textFormat`  | `"html"` \| `"plainText"`           | `"plainText"` | Comment text format                      |
 
@@ -128,14 +128,18 @@ for (const thread of top5) {
 
 ---
 
-## `client.searchComments(videoUrlOrId, query)`
+## `client.searchComments(videoUrlOrId, query, opts?)`
 
-Search comments by keyword. Uses YouTube's `searchTerms` parameter.
+Search comments by keyword. Uses YouTube's `searchTerms` parameter. Accepts the same options as `client.comments()`.
 
 ```ts
-const results = await client.searchComments('dQw4w9WgXcQ', 'great song')
+const results = await client.searchComments('dQw4w9WgXcQ', 'great song', { maxResults: 20 })
 console.log(`Found ${results.length} matching threads`)
 ```
+
+<Callout type="warn">
+  Keyword search can be slow on videos with millions of comments. Use `maxResults` to limit results and avoid long waits.
+</Callout>
 
 ---
 
