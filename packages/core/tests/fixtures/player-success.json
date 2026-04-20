@@ -11,7 +11,11 @@
     "keywords": ["rick astley", "never gonna give you up", "official video"],
     "thumbnail": {
       "thumbnails": [
-        { "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg", "width": 1280, "height": 720 }
+        {
+          "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+          "width": 1280,
+          "height": 720
+        }
       ]
     },
     "isLiveContent": false

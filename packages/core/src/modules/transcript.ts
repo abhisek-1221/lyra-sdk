@@ -1,9 +1,9 @@
-import { fetchTranscript, fetchCaptionList } from "../transcript/fetch.js";
+import { fetchCaptionList, fetchTranscript } from "../transcript/fetch.js";
 import type {
-  TranscriptOptions,
-  TranscriptLine,
-  TranscriptWithMeta,
   CaptionTrack,
+  TranscriptLine,
+  TranscriptOptions,
+  TranscriptWithMeta,
 } from "../transcript/types.js";
 
 export class TranscriptClient {
@@ -17,10 +17,7 @@ export class TranscriptClient {
     return fetchTranscript(videoId, merged);
   }
 
-  async availableTracks(
-    videoId: string,
-    overrides?: TranscriptOptions
-  ): Promise<CaptionTrack[]> {
+  async availableTracks(videoId: string, overrides?: TranscriptOptions): Promise<CaptionTrack[]> {
     const merged = { ...this.defaults, ...overrides };
     return fetchCaptionList(videoId, merged);
   }
@@ -41,25 +38,22 @@ export function transcribeVideo(
   return fetchTranscript(videoId, options);
 }
 
-export { fetchCaptionList as listCaptionTracks };
-
 export {
+  TranscriptDisabledError,
   TranscriptError,
+  TranscriptInvalidLangError,
+  TranscriptInvalidVideoIdError,
+  TranscriptLanguageError,
+  TranscriptNotFoundError,
   TranscriptRateLimitError,
   TranscriptVideoUnavailableError,
-  TranscriptDisabledError,
-  TranscriptNotFoundError,
-  TranscriptLanguageError,
-  TranscriptInvalidVideoIdError,
-  TranscriptInvalidLangError,
 } from "../transcript/errors.js";
-
-export { toSRT, toVTT, toPlainText } from "../transcript/format.js";
-
+export { toPlainText, toSRT, toVTT } from "../transcript/format.js";
 export type {
+  CaptionTrack,
   TranscriptLine,
+  TranscriptOptions,
   TranscriptWithMeta,
   VideoMeta,
-  CaptionTrack,
-  TranscriptOptions,
 } from "../transcript/types.js";
+export { fetchCaptionList as listCaptionTracks };

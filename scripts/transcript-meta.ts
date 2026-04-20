@@ -1,4 +1,9 @@
-import { transcribeVideo, toSRT, toVTT, toPlainText } from "../packages/core/src/modules/transcript.js";
+import {
+  toPlainText,
+  toSRT,
+  toVTT,
+  transcribeVideo,
+} from "../packages/core/src/modules/transcript.js";
 
 const VIDEO_ID = "dQw4w9WgXcQ";
 
@@ -20,7 +25,7 @@ async function main() {
   console.log("Channel ID:", meta.channelId);
   console.log("Duration:", meta.lengthSeconds, "seconds");
   console.log("Views:", meta.viewCount);
-  console.log("Description:", meta.description.slice(0, 120) + "...");
+  console.log("Description:", `${meta.description.slice(0, 120)}...`);
   console.log("Keywords:", meta.keywords.join(", "));
   console.log("Live:", meta.isLiveContent);
   console.log("Lines:", lines.length);

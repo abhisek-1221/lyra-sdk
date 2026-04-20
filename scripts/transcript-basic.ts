@@ -1,4 +1,4 @@
-import { transcribeVideo, listCaptionTracks, toPlainText } from "../packages/core/src/modules/transcript.js";
+import { toPlainText, transcribeVideo } from "../packages/core/src/modules/transcript.js";
 
 const VIDEO_ID = "dQw4w9WgXcQ";
 

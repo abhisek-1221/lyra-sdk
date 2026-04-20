@@ -1,19 +1,24 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { readFileSync } from "fs";
-import { join } from "path";
-import { transcribeVideo, listCaptionTracks, TranscriptClient } from "../src/modules/transcript.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { listCaptionTracks, TranscriptClient, transcribeVideo } from "../src/modules/transcript.js";
 import {
+  TranscriptDisabledError,
   TranscriptError,
+  TranscriptInvalidLangError,
+  TranscriptInvalidVideoIdError,
+  TranscriptLanguageError,
+  TranscriptNotFoundError,
   TranscriptRateLimitError,
   TranscriptVideoUnavailableError,
-  TranscriptDisabledError,
-  TranscriptNotFoundError,
-  TranscriptLanguageError,
-  TranscriptInvalidVideoIdError,
-  TranscriptInvalidLangError,
 } from "../src/transcript/errors.js";
-import { toSRT, toVTT, toPlainText } from "../src/transcript/format.js";
-import { decodeXmlEntities, resolveVideoId, validateLang, parseTranscriptXml } from "../src/transcript/parse.js";
+import { toPlainText, toSRT, toVTT } from "../src/transcript/format.js";
+import {
+  decodeXmlEntities,
+  parseTranscriptXml,
+  resolveVideoId,
+  validateLang,
+} from "../src/transcript/parse.js";
 import type { TranscriptLine } from "../src/transcript/types.js";
 
 const FIXTURES = join(__dirname, "fixtures");
@@ -28,20 +33,23 @@ function fixtureJson<T>(name: string): T {
 
 const TRANSCRIPT_XML = fixture("transcript.xml");
 const PLAYER_SUCCESS = fixtureJson("player-success.json");
-const PLAYER_UNAVAILABLE = fixtureJson("player-unavailable.json");
+const _PLAYER_UNAVAILABLE = fixtureJson("player-unavailable.json");
 const PLAYER_NO_CAPTIONS = fixtureJson("player-no-captions.json");
 
 const WATCH_HTML_SUCCESS = `<html><body>"INNERTUBE_API_KEY":"test_api_key_123"</body></html>`;
 const WATCH_HTML_RECAPTCHA = `<html><body><div class="g-recaptcha"></div></body></html>`;
 const WATCH_HTML_NO_KEY = `<html><body>no api key here</body></html>`;
 
-let mockFetch: ReturnType<typeof vi.fn>;
+let _mockFetch: ReturnType<typeof vi.fn>;
 
 function createMockFetch(responses: Array<{ url: string | RegExp; status: number; body: string }>) {
   return vi.fn(async (url: string, _init?: RequestInit) => {
     for (const r of responses) {
       if (r.url instanceof RegExp && r.url.test(url)) {
-        return new Response(r.body, { status: r.status, headers: { "Content-Type": "application/json" } });
+        return new Response(r.body, {
+          status: r.status,
+          headers: { "Content-Type": "application/json" },
+        });
       }
     }
     for (const r of responses) {
@@ -141,7 +149,9 @@ describe("Error classes", () => {
     expect(new TranscriptVideoUnavailableError("abc123")).toBeInstanceOf(TranscriptError);
     expect(new TranscriptDisabledError("abc123")).toBeInstanceOf(TranscriptError);
     expect(new TranscriptNotFoundError("abc123")).toBeInstanceOf(TranscriptError);
-    expect(new TranscriptLanguageError("xx", ["en", "es"], "abc123")).toBeInstanceOf(TranscriptError);
+    expect(new TranscriptLanguageError("xx", ["en", "es"], "abc123")).toBeInstanceOf(
+      TranscriptError
+    );
     expect(new TranscriptInvalidVideoIdError()).toBeInstanceOf(TranscriptError);
     expect(new TranscriptInvalidLangError("x")).toBeInstanceOf(TranscriptError);
   });
@@ -271,9 +281,9 @@ describe("transcribeVideo (integration with mocked fetch)", () => {
       { url: "youtube.com/watch", status: 404, body: "Not Found" },
     ]);
 
-    await expect(
-      transcribeVideo("dQw4w9WgXcQ", { customFetch: mockFetch })
-    ).rejects.toThrow(TranscriptVideoUnavailableError);
+    await expect(transcribeVideo("dQw4w9WgXcQ", { customFetch: mockFetch })).rejects.toThrow(
+      TranscriptVideoUnavailableError
+    );
   });
 
   it("throws TranscriptRateLimitError on reCAPTCHA page", async () => {
@@ -281,9 +291,9 @@ describe("transcribeVideo (integration with mocked fetch)", () => {
       { url: "youtube.com/watch", status: 200, body: WATCH_HTML_RECAPTCHA },
     ]);
 
-    await expect(
-      transcribeVideo("dQw4w9WgXcQ", { customFetch: mockFetch })
-    ).rejects.toThrow(TranscriptRateLimitError);
+    await expect(transcribeVideo("dQw4w9WgXcQ", { customFetch: mockFetch })).rejects.toThrow(
+      TranscriptRateLimitError
+    );
   });
 
   it("throws TranscriptNotFoundError when no API key in page", async () => {
@@ -291,9 +301,9 @@ describe("transcribeVideo (integration with mocked fetch)", () => {
       { url: "youtube.com/watch", status: 200, body: WATCH_HTML_NO_KEY },
     ]);
 
-    await expect(
-      transcribeVideo("dQw4w9WgXcQ", { customFetch: mockFetch })
-    ).rejects.toThrow(TranscriptNotFoundError);
+    await expect(transcribeVideo("dQw4w9WgXcQ", { customFetch: mockFetch })).rejects.toThrow(
+      TranscriptNotFoundError
+    );
   });
 
   it("throws TranscriptDisabledError when captions are disabled", async () => {
@@ -302,9 +312,9 @@ describe("transcribeVideo (integration with mocked fetch)", () => {
       { url: /youtubei\/v1\/player/, status: 200, body: JSON.stringify(PLAYER_NO_CAPTIONS) },
     ]);
 
-    await expect(
-      transcribeVideo("disabledCap", { customFetch: mockFetch })
-    ).rejects.toThrow(TranscriptDisabledError);
+    await expect(transcribeVideo("disabledCap", { customFetch: mockFetch })).rejects.toThrow(
+      TranscriptDisabledError
+    );
   });
 
   it("throws TranscriptLanguageError for unavailable language", async () => {
@@ -319,9 +329,9 @@ describe("transcribeVideo (integration with mocked fetch)", () => {
   });
 
   it("throws TranscriptInvalidVideoIdError for bad input", async () => {
-    await expect(
-      transcribeVideo("bad", { customFetch: vi.fn() })
-    ).rejects.toThrow(TranscriptInvalidVideoIdError);
+    await expect(transcribeVideo("bad", { customFetch: vi.fn() })).rejects.toThrow(
+      TranscriptInvalidVideoIdError
+    );
   });
 
   it("throws TranscriptInvalidLangError for bad language code", async () => {
@@ -340,10 +350,11 @@ describe("transcribeVideo (integration with mocked fetch)", () => {
     await transcribeVideo("dQw4w9WgXcQ", { customFetch: mockFetch });
 
     const transcriptCall = mockFetch.mock.calls.find(
-      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("api/timedtext")
+      (call: unknown[]) =>
+        typeof call[0] === "string" && (call[0] as string).includes("api/timedtext")
     );
     expect(transcriptCall).toBeDefined();
-    expect((transcriptCall![0] as string)).not.toContain("&fmt=");
+    expect(transcriptCall![0] as string).not.toContain("&fmt=");
   });
 });
 

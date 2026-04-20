@@ -8,36 +8,28 @@ export class TranscriptError extends Error {
 
 export class TranscriptRateLimitError extends TranscriptError {
   constructor() {
-    super(
-      "YouTube is rate-limiting requests from this IP. Try again later or use a proxy."
-    );
+    super("YouTube is rate-limiting requests from this IP. Try again later or use a proxy.");
     this.name = "TranscriptRateLimitError";
   }
 }
 
 export class TranscriptVideoUnavailableError extends TranscriptError {
   constructor(public readonly videoId: string) {
-    super(
-      `Video "${videoId}" is unavailable or has been removed.`
-    );
+    super(`Video "${videoId}" is unavailable or has been removed.`);
     this.name = "TranscriptVideoUnavailableError";
   }
 }
 
 export class TranscriptDisabledError extends TranscriptError {
   constructor(public readonly videoId: string) {
-    super(
-      `Transcripts are disabled for video "${videoId}".`
-    );
+    super(`Transcripts are disabled for video "${videoId}".`);
     this.name = "TranscriptDisabledError";
   }
 }
 
 export class TranscriptNotFoundError extends TranscriptError {
   constructor(public readonly videoId: string) {
-    super(
-      `No transcript available for video "${videoId}".`
-    );
+    super(`No transcript available for video "${videoId}".`);
     this.name = "TranscriptNotFoundError";
   }
 }
@@ -57,18 +49,14 @@ export class TranscriptLanguageError extends TranscriptError {
 
 export class TranscriptInvalidVideoIdError extends TranscriptError {
   constructor() {
-    super(
-      'Invalid YouTube video ID or URL. Expected 11-char ID or a valid YouTube URL.'
-    );
+    super("Invalid YouTube video ID or URL. Expected 11-char ID or a valid YouTube URL.");
     this.name = "TranscriptInvalidVideoIdError";
   }
 }
 
 export class TranscriptInvalidLangError extends TranscriptError {
   constructor(public readonly lang: string) {
-    super(
-      `Invalid BCP 47 language code "${lang}". Examples: "en", "fr", "pt-BR".`
-    );
+    super(`Invalid BCP 47 language code "${lang}". Examples: "en", "fr", "pt-BR".`);
     this.name = "TranscriptInvalidLangError";
   }
 }

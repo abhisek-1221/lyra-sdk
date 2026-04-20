@@ -1,6 +1,6 @@
-import { RE_VIDEO_ID, RE_XML_TRANSCRIPT, RE_BCP47_LANG } from "./constants.js";
-import { TranscriptInvalidVideoIdError, TranscriptInvalidLangError } from "./errors.js";
 import { extractVideoId } from "../utils/url-patterns.js";
+import { RE_BCP47_LANG, RE_VIDEO_ID, RE_XML_TRANSCRIPT } from "./constants.js";
+import { TranscriptInvalidLangError, TranscriptInvalidVideoIdError } from "./errors.js";
 import type { TranscriptLine } from "./types.js";
 
 const XML_ENTITIES: Record<string, string> = {
@@ -31,10 +31,7 @@ export function validateLang(lang: string): void {
   }
 }
 
-export function parseTranscriptXml(
-  xml: string,
-  lang: string
-): TranscriptLine[] {
+export function parseTranscriptXml(xml: string, lang: string): TranscriptLine[] {
   const matches = [...xml.matchAll(RE_XML_TRANSCRIPT)];
   return matches.map((m) => ({
     text: decodeXmlEntities(m[3]),
