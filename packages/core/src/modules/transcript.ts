@@ -1,6 +1,9 @@
+import { transcribePlaylist as batchTranscribePlaylist } from "../transcript/batch.js";
 import { fetchCaptionList, fetchTranscript } from "../transcript/fetch.js";
 import type {
   CaptionTrack,
+  PlaylistTranscriptOptions,
+  PlaylistTranscriptResult,
   TranscriptLine,
   TranscriptOptions,
   TranscriptWithMeta,
@@ -21,6 +24,14 @@ export class TranscriptClient {
     const merged = { ...this.defaults, ...overrides };
     return fetchCaptionList(videoId, merged);
   }
+
+  async transcribePlaylist(
+    playlistUrlOrId: string,
+    overrides?: PlaylistTranscriptOptions
+  ): Promise<PlaylistTranscriptResult> {
+    const merged = { ...this.defaults, ...overrides } as PlaylistTranscriptOptions;
+    return batchTranscribePlaylist(playlistUrlOrId, merged);
+  }
 }
 
 export function transcribeVideo(
@@ -39,6 +50,7 @@ export function transcribeVideo(
 }
 
 export { FsCache, InMemoryCache } from "../transcript/cache/index.js";
+export { TranscriptPlaylistError } from "../transcript/errors.js";
 export {
   TranscriptDisabledError,
   TranscriptError,
@@ -50,12 +62,17 @@ export {
   TranscriptVideoUnavailableError,
 } from "../transcript/errors.js";
 export { toPlainText, toSRT, toVTT } from "../transcript/format.js";
+export { transcribePlaylist } from "../transcript/batch.js";
 export type {
   CacheStore,
   CaptionTrack,
+  PlaylistTranscriptOptions,
+  PlaylistTranscriptResult,
   TranscriptLine,
   TranscriptOptions,
   TranscriptWithMeta,
   VideoMeta,
+  VideoTranscriptResult,
+  VideoTranscriptStatus,
 } from "../transcript/types.js";
 export { fetchCaptionList as listCaptionTracks };
