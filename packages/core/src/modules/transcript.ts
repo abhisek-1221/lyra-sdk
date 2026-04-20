@@ -50,6 +50,7 @@ export {
 } from "../transcript/errors.js";
 export { toPlainText, toSRT, toVTT } from "../transcript/format.js";
 export type {
+  CacheStore,
   CaptionTrack,
   TranscriptLine,
   TranscriptOptions,

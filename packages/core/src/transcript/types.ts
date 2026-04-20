@@ -36,6 +36,15 @@ export interface TranscriptOptions {
   includeMeta?: boolean;
   customFetch?: (url: string, init?: RequestInit) => Promise<Response>;
   signal?: AbortSignal;
+  cache?: CacheStore;
+  cacheTTL?: number;
+  retries?: number;
+  retryDelay?: number;
+}
+
+export interface CacheStore {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ttl?: number): Promise<void>;
 }
 
 export interface InternalCaptionTrack {
