@@ -8,22 +8,28 @@
 // ---------------------------------------------------------------------------
 
 import { HttpClient } from "./http.js";
+import { getLanguages, getRegions } from "./modules/i18n.js";
 import { getChannel, getChannelVideos } from "./modules/channel.js";
 import { getPlaylist, getPlaylistInfo, getPlaylistVideoIds } from "./modules/playlist.js";
 import { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 import { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
-import {
-  getVideo,
-  getVideos,
-  getVideoTitle,
-  getVideoTitles,
-} from "./modules/video.js";
+import { getVideo, getVideos, getVideoTitle, getVideoTitles } from "./modules/video.js";
 import {
   getVideoCategories,
   getVideoCategoriesByRegion,
   getVideoCategory,
 } from "./modules/video-category.js";
-import type { Channel, Playlist, PlaylistInfo, RecentVideo, Video, VideoCategory, YTOptions } from "./types.js";
+import type {
+  Channel,
+  I18nLanguage,
+  I18nRegion,
+  Playlist,
+  PlaylistInfo,
+  RecentVideo,
+  Video,
+  VideoCategory,
+  YTOptions,
+} from "./types.js";
 import { extractChannelId, extractPlaylistId, extractVideoId } from "./utils/url-patterns.js";
 
 /**
@@ -137,6 +143,20 @@ export class YTClient {
   /** Fetch all video categories available in a region. */
   async videoCategoriesByRegion(regionCode: string, hl?: string): Promise<VideoCategory[]> {
     return getVideoCategoriesByRegion(this.http, regionCode, hl);
+  }
+
+  // -----------------------------------------------------------------------
+  // I18n
+  // -----------------------------------------------------------------------
+
+  /** Fetch all supported content regions. */
+  async regions(hl?: string): Promise<I18nRegion[]> {
+    return getRegions(this.http, hl);
+  }
+
+  /** Fetch all supported application languages. */
+  async languages(hl?: string): Promise<I18nLanguage[]> {
+    return getLanguages(this.http, hl);
   }
 
   // -----------------------------------------------------------------------

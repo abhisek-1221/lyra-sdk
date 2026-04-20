@@ -71,6 +71,8 @@ export {
 export { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
 export type {
   Channel,
+  I18nLanguage,
+  I18nRegion,
   ParsedURL,
   Playlist,
   PlaylistInfo,
