@@ -82,9 +82,56 @@ source .env && npx tsx scripts/channel.ts
 
 Fetches channel info including subscriber count, total views, and video count.
 
+### transcript-basic.ts
+
+Fetch transcript for a video — **no API key required**.
+
+```bash
+npx tsx scripts/transcript-basic.ts
+```
+
+Fetches and prints transcript lines with timestamps and plain text output.
+
+### transcript-languages.ts
+
+List available caption tracks for a video — **no API key required**.
+
+```bash
+npx tsx scripts/transcript-languages.ts
+```
+
+Shows all available languages and whether they are auto-generated.
+
+### transcript-meta.ts
+
+Fetch transcript with video metadata and format output — **no API key required**.
+
+```bash
+npx tsx scripts/transcript-meta.ts
+```
+
+Demonstrates:
+
+- Fetching transcript with `includeMeta: true`
+- Video metadata (title, author, views, description, keywords)
+- Output in SRT, VTT, and plain text formats
+
+### transcript-client.ts
+
+Demonstrate `TranscriptClient` class with shared config — **no API key required**.
+
+```bash
+npx tsx scripts/transcript-client.ts
+```
+
+Demonstrates:
+
+- Creating a `TranscriptClient` with default language
+- Using `transcribe()` and `availableTracks()` methods
+
 ## Scripts That Need API Key
 
-All scripts except `url-utils.ts` require `YOUTUBE_API_KEY` to be set in the environment.
+All scripts except `url-utils.ts`, `transcript-basic.ts`, `transcript-languages.ts`, `transcript-meta.ts`, and `transcript-client.ts` require `YOUTUBE_API_KEY` to be set in the environment.
 
 If you see:
 
