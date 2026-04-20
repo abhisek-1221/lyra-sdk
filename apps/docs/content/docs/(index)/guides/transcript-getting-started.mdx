@@ -184,6 +184,9 @@ const tracks = await client.availableTracks('jNQXAC9IVRw')   // new video
   <Card title="Transcript API" icon={<BookIcon />} href="/docs/sdk/transcript">
     Full API reference for every function, type, and option.
   </Card>
+  <Card title="Batch Transcript" icon={<ListChecksIcon />} href="/docs/sdk/batch-transcript">
+    Fetch transcripts for entire playlists.
+  </Card>
   <Card title="Caching" icon={<DatabaseIcon />} href="/docs/sdk/caching">
     InMemoryCache, FsCache, and custom cache backends.
   </Card>
@@ -192,5 +195,8 @@ const tracks = await client.availableTracks('jNQXAC9IVRw')   // new video
   </Card>
   <Card title="Architecture" icon={<CodeIcon />} href="/docs/guides/transcript-architecture">
     How the transcript module works internally.
+  </Card>
+  <Card title="Batch Guide" icon={<ListChecksIcon />} href="/docs/guides/batch-transcript-guide">
+    Concurrency tuning, caching, and partial failures.
   </Card>
 </Cards>
