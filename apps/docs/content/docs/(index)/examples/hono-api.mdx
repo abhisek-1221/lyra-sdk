@@ -340,6 +340,44 @@ serve({ fetch: app.fetch, port: PORT }, () => {
 | GET | `/api/transcript/:id/vtt` | WebVTT format |
 | GET | `/api/transcript/:id/text` | Plain text |
 
+### Comments (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/comments/:videoId` | Comment threads for a video |
+| GET | `/api/comments/:videoId/top` | Top comments by relevance |
+| GET | `/api/comment-replies/:id` | All replies for a comment |
+
+```ts title="src/routes/comment.ts"
+import { Hono } from 'hono'
+import { client } from '../lib.js'
+
+const app = new Hono()
+
+app.get('/comments/:videoId', async (c) => {
+  const maxResults = c.req.query('maxResults') ? Number(c.req.query('maxResults')) : 100
+  const threads = await client!.comments(c.req.param('videoId'), {
+    order: c.req.query('order') as any,
+    searchTerms: c.req.query('search'),
+    maxResults,
+  })
+  return c.json(threads)
+})
+
+app.get('/comments/:videoId/top', async (c) => {
+  const limit = c.req.query('limit') ? Number(c.req.query('limit')) : 10
+  const threads = await client!.topComments(c.req.param('videoId'), limit)
+  return c.json(threads)
+})
+
+app.get('/comment-replies/:id', async (c) => {
+  const replies = await client!.commentReplies(c.req.param('id'))
+  return c.json(replies)
+})
+
+export const commentRoutes = app
+```
+
 ### URL Utilities (API key required)
 
 | Method | Path | Description |

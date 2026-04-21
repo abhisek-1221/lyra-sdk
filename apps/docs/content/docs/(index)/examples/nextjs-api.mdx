@@ -525,6 +525,76 @@ export async function POST(request: Request) {
 | GET | `/api/transcript/:id/vtt` | WebVTT format |
 | GET | `/api/transcript/:id/text` | Plain text |
 
+### Comments (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/comments/:videoId` | Comment threads for a video |
+| GET | `/api/comments/:videoId/top` | Top comments by relevance |
+| GET | `/api/comment-replies/:id` | All replies for a comment |
+
+```ts title="src/app/api/comments/[videoId]/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: { videoId: string } },
+) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const maxResults = searchParams.get('maxResults') ? Number(searchParams.get('maxResults')) : 100
+    const threads = await client!.comments(params.videoId, {
+      order: searchParams.get('order') as any,
+      searchTerms: searchParams.get('search') ?? undefined,
+      maxResults,
+    })
+    return NextResponse.json(threads)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/comments/[videoId]/top/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: { videoId: string } },
+) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : 10
+    const threads = await client!.topComments(params.videoId, limit)
+    return NextResponse.json(threads)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
+```ts title="src/app/api/comment-replies/[id]/route.ts"
+import { NextResponse } from 'next/server'
+import { client } from '@/lib/youtube'
+import { handleError } from '@/lib/errors'
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  try {
+    const replies = await client!.commentReplies(params.id)
+    return NextResponse.json(replies)
+  } catch (err) {
+    return handleError(err)
+  }
+}
+```
+
 ### URL Utilities (API key required)
 
 | Method | Path | Description |

@@ -1,0 +1,272 @@
+---
+title: Comments
+description: Fetch video comments, replies, stats, and search with auto-pagination
+icon: MessageSquare
+---
+
+## Overview
+
+The comments module fetches YouTube video and channel comments using the YouTube Data API v3. All methods auto-paginate through results and return structured, typed data.
+
+```ts
+import { yt } from 'lyra-sdk'
+
+const client = yt(process.env.YOUTUBE_API_KEY!)
+```
+
+---
+
+## `client.comments(videoUrlOrId, opts?)`
+
+Fetch all comment threads for a video. Auto-paginates through all pages.
+
+```ts
+const threads = await client.comments('dQw4w9WgXcQ')
+
+for (const thread of threads) {
+  console.log(`@${thread.topLevelComment.authorName}: ${thread.topLevelComment.text}`)
+  console.log(`  ${thread.totalReplyCount} replies`)
+}
+```
+
+Also accepts URLs:
+
+```ts
+const threads = await client.comments('https://youtu.be/dQw4w9WgXcQ')
+```
+
+### Options
+
+| Property      | Type                                | Default       | Description                              |
+| ------------- | ----------------------------------- | ------------- | ---------------------------------------- |
+| `order`       | `"time"` \| `"relevance"`           | `"time"`      | Sort order for comments                  |
+| `maxResults`  | `number`                            | `100`         | Max total results to return (caps pagination) |
+| `searchTerms` | `string`                            | —             | Filter comments by keyword               |
+| `textFormat`  | `"html"` \| `"plainText"`           | `"plainText"` | Comment text format                      |
+
+### CommentThread
+
+| Property           | Type       | Description                                |
+| ------------------ | ---------- | ------------------------------------------ |
+| `id`               | `string`   | Comment thread ID                          |
+| `videoId`          | `string`   | Video ID                                   |
+| `channelId`        | `string`   | Channel ID associated with the video       |
+| `topLevelComment`  | `Comment`  | The top-level comment                      |
+| `totalReplyCount`  | `number`   | Total replies to the top-level comment     |
+| `canReply`         | `boolean`  | Whether the current viewer can reply       |
+| `isPublic`         | `boolean`  | Whether the thread is publicly visible     |
+| `replies`          | `Comment[]`| First page of replies (may be incomplete)  |
+
+### Comment
+
+| Property              | Type      | Description                              |
+| --------------------- | --------- | ---------------------------------------- |
+| `id`                  | `string`  | Comment ID                               |
+| `authorName`          | `string`  | Display name of the commenter            |
+| `authorProfileImage`  | `string`  | Avatar URL                               |
+| `authorChannelUrl`    | `string`  | Channel URL of the commenter             |
+| `authorChannelId`     | `string`  | Channel ID of the commenter              |
+| `text`                | `string`  | Comment text                             |
+| `likeCount`           | `number`  | Number of likes                          |
+| `publishedAt`         | `Date`    | When the comment was published           |
+| `updatedAt`           | `Date`    | When the comment was last updated        |
+| `parentId`            | `string`  | Parent comment ID (only for replies)     |
+
+---
+
+## `client.commentReplies(commentId, textFormat?)`
+
+Fetch all replies to a specific comment. Auto-paginates.
+
+```ts
+const replies = await client.commentReplies('UgwSomeCommentId')
+
+for (const reply of replies) {
+  console.log(`  @${reply.authorName}: ${reply.text}`)
+}
+```
+
+<Callout>
+  The `commentThreads.list` endpoint returns only a subset of replies. Use this method to get **all** replies when `totalReplyCount` exceeds the replies included in the thread.
+</Callout>
+
+---
+
+## `client.commentsWithReplies(videoUrlOrId, opts?)`
+
+Fetches all comment threads **and auto-fetches all replies** for each thread. Combines the two API calls into a single function.
+
+```ts
+const threads = await client.commentsWithReplies('dQw4w9WgXcQ')
+
+for (const thread of threads) {
+  console.log(`@${thread.topLevelComment.authorName}: ${thread.topLevelComment.text}`)
+  for (const reply of thread.replies ?? []) {
+    console.log(`  └─ @${reply.authorName}: ${reply.text}`)
+  }
+}
+```
+
+<Callout>
+  This method makes additional API calls for each thread that has more replies than the first page. For a video with 50 threads and 20 needing full replies, that's ~20 extra quota units. Use `client.comments()` if you don't need all replies.
+</Callout>
+
+---
+
+## `client.topComments(videoUrlOrId, limit?)`
+
+Fetch top comments sorted by relevance (most liked). Returns up to `limit` results.
+
+```ts
+const top5 = await client.topComments('dQw4w9WgXcQ', 5)
+
+for (const thread of top5) {
+  const c = thread.topLevelComment
+  console.log(`@${c.authorName} (${c.likeCount} likes): ${c.text}`)
+}
+```
+
+---
+
+## `client.searchComments(videoUrlOrId, query, opts?)`
+
+Search comments by keyword. Uses YouTube's `searchTerms` parameter. Accepts the same options as `client.comments()`.
+
+```ts
+const results = await client.searchComments('dQw4w9WgXcQ', 'great song', { maxResults: 20 })
+console.log(`Found ${results.length} matching threads`)
+```
+
+<Callout type="warn">
+  Keyword search can be slow on videos with millions of comments. Use `maxResults` to limit results and avoid long waits.
+</Callout>
+
+---
+
+## `client.channelComments(channelId, opts?)`
+
+Fetch all comment threads associated with a channel.
+
+```ts
+const threads = await client.channelComments('UCxxxxxx')
+```
+
+---
+
+## `client.commentStats(videoId, threads)`
+
+Compute aggregate statistics from an array of comment threads. Pure computation — no API call.
+
+```ts
+const threads = await client.comments('dQw4w9WgXcQ', { maxResults: 50 })
+const stats = client.commentStats('dQw4w9WgXcQ', threads)
+
+console.log(`Total comments:   ${stats.totalComments}`)
+console.log(`Total replies:    ${stats.totalReplies}`)
+console.log(`Unique authors:   ${stats.uniqueAuthors}`)
+console.log(`Avg likes:        ${stats.avgLikes}`)
+console.log(`Reply ratio:      ${stats.replyRatio}`)
+console.log(`Most liked:       ${stats.mostLikedComment?.authorName}`)
+```
+
+### CommentStats
+
+| Property            | Type               | Description                              |
+| ------------------- | ------------------ | ---------------------------------------- |
+| `videoId`           | `string`           | Video ID                                 |
+| `totalComments`     | `number`           | Number of top-level comment threads      |
+| `totalReplies`      | `number`           | Total replies across all threads         |
+| `uniqueAuthors`     | `number`           | Unique commenters (top-level + replies)  |
+| `mostLikedComment`  | `Comment \| null`  | The comment with the most likes          |
+| `avgLikes`          | `number`           | Average likes per comment                |
+| `replyRatio`        | `number`           | Replies per top-level comment            |
+
+---
+
+## `client.flattenComments(threads)`
+
+Flatten threads + replies into a single flat `Comment[]` array. Pure utility — no API call.
+
+```ts
+const threads = await client.comments('dQw4w9WgXcQ')
+const flat = client.flattenComments(threads)
+
+console.log(`Total items: ${flat.length}`) // top-level + replies combined
+```
+
+---
+
+## `client.commentQuery(videoUrlOrId)`
+
+Fluent query builder for filtering and slicing comments.
+
+```ts
+const result = await client.commentQuery('dQw4w9WgXcQ')
+  .order('relevance')
+  .search('love this')
+  .limit(20)
+  .withAllReplies()
+  .execute()
+
+console.log(`Found ${result.totalResults} threads`)
+console.log(`Stats: ${result.stats.uniqueAuthors} unique authors`)
+```
+
+### Builder methods
+
+| Method                     | Description                              |
+| -------------------------- | ---------------------------------------- |
+| `.order(order)`            | `"time"` or `"relevance"`                |
+| `.search(query)`           | Filter by keyword                        |
+| `.limit(n)`                | Max number of threads to return          |
+| `.withAllReplies()`        | Auto-fetch all replies for each thread   |
+| `.textFormat(format)`      | `"html"` or `"plainText"`                |
+| `.execute()`               | Execute the query and return result      |
+
+### CommentQueryResult
+
+| Property        | Type              | Description                    |
+| --------------- | ----------------- | ------------------------------ |
+| `videoId`       | `string`          | Video ID                       |
+| `threads`       | `CommentThread[]` | Result threads                 |
+| `totalResults`  | `number`          | Number of threads returned     |
+| `stats`         | `CommentStats`    | Aggregate statistics           |
+
+---
+
+## Error handling
+
+```ts
+import { yt, NotFoundError, QuotaError } from 'lyra-sdk'
+
+try {
+  const threads = await client.comments('INVALID_ID')
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    console.log('Video not found or comments disabled')
+  } else if (error instanceof QuotaError) {
+    console.log('Quota exceeded')
+  }
+}
+```
+
+| HTTP Status | Cause                                          |
+| ----------- | ---------------------------------------------- |
+| 403         | Comments disabled on the video                 |
+| 404         | Video or channel not found                     |
+| 429         | YouTube API quota exceeded                     |
+
+---
+
+## Quota usage
+
+| Method                       | Quota cost          |
+| ---------------------------- | ------------------- |
+| `comments()`                 | 1 unit per page     |
+| `commentReplies()`           | 1 unit per page     |
+| `commentsWithReplies()`      | 1 + N pages (N = threads needing full replies) |
+| `topComments()`              | 1 unit per page     |
+| `searchComments()`           | 1 unit per page     |
+| `channelComments()`          | 1 unit per page     |
+| `commentStats()`             | 0 (pure computation) |
+| `flattenComments()`          | 0 (pure computation) |

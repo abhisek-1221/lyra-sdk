@@ -203,6 +203,23 @@ Demonstrates:
 - Optional `hl` parameter for localized names
 - Combining regions with `videoCategoriesByRegion()`
 
+### comment.ts
+
+Fetch video comments — top comments, stats, search, and query builder.
+
+```bash
+source .env && npx tsx scripts/comment.ts [VIDEO_ID_OR_URL]
+```
+
+Demonstrates:
+
+- `topComments()` — top 5 comments by relevance
+- `commentStats()` — aggregate stats (unique authors, most liked, reply ratio)
+- `searchComments()` — keyword search across comments
+- `commentQuery()` — chained query builder with limit and order
+
+Defaults to `dQw4w9WgXcQ` if no argument is provided.
+
 ## Scripts That Need API Key
 
 All scripts except `url-utils.ts`, `transcript-*.ts` require `YOUTUBE_API_KEY` to be set in the environment.

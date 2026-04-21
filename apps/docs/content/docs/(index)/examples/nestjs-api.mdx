@@ -407,6 +407,51 @@ bootstrap()
 | GET | `/api/transcript/:id/vtt` | WebVTT format |
 | GET | `/api/transcript/:id/text` | Plain text |
 
+### Comments (API key required)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/comments/:videoId` | Comment threads for a video |
+| GET | `/api/comments/:videoId/top` | Top comments by relevance |
+| GET | `/api/comment-replies/:id` | All replies for a comment |
+
+```ts title="src/comment/comment.controller.ts"
+import { Controller, Get, Param, Query, Inject } from '@nestjs/common'
+import { YTClient } from 'lyra-sdk'
+
+@Controller('api')
+export class CommentController {
+  constructor(@Inject('YT_CLIENT') private client: YTClient) {}
+
+  @Get('comments/:videoId')
+  async comments(
+    @Param('videoId') videoId: string,
+    @Query('order') order?: string,
+    @Query('search') search?: string,
+    @Query('maxResults') maxResults?: string,
+  ) {
+    return this.client.comments(videoId, {
+      order: order as any,
+      searchTerms: search,
+      maxResults: maxResults ? Number(maxResults) : 100,
+    })
+  }
+
+  @Get('comments/:videoId/top')
+  async topComments(
+    @Param('videoId') videoId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.client.topComments(videoId, limit ? Number(limit) : 10)
+  }
+
+  @Get('comment-replies/:id')
+  async replies(@Param('id') id: string) {
+    return this.client.commentReplies(id)
+  }
+}
+```
+
 ### URL Utilities (API key required)
 
 | Method | Path | Description |

@@ -35,6 +35,17 @@ export {
   QuotaError,
   YTError,
 } from "./errors.js";
+export {
+  flattenComments,
+  getChannelComments,
+  getCommentReplies,
+  getCommentStats,
+  getCommentsWithReplies,
+  getTopComments,
+  getVideoComments,
+  searchComments,
+} from "./modules/comment.js";
+export { CommentQueryBuilder } from "./modules/comment-query.js";
 export { PlaylistQueryBuilder } from "./modules/playlist-query.js";
 export type {
   CacheStore,
@@ -71,6 +82,13 @@ export {
 export { isPlaylistURL, isVideoURL, parseURL } from "./modules/url.js";
 export type {
   Channel,
+  Comment,
+  CommentOptions,
+  CommentOrder,
+  CommentQueryResult,
+  CommentStats,
+  CommentTextFormat,
+  CommentThread,
   I18nLanguage,
   I18nRegion,
   ParsedURL,
