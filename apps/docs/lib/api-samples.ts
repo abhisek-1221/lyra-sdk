@@ -308,99 +308,209 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(result)
 }`,
   },
-  parseUrl: {
+  getComments: {
+    express: expressRoute(
+      'GET',
+      '/comments/:videoId',
+      indent(`const { videoId } = req.params
+const maxResults = req.query.maxResults ? Number(req.query.maxResults) : 100
+const threads = await client!.comments(videoId, {
+  order: req.query.order as any,
+  searchTerms: req.query.search as string,
+  maxResults,
+})
+res.json(threads)`),
+    ),
+    hono: honoRoute(
+      'GET',
+      '/comments/:videoId',
+      indent(`const videoId = c.req.param('videoId')
+const maxResults = c.req.query('maxResults') ? Number(c.req.query('maxResults')) : 100
+const threads = await client!.comments(videoId, {
+  order: c.req.query('order') as any,
+  searchTerms: c.req.query('search'),
+  maxResults,
+})
+return c.json(threads)`),
+    ),
+    nextjs: nextjsRoute(
+      'GET',
+      '/api/comments/:videoId',
+      indent(`const videoId = params.id
+const { searchParams } = new URL(req.url)
+const maxResults = searchParams.get('maxResults') ? Number(searchParams.get('maxResults')) : 100
+const threads = await client!.comments(videoId, {
+  order: searchParams.get('order') as any,
+  searchTerms: searchParams.get('search') || undefined,
+  maxResults,
+})
+return NextResponse.json(threads)`),
+    ),
+  },
+  getTopComments: {
+    express: expressRoute(
+      'GET',
+      '/comments/:videoId/top',
+      indent(`const { videoId } = req.params
+const limit = req.query.limit ? Number(req.query.limit) : 10
+const threads = await client!.topComments(videoId, limit)
+res.json(threads)`),
+    ),
+    hono: honoRoute(
+      'GET',
+      '/comments/:videoId/top',
+      indent(`const videoId = c.req.param('videoId')
+const limit = c.req.query('limit') ? Number(c.req.query('limit')) : 10
+const threads = await client!.topComments(videoId, limit)
+return c.json(threads)`),
+    ),
+    nextjs: nextjsRoute(
+      'GET',
+      '/api/comments/:videoId/top',
+      indent(`const videoId = params.id
+const { searchParams } = new URL(req.url)
+const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : 10
+const threads = await client!.topComments(videoId, limit)
+return NextResponse.json(threads)`),
+    ),
+  },
+  getCommentReplies: {
+    express: expressRoute(
+      'GET',
+      '/comment-replies/:id',
+      indent(`const { id } = req.params
+const replies = await client!.commentReplies(id)
+res.json(replies)`),
+    ),
+    hono: honoRoute(
+      'GET',
+      '/comment-replies/:id',
+      indent(`const id = c.req.param('id')
+const replies = await client!.commentReplies(id)
+return c.json(replies)`),
+    ),
+    nextjs: nextjsRoute(
+      'GET',
+      '/api/comment-replies/:id',
+      indent(`const id = params.id
+const replies = await client!.commentReplies(id)
+return NextResponse.json(replies)`),
+    ),
+  },
+  getTranscript: {
     express: `import { Router } from 'express'
-import { client } from '../lib.js'
+import { transcribeVideo } from 'lyra-sdk/transcript'
 
 const router = Router()
 
-router.post('/url/parse', async (req, res) => {
-  const { url } = req.body
-  const result = client!.url.parse(url)
+router.get('/transcript/:id', async (req, res) => {
+  const { id } = req.params
+  const lang = req.query.lang as string | undefined
+  const lines = await transcribeVideo(id, { lang })
+  res.json(lines)
+})
+
+export const routes = router`,
+    hono: `import { Hono } from 'hono'
+import { transcribeVideo } from 'lyra-sdk/transcript'
+
+const app = new Hono()
+
+app.get('/transcript/:id', async (c) => {
+  const id = c.req.param('id')
+  const lang = c.req.query('lang')
+  const lines = await transcribeVideo(id, { lang })
+  return c.json(lines)
+})
+
+export const routes = app`,
+    nextjs: `import { NextRequest, NextResponse } from 'next/server'
+import { transcribeVideo } from 'lyra-sdk/transcript'
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const id = params.id
+  const { searchParams } = new URL(req.url)
+  const lang = searchParams.get('lang') || undefined
+  const lines = await transcribeVideo(id, { lang })
+  return NextResponse.json(lines)
+}`,
+  },
+  batchTranscript: {
+    express: `import { Router } from 'express'
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+import { z } from 'zod'
+
+const router = Router()
+
+const batchSchema = z.object({
+  concurrency: z.coerce.number().min(1).max(20).optional().default(3),
+  from: z.coerce.number().min(1).optional(),
+  to: z.coerce.number().min(1).optional(),
+  lang: z.string().optional(),
+})
+
+router.post('/playlist/:id/transcript', async (req, res) => {
+  const { id } = req.params
+  const opts = batchSchema.parse(req.body)
+
+  const result = await transcribePlaylist(id, {
+    apiKey: process.env.YOUTUBE_API_KEY!,
+    ...opts,
+  })
+
   res.json(result)
 })
 
 export const routes = router`,
     hono: `import { Hono } from 'hono'
-import { client } from '../lib.js'
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+import { z } from 'zod'
 
 const app = new Hono()
 
-app.post('/url/parse', async (c) => {
-  const { url } = await c.req.json()
-  const result = client!.url.parse(url)
+const batchSchema = z.object({
+  concurrency: z.coerce.number().min(1).max(20).optional().default(3),
+  from: z.coerce.number().min(1).optional(),
+  to: z.coerce.number().min(1).optional(),
+  lang: z.string().optional(),
+})
+
+app.post('/playlist/:id/transcript', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const opts = batchSchema.parse(body)
+
+  const result = await transcribePlaylist(id, {
+    apiKey: process.env.YOUTUBE_API_KEY!,
+    ...opts,
+  })
+
   return c.json(result)
 })
 
 export const routes = app`,
     nextjs: `import { NextRequest, NextResponse } from 'next/server'
-import { client } from '@/lib/youtube.js'
+import { transcribePlaylist } from 'lyra-sdk/transcript'
+import { z } from 'zod'
 
-export async function POST(req: NextRequest) {
-  const { url } = await req.json()
-  const result = client!.url.parse(url)
+const batchSchema = z.object({
+  concurrency: z.coerce.number().min(1).max(20).optional().default(3),
+  from: z.coerce.number().min(1).optional(),
+  to: z.coerce.number().min(1).optional(),
+  lang: z.string().optional(),
+})
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const id = params.id
+  const body = await req.json()
+  const opts = batchSchema.parse(body)
+
+  const result = await transcribePlaylist(id, {
+    apiKey: process.env.YOUTUBE_API_KEY!,
+    ...opts,
+  })
+
   return NextResponse.json(result)
-}`,
-  },
-  extractUrl: {
-    express: `import { Router } from 'express'
-import { client } from '../lib.js'
-
-const router = Router()
-
-router.post('/url/extract', async (req, res) => {
-  const { url, type } = req.body
-
-  if (type === 'video' || (!type && client!.url.isVideo(url))) {
-    return res.json({ type: 'video', videoId: client!.url.extractVideoId(url) })
-  }
-  if (type === 'playlist' || (!type && client!.url.isPlaylist(url))) {
-    return res.json({ type: 'playlist', playlistId: client!.url.extractPlaylistId(url) })
-  }
-  const channelId = client!.url.extractChannelId(url)
-  if (channelId) return res.json({ type: 'channel', channelId })
-
-  return res.json({ type: 'unknown', id: null })
-})
-
-export const routes = router`,
-    hono: `import { Hono } from 'hono'
-import { client } from '../lib.js'
-
-const app = new Hono()
-
-app.post('/url/extract', async (c) => {
-  const { url, type } = await c.req.json()
-
-  if (type === 'video' || (!type && client!.url.isVideo(url))) {
-    return c.json({ type: 'video', videoId: client!.url.extractVideoId(url) })
-  }
-  if (type === 'playlist' || (!type && client!.url.isPlaylist(url))) {
-    return c.json({ type: 'playlist', playlistId: client!.url.extractPlaylistId(url) })
-  }
-  const channelId = client!.url.extractChannelId(url)
-  if (channelId) return c.json({ type: 'channel', channelId })
-
-  return c.json({ type: 'unknown', id: null })
-})
-
-export const routes = app`,
-    nextjs: `import { NextRequest, NextResponse } from 'next/server'
-import { client } from '@/lib/youtube.js'
-
-export async function POST(req: NextRequest) {
-  const { url, type } = await req.json()
-
-  if (type === 'video' || (!type && client!.url.isVideo(url))) {
-    return NextResponse.json({ type: 'video', videoId: client!.url.extractVideoId(url) })
-  }
-  if (type === 'playlist' || (!type && client!.url.isPlaylist(url))) {
-    return NextResponse.json({ type: 'playlist', playlistId: client!.url.extractPlaylistId(url) })
-  }
-  const channelId = client!.url.extractChannelId(url)
-  if (channelId) return NextResponse.json({ type: 'channel', channelId })
-
-  return NextResponse.json({ type: 'unknown', id: null })
 }`,
   },
 }

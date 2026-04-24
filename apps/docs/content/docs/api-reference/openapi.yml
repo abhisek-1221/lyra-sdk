@@ -18,8 +18,10 @@ tags:
     description: Fetch channel metadata and recent uploads
   - name: Playlist
     description: Fetch playlists, metadata, and filtered queries
-  - name: URL
-    description: Parse and extract IDs from YouTube URLs
+  - name: Comments
+    description: Fetch video comments, replies, and top comments
+  - name: Transcript
+    description: Batch fetch transcripts for entire playlists
 
 paths:
   /api/video/{id}:
@@ -311,67 +313,190 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/url/parse:
-    post:
-      tags: [URL]
-      summary: Parse a YouTube URL
-      description: Parse a YouTube URL into a structured result.
-      operationId: parseUrl
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [url]
-              properties:
-                url:
-                  type: string
+  /api/comments/{videoId}:
+    get:
+      tags: [Comments]
+      summary: Get video comments
+      description: Fetch all comment threads for a video. Auto-paginates.
+      operationId: getComments
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          description: Video ID or URL
+          schema:
+            type: string
+        - name: order
+          in: query
+          required: false
+          description: Sort order
+          schema:
+            type: string
+            enum: [time, relevance]
+            default: time
+        - name: maxResults
+          in: query
+          required: false
+          description: Max total results
+          schema:
+            type: integer
+            default: 100
+        - name: search
+          in: query
+          required: false
+          description: Filter by keyword
+          schema:
+            type: string
       responses:
         '200':
-          description: Parsed URL result
+          description: Array of comment threads
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ParsedURL'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentThread'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /api/url/extract:
+  /api/comments/{videoId}/top:
+    get:
+      tags: [Comments]
+      summary: Get top comments
+      description: Fetch top comments sorted by relevance.
+      operationId: getTopComments
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          description: Video ID or URL
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Max results to return
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Array of comment threads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentThread'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/comment-replies/{id}:
+    get:
+      tags: [Comments]
+      summary: Get comment replies
+      description: Fetch all replies to a specific comment. Auto-paginates.
+      operationId: getCommentReplies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Comment ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of reply comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/transcript/{id}:
+    get:
+      tags: [Transcript]
+      summary: Get video transcript
+      description: Fetch transcript for a single video. No API key required.
+      operationId: getTranscript
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Video ID or URL
+          schema:
+            type: string
+        - name: lang
+          in: query
+          required: false
+          description: BCP 47 language code (e.g. en, es, pt-BR)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of transcript lines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TranscriptLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlist/{id}/transcript:
     post:
-      tags: [URL]
-      summary: Extract IDs from a YouTube URL
-      description: Extract video, playlist, or channel IDs from a YouTube URL.
-      operationId: extractUrl
+      tags: [Transcript]
+      summary: Batch fetch playlist transcripts
+      description: Fetch transcripts for all videos in a playlist with concurrency control.
+      operationId: batchTranscript
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Playlist ID or URL
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [url]
               properties:
-                url:
+                concurrency:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                  default: 3
+                  description: Max parallel transcript fetches
+                from:
+                  type: integer
+                  minimum: 1
+                  description: 1-indexed start position
+                to:
+                  type: integer
+                  minimum: 1
+                  description: 1-indexed end position
+                lang:
                   type: string
-                type:
-                  type: string
-                  enum: [video, playlist, channel]
+                  description: BCP 47 language code for transcripts
       responses:
         '200':
-          description: Extracted IDs
+          description: Batch transcript result
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  type:
-                    type: string
-                  playlistId:
-                    type: string
-                  videoId:
-                    type: string
+                $ref: '#/components/schemas/BatchTranscriptResult'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   schemas:
@@ -551,22 +676,105 @@ components:
             originalCount:
               type: integer
 
-    ParsedURL:
+    Comment:
       type: object
       properties:
-        isValid:
-          type: boolean
-        type:
+        id:
           type: string
-          enum: [video, playlist, channel]
+        authorName:
+          type: string
+        authorProfileImage:
+          type: string
+        authorChannelUrl:
+          type: string
+        authorChannelId:
+          type: string
+        text:
+          type: string
+        likeCount:
+          type: integer
+        publishedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        parentId:
+          type: string
+
+    CommentThread:
+      type: object
+      properties:
+        id:
+          type: string
         videoId:
-          type: string
-        playlistId:
           type: string
         channelId:
           type: string
+        topLevelComment:
+          $ref: '#/components/schemas/Comment'
+        totalReplyCount:
+          type: integer
+        canReply:
+          type: boolean
+        isPublic:
+          type: boolean
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+
+    TranscriptLine:
+      type: object
+      properties:
+        text:
+          type: string
+        duration:
+          type: number
+        offset:
+          type: number
+        lang:
+          type: string
+
+    VideoTranscriptResult:
+      type: object
+      properties:
+        videoId:
+          type: string
+        title:
+          type: string
+        position:
+          type: integer
+        status:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptLine'
         error:
           type: string
+
+    BatchTranscriptResult:
+      type: object
+      properties:
+        playlistId:
+          type: string
+        totalVideos:
+          type: integer
+        requestedRange:
+          type: array
+          items:
+            type: integer
+          minItems: 2
+          maxItems: 2
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoTranscriptResult'
 
     Error:
       type: object
