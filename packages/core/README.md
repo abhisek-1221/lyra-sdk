@@ -1,15 +1,14 @@
 # lyra-sdk
 
-YouTube Data API v3 in a few lines. No boilerplate, no pagination headaches.
+[![npm version](https://img.shields.io/npm/v/lyra-sdk.svg)](https://www.npmjs.com/package/lyra-sdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+A powerful TypeScript SDK for working with YouTube data. Fetch videos, channels, playlists, comments, and transcripts — all with full type safety and zero dependencies.
 
-- **Playlist-first** — Auto-paginates past YouTube's 50-item limit, batch video details in parallel
-- **URL-first** — Pass full URL or bare ID to any method
-- **Typed everything** — Full TypeScript, no `any`
-- **Formatted by default** — Every numeric field has `*Fmt` companion (`viewsFmt`, `durationFmt`, etc.)
-- **Tree-shakeable** — ESM + CJS dual build, standalone `lyra-sdk/url` and `lyra-sdk/fmt` exports
-- **Zero dependencies** — Only uses native `fetch` API (Node 18+)
+**🌐 Website:** [uselyra.xyz](https://uselyra.xyz)  
+**📚 Documentation:** [docs.uselyra.xyz](https://docs.uselyra.xyz)
+
+---
 
 ## Installation
 
@@ -17,106 +16,155 @@ YouTube Data API v3 in a few lines. No boilerplate, no pagination headaches.
 npm install lyra-sdk
 ```
 
+Requires Node.js 18+ and a [YouTube Data API v3 key](https://console.cloud.google.com/apis/credentials).
+
+---
+
 ## Quick Start
 
-```ts
-import { yt } from "lyra-sdk";
+```typescript
+import { yt } from 'lyra-sdk'
 
-const client = yt("YOUR_API_KEY");
+const client = yt(process.env.YOUTUBE_API_KEY!)
 
 // Fetch a video
-const video = await client.video("https://youtu.be/dQw4w9WgXcQ");
-console.log(video.title); // "Rick Astley - Never Gonna Give You Up"
-console.log(video.viewsFmt); // "1.2B"
+const video = await client.video('dQw4w9WgXcQ')
+console.log(video.title, video.viewsFmt)
 
-// Fetch a playlist (auto-paginates through all videos)
-const playlist = await client.playlist(
-  "https://youtube.com/playlist?list=PLxxx",
-);
-console.log(playlist.videoCount); // 142
-console.log(playlist.totalDurationFmt); // "2d 5h 32m"
+// Fetch a channel by handle
+const channel = await client.channel('@MrBeast')
+console.log(channel.name, channel.subscribersFmt)
 
-// Fetch channel
-const channel = await client.channel("@MrBeast");
-console.log(channel.subscribersFmt); // "355M"
+// Fetch a full playlist
+const playlist = await client.playlist('PL...')
+console.log(playlist.title, playlist.videoCount)
 ```
 
-## API
+---
 
-### Client Methods
+## Fetch Video Transcript (No API Key)
 
-#### Videos
+```typescript
+import { transcribeVideo, toPlainText } from 'lyra-sdk/transcript'
 
-```ts
-client.video(urlOrId); // Fetch single video
-client.videos(urlOrIds); // Batch fetch videos (chunks of 50)
-client.videoTitle(urlOrId); // Lightweight title-only (1 quota unit)
-client.videoTitles(urlOrIds); // Batch titles
+const lines = await transcribeVideo('dQw4w9WgXcQ')
+console.log(toPlainText(lines)) // Full transcript as plain text
 ```
 
-#### Channels
+The transcript module uses YouTube's internal Innertube API — **no quota consumption, no API key**.
 
-```ts
-client.channel(urlOrId); // Fetch channel metadata
-client.channelVideos(urlOrId); // Fetch recent uploads
-client.channelVideos(urlOrId, { limit: 10 }); // Custom limit (max 50)
+---
+
+## Transcribe Playlist (Batch)
+
+```typescript
+import { transcribePlaylist, InMemoryCache } from 'lyra-sdk'
+
+const result = await transcribePlaylist('PL...', {
+  apiKey: process.env.YOUTUBE_API_KEY!,
+  concurrency: 5,
+  cache: new InMemoryCache(),
+  onProgress(done, total, videoId, status) {
+    console.log(`[${status}] ${done}/${total} — ${videoId}`)
+  },
+})
+
+console.log(`Succeeded: ${result.succeeded}, Failed: ${result.failed}`)
 ```
 
-#### Playlists
+**Features:** concurrency control, smart caching, partial failure handling, range filtering.
 
-```ts
-client.playlist(urlOrId); // Full playlist with auto-pagination
-client.playlistInfo(urlOrId); // Metadata only (1 quota unit)
-client.playlistVideoIds(urlOrId); // Just video IDs
+---
+
+## Comments & Comment Threads
+
+```typescript
+// Fetch all comment threads
+const threads = await client.comments('dQw4w9WgXcQ')
+
+// Top comments by relevance
+const top5 = await client.topComments('dQw4w9WgXcQ', 5)
+
+// All replies to a specific comment
+const replies = await client.commentReplies('UgwSomeCommentId')
+
+// Search comments by keyword
+const results = await client.searchComments('dQw4w9WgXcQ', 'great song')
+
+// Compute aggregate stats
+const stats = client.commentStats('dQw4w9WgXcQ', threads)
+console.log(`Unique authors: ${stats.uniqueAuthors}`)
 ```
 
-### URL Utilities (No API Calls)
+---
 
-```ts
-client.url.parse(url); // Parse any YouTube URL
-client.url.isVideo(url); // Check if URL is a video
-client.url.isPlaylist(url); // Check if URL is a playlist
-client.url.extractVideoId(url); // Extract video ID
-client.url.extractPlaylistId(url); // Extract playlist ID
-client.url.extractChannelId(url); // Extract channel ID
+## Playlist Query Builder
+
+```typescript
+const result = await client
+  .playlistQuery('PL...')
+  .filterByDuration({ min: 300 })
+  .filterByViews({ min: 100_000 })
+  .sortBy('views', 'desc')
+  .between(1, 10)
+  .execute()
 ```
 
-### Standalone Exports
+---
 
-```ts
-import { parseURL, isVideoURL } from "lyra-sdk/url";
-import { formatDuration, formatNumber } from "lyra-sdk/fmt";
+## URL Utilities & Formatting (No API Key)
+
+```typescript
+import { parseURL, extractVideoId } from 'lyra-sdk/url'
+import { formatNumber, formatDurationClock } from 'lyra-sdk/fmt'
+
+parseURL('https://youtu.be/dQw4w9WgXcQ')
+formatNumber(1_763_613_349) // '1.8B'
+formatDurationClock(214)    // '3:34'
 ```
+
+---
 
 ## Error Handling
 
-```ts
-import { yt, NotFoundError, QuotaError, AuthError } from "lyra-sdk";
+```typescript
+import { NotFoundError, QuotaError } from 'lyra-sdk'
 
 try {
-  const video = await client.video("invalid-id");
+  const video = await client.video('invalid-id')
 } catch (err) {
-  if (err instanceof NotFoundError) {
-    console.log("Video not found");
-  } else if (err instanceof QuotaError) {
-    console.log("API quota exceeded");
-  } else if (err instanceof AuthError) {
-    console.log("Invalid API key");
-  }
+  if (err instanceof NotFoundError) console.log('Video not found')
+  if (err instanceof QuotaError) console.log('API quota exceeded')
 }
 ```
 
-## TypeScript
+---
 
-`lyra-sdk` is written in TypeScript and ships with full type definitions.
+## Packages
 
-```ts
-import { yt } from "lyra-sdk";
-import type { Video, Playlist, Channel } from "lyra-sdk";
+| Package | Description |
+|---------|-------------|
+| `lyra-sdk` | Core SDK |
+| `lyra-sdk/url` | Standalone URL utilities (no API key) |
+| `lyra-sdk/fmt` | Standalone formatters (no API key) |
+| `lyra-sdk/transcript` | Transcript fetching (no API key for single videos) |
 
-const video: Video = await client.video("dQw4w9WgXcQ");
-```
+---
+
+## Documentation
+
+Full docs, API reference, and examples: **[docs.uselyra.xyz](https://docs.uselyra.xyz)**
+
+---
 
 ## License
 
 MIT
+
+---
+
+<div align="center">
+
+**If you find Lyra useful, please consider giving it a ⭐ on [GitHub](https://github.com/abhisek-1221/lyra-sdk)!**
+
+</div>

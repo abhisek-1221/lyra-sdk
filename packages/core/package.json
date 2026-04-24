@@ -1,9 +1,18 @@
 {
   "name": "lyra-sdk",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "YouTube Data API v3 in a few lines. No boilerplate, no pagination headaches.",
   "author": "",
   "license": "MIT",
+  "homepage": "https://uselyra.xyz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abhisek-1221/lyra-sdk.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
