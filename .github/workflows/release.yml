@@ -12,28 +12,29 @@ jobs:
     permissions:
       contents: read
 
-    defaults:
-      run:
-        working-directory: packages/core
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org/
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+        env:
+          HUSKY: 0
 
       - name: Build package
-        run: npm run build
+        run: npm run build --workspace lyra-sdk
 
       - name: Check if version already published
         id: check
+        working-directory: packages/core
         run: |
           VERSION=$(node -p "require('./package.json').version")
           NAME=$(node -p "require('./package.json').name")
@@ -49,6 +50,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.check.outputs.published == 'false'
+        working-directory: packages/core
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
