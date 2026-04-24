@@ -16,10 +16,13 @@ const geistMono = Geist_Mono({
 export const metadata = {
   metadataBase: new URL(process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'),
   title: {
-    template: `%s - ${appName}`,
-    default: appName,
+    template: `%s - lyra sdk docs`,
+    default: 'lyra sdk docs',
   },
   description: 'Documentation for your project',
+  icons: {
+    icon: '/logo.svg',
+  },
 }
 
 export default function Layout({ children }: LayoutProps<'/'>) {
