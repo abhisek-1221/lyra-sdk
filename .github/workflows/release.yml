@@ -12,6 +12,10 @@ jobs:
     permissions:
       contents: read
 
+    defaults:
+      run:
+        working-directory: packages/core
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,16 +27,16 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Build core package
-        run: npm run build --workspace=packages/core
+      - name: Build package
+        run: npm run build
 
       - name: Check if version already published
         id: check
         run: |
-          VERSION=$(node -p "require('./packages/core/package.json').version")
-          NAME=$(node -p "require('./packages/core/package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          NAME=$(node -p "require('./package.json').name")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "name=$NAME" >> $GITHUB_OUTPUT
           if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
@@ -45,6 +49,6 @@ jobs:
 
       - name: Publish to npm
         if: steps.check.outputs.published == 'false'
-        run: npm publish --workspace=packages/core
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
