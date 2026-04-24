@@ -11,7 +11,9 @@
     "...(generated)/channel",
     "---Playlist---",
     "...(generated)/playlist",
-    "---URL---",
-    "...(generated)/url"
+    "---Comments---",
+    "...(generated)/comments",
+    "---Transcript---",
+    "...(generated)/transcript"
   ]
 }

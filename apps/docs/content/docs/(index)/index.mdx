@@ -6,7 +6,9 @@ icon: Book
 
 ## What is Lyra?
 
-Lyra is a lightweight TypeScript SDK that wraps the YouTube Data API v3 with a clean, intuitive interface. No boilerplate, no pagination headaches — just the data you need.
+Lyra is a powerful TypeScript SDK for working with YouTube data. It provides a clean, intuitive interface for everything from fetching video metadata to extracting transcripts at scale — all with full type safety and zero dependencies.
+
+Whether you're building analytics dashboards, content pipelines, or AI-powered tools that need YouTube data, Lyra handles the complexity so you can focus on your product.
 
 <Cards cols={2}>
   <Card title="Quickstart" icon={<PlayIcon />} href="/docs/quickstart">
@@ -19,13 +21,27 @@ Lyra is a lightweight TypeScript SDK that wraps the YouTube Data API v3 with a c
 
 ## Key Features
 
-- **Single function calls** — Fetch videos, channels, and playlists with one line of code
+- **Single function calls** — Fetch videos, channels, playlists, and comments with one line of code
 - **Auto-pagination** — Playlists with hundreds of videos? No problem
 - **Fluent query builder** — Filter, sort, and slice playlist videos with a chainable API
+- **Transcript extraction** — Fetch captions for single videos or entire playlists without quota limits
+- **Batch operations** — Process playlists with configurable concurrency and progress tracking
+- **Smart caching** — Built-in in-memory and filesystem caches for transcript data
+- **Partial failure handling** — Individual video failures don't kill the entire batch job
+- **Comments & comment threads** — Fetch top-level threads, replies, search by keyword, and compute stats
+- **Internationalization** — Discover YouTube regions, languages, and localized video categories
 - **URL parsing** — Detect and extract IDs from any YouTube URL format
 - **Built-in formatting** — Human-readable durations, numbers, and dates out of the box
 - **Zero dependencies** — Runs on Node.js 18+ with native `fetch`
 - **Type-safe** — Full TypeScript types for every response shape
+
+## What's Coming
+
+- **Lyra CLI** — Command-line tool for batch operations, data export, and pipeline automation
+- **OpenClaw integration** — Agent Orchestration with 200+ apps 24/7
+- **Ollama support** — Local LLM inference for content analysis
+- **Hermes Agent** — Autonomous agent for YouTube research and monitoring workflows
+- **Built-in tool support for AI cloud providers** — Native integrations with Vercel AI SDK, Mastra, and LangChain for agentic workflows
 
 ## Quick Example
 
@@ -53,6 +69,29 @@ const result = await client.playlistQuery('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
   .execute()
 ```
 
+## Transcript Example
+
+Fetch captions without an API key — no quota consumption:
+
+```ts
+import { transcribeVideo, transcribePlaylist } from 'lyra-sdk/transcript'
+
+// Single video
+const lines = await transcribeVideo('dQw4w9WgXcQ')
+console.log(lines[0].text) // "♪ We're no strangers to love ♪"
+
+// Entire playlist with concurrency control
+const result = await transcribePlaylist('PL...', {
+  apiKey: process.env.YOUTUBE_API_KEY!,
+  concurrency: 5,
+  onProgress(done, total, videoId, status) {
+    console.log(`[${status}] ${done}/${total} — ${videoId}`)
+  },
+})
+
+console.log(`Succeeded: ${result.succeeded}, Failed: ${result.failed}`)
+```
+
 ## Packages
 
 | Package | Description |
@@ -60,3 +99,4 @@ const result = await client.playlistQuery('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
 | `lyra-sdk` | Core SDK — all functions, types, and utilities |
 | `lyra-sdk/url` | Standalone URL utilities (no API key needed) |
 | `lyra-sdk/fmt` | Standalone formatters (no API key needed) |
+| `lyra-sdk/transcript` | Transcript and caption fetching (no API key needed for single videos) |

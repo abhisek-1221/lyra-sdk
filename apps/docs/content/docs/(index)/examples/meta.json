@@ -1,5 +1,5 @@
 {
   "title": "Examples",
   "icon": "Terminal",
-  "pages": ["scripts", "transcript-scripts", "batch-transcript-scripts", "express-api", "hono-api", "nestjs-api", "nextjs-api"]
+  "pages": ["scripts", "api-server"]
 }

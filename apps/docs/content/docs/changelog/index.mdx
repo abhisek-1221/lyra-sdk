@@ -5,6 +5,67 @@ icon: List
 ---
 
 <Updates>
+  <Update label="v2.0.0">
+    ### Transcript API
+
+    * `transcribeVideo(id, options?)` — fetch captions for a single video without an API key
+    * `transcribePlaylist(id, options?)` — batch fetch transcripts for every video in a playlist
+    * `listCaptionTracks(id)` — discover available language tracks before downloading
+    * Output formatters: `toSRT()`, `toVTT()`, `toPlainText()`
+    * `TranscriptClient` — reusable client with shared config
+
+    ### Batch Transcript
+
+    * Configurable `concurrency` (1–20 workers) for parallel transcript fetching
+    * `from` / `to` range filtering to process a subset of the playlist
+    * `onProgress` callback for real-time progress tracking
+    * Partial failure handling — individual video failures are caught and recorded, not thrown
+    * Returns per-video results with `status: "success" | "failed"`
+
+    ### Caching
+
+    * `InMemoryCache` — process-only cache with TTL and size limits (~0.03ms hits)
+    * `FsCache` — filesystem persistence with JSON storage (~0.3ms hits)
+    * `CacheStore` interface for custom backends (Redis, etc.)
+    * Automatic cache key generation per video ID, language, and metadata flag
+
+    ### Retry & Resilience
+
+    * Exponential backoff retry for transient HTTP failures (429, 5xx)
+    * `retries` and `retryDelay` options on all transcript requests
+    * `AbortSignal` support to cancel in-flight retry loops
+
+    ### Comments API
+
+    * `comments(videoId, opts?)` — fetch all comment threads with auto-pagination
+    * `topComments(videoId, limit?)` — top comments sorted by relevance
+    * `commentReplies(commentId)` — fetch all replies to a specific comment
+    * `commentsWithReplies(videoId)` — threads + all replies in one call
+    * `searchComments(videoId, query)` — keyword search within comments
+    * `commentStats(videoId, threads)` — aggregate stats (unique authors, reply ratio, most liked)
+    * `commentQuery(videoId)` — fluent builder for filtering and slicing comments
+
+    ### Internationalization (i18n)
+
+    * `regions(hl?)` — list all supported YouTube regions (110+)
+    * `languages(hl?)` — list all supported languages (80+)
+    * `videoCategoriesByRegion(regionCode, hl?)` — fetch region-specific video categories
+    * Localized names via `hl` parameter (e.g., `ja` for Japanese)
+
+    ### REST API
+
+    * New endpoints: `/api/comments/{videoId}`, `/api/comments/{videoId}/top`, `/api/comment-replies/{id}`
+    * New endpoint: `/api/transcript/{id}` — single video transcript (no API key)
+    * New endpoint: `/api/playlist/{id}/transcript` — batch playlist transcript
+    * Removed URL utility endpoints (moved to standalone `lyra-sdk/url` subpath)
+
+    ### Framework Examples
+
+    * Added Hono, NestJS, and Next.js API server examples alongside Express
+    * API Reference now shows framework-specific code samples (Express, Hono, Next.js)
+
+  </Update>
+
   <Update label="v1.1.0">
     ### Playlist Query
 

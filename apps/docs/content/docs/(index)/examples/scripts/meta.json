@@ -1,0 +1,5 @@
+{
+  "title": "Scripts",
+  "icon": "Terminal",
+  "pages": ["scripts", "transcript-scripts", "batch-transcript-scripts"]
+}

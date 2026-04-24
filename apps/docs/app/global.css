@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import 'fumadocs-ui/css/solar.css';
+@import 'fumadocs-ui/css/black.css';
 @import 'fumadocs-ui/css/preset.css';
 @import 'fumadocs-twoslash/twoslash.css';
 @import 'fumadocs-openapi/css/preset.css';
@@ -65,16 +65,24 @@
   --color-ring: var(--color-fd-ring);
 }
 
+@theme {
+  --color-fd-primary: #f0d3b4;
+  --color-fd-primary-foreground: #1a1a1a;
+  --color-fd-ring: #f0d3b4;
+  --color-fd-accent: rgba(240, 211, 180, 0.15);
+  --color-fd-accent-foreground: #f0d3b4;
+}
+
 @layer base {
   :root {
-    --index-color: hsl(220deg 91% 54%);
-    --api-reference-color: hsl(250 80% 54%);
+    --index-color: #f0d3b4;
+    --api-reference-color: #f0d3b4;
     --changelog-color: var(--color-fd-foreground);
   }
 
   .dark {
-    --index-color: hsl(217deg 92% 76%);
-    --api-reference-color: hsl(250 100% 80%);
+    --index-color: #f0d3b4;
+    --api-reference-color: #f0d3b4;
     --changelog-color: var(--color-fd-foreground);
   }
 }
@@ -106,6 +114,14 @@
   .changelog {
     --color-fd-primary: var(--changelog-color) !important;
   }
+}
+
+.dark {
+  --color-fd-primary: #f0d3b4;
+  --color-fd-primary-foreground: #1a1a1a;
+  --color-fd-ring: #f0d3b4;
+  --color-fd-accent: rgba(240, 211, 180, 0.15);
+  --color-fd-accent-foreground: #f0d3b4;
 }
 
 .dark [data-hide-on-theme='dark'],

@@ -1,0 +1,5 @@
+{
+  "title": "API Server",
+  "icon": "Server",
+  "pages": ["express-api", "hono-api", "nestjs-api", "nextjs-api"]
+}
