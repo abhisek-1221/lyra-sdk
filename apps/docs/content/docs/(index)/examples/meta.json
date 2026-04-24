@@ -1,5 +1,5 @@
 {
   "title": "Examples",
   "icon": "Terminal",
-  "pages": ["scripts", "transcript-scripts", "batch-transcript-scripts", "api-server"]
+  "pages": ["scripts", "api-server"]
 }
