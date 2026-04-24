@@ -1,7 +1,7 @@
 {
   "name": "lyra-sdk",
   "version": "2.0.0",
-  "description": "YouTube Data API v3 in a few lines. No boilerplate, no pagination headaches.",
+  "description": "TypeScript SDK for YouTube data — videos, channels, playlists, comments, and transcripts",
   "author": "",
   "license": "MIT",
   "homepage": "https://uselyra.xyz",
@@ -67,9 +67,13 @@
     "youtube",
     "youtube-api",
     "youtube-data-api",
+    "youtube-transcript",
     "playlist",
     "video",
-    "channel"
+    "channel",
+    "comments",
+    "transcript",
+    "captions"
   ],
   "engines": {
     "node": ">=18"
