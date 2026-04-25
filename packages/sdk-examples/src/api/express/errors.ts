@@ -36,7 +36,7 @@ export function apiError(err: Error, _req: Request, res: Response, _next: NextFu
   }
 
   if (err instanceof TranscriptError) {
-    const status = "status" in err ? (err as any).status ?? 500 : 500;
+    const status = "status" in err ? ((err as any).status ?? 500) : 500;
     res.status(status).json({ error: { code: status, message: err.message } });
     return;
   }

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
-import { transcribePlaylist, InMemoryCache } from "lyra-sdk/transcript";
+import { InMemoryCache, transcribePlaylist } from "lyra-sdk/transcript";
 import { batchTranscriptSchema } from "../schemas/transcript.js";
 
 const cache = new InMemoryCache();

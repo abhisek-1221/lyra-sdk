@@ -2,9 +2,9 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { client } from "../lib.js";
 import {
-  commentVideoIdParam,
   commentIdParam,
   commentsQuery,
+  commentVideoIdParam,
   topCommentsQuery,
 } from "../schemas/comment.js";
 
