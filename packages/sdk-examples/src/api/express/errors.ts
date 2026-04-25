@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { AuthError, InvalidURLError, NotFoundError, QuotaError, YTError } from "lyra-sdk";
+import { TranscriptError } from "lyra-sdk/transcript";
 import { ZodError } from "zod";
 
 export function apiError(err: Error, _req: Request, res: Response, _next: NextFunction) {
@@ -31,6 +32,12 @@ export function apiError(err: Error, _req: Request, res: Response, _next: NextFu
 
   if (err instanceof InvalidURLError) {
     res.status(400).json({ error: { code: 400, message: err.message } });
+    return;
+  }
+
+  if (err instanceof TranscriptError) {
+    const status = "status" in err ? (err as any).status ?? 500 : 500;
+    res.status(status).json({ error: { code: status, message: err.message } });
     return;
   }
 

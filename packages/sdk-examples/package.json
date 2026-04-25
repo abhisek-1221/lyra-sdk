@@ -16,7 +16,7 @@
   "dependencies": {
     "dotenv": "^16.0.0",
     "express": "^5.2.1",
-    "lyra-sdk": "^1.0.0",
+    "lyra-sdk": "^2.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
