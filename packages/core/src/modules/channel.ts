@@ -72,7 +72,7 @@ async function resolveChannelId(http: HttpClient, input: string): Promise<string
 
   const username = extractUsername(input) ?? (input.startsWith("@") ? input.slice(1) : null);
   if (username) {
-    return searchChannelId(http, username);
+    return (await findChannelIdByHandle(http, username)) ?? searchChannelId(http, username);
   }
 
   const customMatch = input.match(/(?:youtube\.com\/)?(?:c|user)\/([^/\n\s]+)/);
@@ -174,6 +174,15 @@ export async function getChannelVideos(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+async function findChannelIdByHandle(http: HttpClient, handle: string): Promise<string | null> {
+  const data = await http.get<{ items: Array<{ id: string }> }>("channels", {
+    part: "id",
+    forHandle: handle.startsWith("@") ? handle : `@${handle}`,
+  });
+
+  return data.items?.[0]?.id ?? null;
+}
 
 async function searchChannelId(http: HttpClient, query: string): Promise<string> {
   const data = await http.get<{
