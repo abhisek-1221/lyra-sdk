@@ -95,9 +95,10 @@ function resolveVideoId(urlOrId: string): string {
 }
 
 function buildParams(opts: CommentOptions, maxResults: number = PAGE_SIZE): Record<string, string> {
+  const sanitized = !Number.isFinite(maxResults) || maxResults < 1 ? 1 : Math.floor(maxResults);
   const params: Record<string, string> = {
     part: "snippet,replies",
-    maxResults: String(Math.min(Math.max(maxResults, 1), PAGE_SIZE)),
+    maxResults: String(Math.min(sanitized, PAGE_SIZE)),
   };
   if (opts.order) params.order = opts.order;
   if (opts.searchTerms) params.searchTerms = opts.searchTerms;
@@ -166,9 +167,9 @@ export async function getVideoComments(
 ): Promise<CommentThread[]> {
   const videoId = resolveVideoId(videoUrlOrId);
   const textFormat = opts.textFormat ?? "plainText";
-  const maxItems = opts.maxResults ?? Infinity;
-  if (maxItems <= 0) return [];
-
+  const maxItems = Number.isFinite(opts.maxResults)
+    ? Math.max(1, Math.floor(opts.maxResults!))
+    : Infinity;
   const threads: CommentThread[] = [];
   let pageToken: string | undefined;
 
@@ -270,9 +271,9 @@ export async function getChannelComments(
   opts: CommentOptions = {}
 ): Promise<CommentThread[]> {
   const textFormat = opts.textFormat ?? "plainText";
-  const maxItems = opts.maxResults ?? Infinity;
-  if (maxItems <= 0) return [];
-
+  const maxItems = Number.isFinite(opts.maxResults)
+    ? Math.max(1, Math.floor(opts.maxResults!))
+    : Infinity;
   const threads: CommentThread[] = [];
   let pageToken: string | undefined;
 
