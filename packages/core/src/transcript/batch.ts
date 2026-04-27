@@ -100,7 +100,10 @@ async function pool<T, R>(
   async function worker() {
     while (next < items.length) {
       const idx = next++;
-      results[idx] = await fn(items[idx], idx);
+      const item = items[idx];
+      if (item !== undefined) {
+        results[idx] = await fn(item, idx);
+      }
     }
   }
 

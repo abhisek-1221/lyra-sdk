@@ -55,7 +55,7 @@ const PAGE_SIZE = 100;
 const REPLY_FETCH_CONCURRENCY = 5;
 
 function mapComment(c: YTCommentResource, textFormat: CommentTextFormat): Comment {
-  return {
+  const comment: Comment = {
     id: c.id,
     authorName: c.snippet.authorDisplayName,
     authorProfileImage: c.snippet.authorProfileImageUrl,
@@ -68,12 +68,14 @@ function mapComment(c: YTCommentResource, textFormat: CommentTextFormat): Commen
     likeCount: c.snippet.likeCount,
     publishedAt: new Date(c.snippet.publishedAt),
     updatedAt: new Date(c.snippet.updatedAt),
-    parentId: c.snippet.parentId,
   };
+
+  if (c.snippet.parentId !== undefined) comment.parentId = c.snippet.parentId;
+  return comment;
 }
 
 function mapThread(t: YTCommentThreadResource, textFormat: CommentTextFormat): CommentThread {
-  return {
+  const thread: CommentThread = {
     id: t.id,
     videoId: t.snippet.videoId,
     channelId: t.snippet.channelId,
@@ -81,8 +83,11 @@ function mapThread(t: YTCommentThreadResource, textFormat: CommentTextFormat): C
     totalReplyCount: t.snippet.totalReplyCount,
     canReply: t.snippet.canReply,
     isPublic: t.snippet.isPublic,
-    replies: t.replies?.comments?.map((c) => mapComment(c, textFormat)),
   };
+
+  const replies = t.replies?.comments?.map((c) => mapComment(c, textFormat));
+  if (replies !== undefined) thread.replies = replies;
+  return thread;
 }
 
 function resolveVideoId(urlOrId: string): string {
@@ -111,7 +116,10 @@ async function pool<T, R>(
   async function worker() {
     while (next < items.length) {
       const idx = next++;
-      results[idx] = await fn(items[idx], idx);
+      const item = items[idx];
+      if (item !== undefined) {
+        results[idx] = await fn(item, idx);
+      }
     }
   }
 

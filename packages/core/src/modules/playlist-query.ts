@@ -28,6 +28,8 @@ import type {
 } from "../types.js";
 import { formatDuration } from "../utils/index.js";
 
+type NumberRange = { min?: number; max?: number };
+
 // ---------------------------------------------------------------------------
 // PlaylistQueryBuilder
 // ---------------------------------------------------------------------------
@@ -51,10 +53,7 @@ export class PlaylistQueryBuilder {
    */
   filterByDuration(opts: { min?: number; max?: number }): this {
     this.filters ??= {};
-    this.filters.duration = {
-      min: opts.min,
-      max: opts.max,
-    };
+    this.filters.duration = toNumberRange(opts);
     return this;
   }
 
@@ -63,10 +62,7 @@ export class PlaylistQueryBuilder {
    */
   filterByViews(opts: { min?: number; max?: number }): this {
     this.filters ??= {};
-    this.filters.views = {
-      min: opts.min,
-      max: opts.max,
-    };
+    this.filters.views = toNumberRange(opts);
     return this;
   }
 
@@ -75,10 +71,7 @@ export class PlaylistQueryBuilder {
    */
   filterByLikes(opts: { min?: number; max?: number }): this {
     this.filters ??= {};
-    this.filters.likes = {
-      min: opts.min,
-      max: opts.max,
-    };
+    this.filters.likes = toNumberRange(opts);
     return this;
   }
 
@@ -195,4 +188,11 @@ export class PlaylistQueryBuilder {
 
     return videos.slice(start - 1, end);
   }
+}
+
+function toNumberRange(opts: NumberRange): NumberRange {
+  const range: NumberRange = {};
+  if (opts.min !== undefined) range.min = opts.min;
+  if (opts.max !== undefined) range.max = opts.max;
+  return range;
 }

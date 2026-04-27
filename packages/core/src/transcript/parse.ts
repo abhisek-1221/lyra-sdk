@@ -34,9 +34,9 @@ export function validateLang(lang: string): void {
 export function parseTranscriptXml(xml: string, lang: string): TranscriptLine[] {
   const matches = [...xml.matchAll(RE_XML_TRANSCRIPT)];
   return matches.map((m) => ({
-    text: decodeXmlEntities(m[3]),
-    duration: parseFloat(m[2]),
-    offset: parseFloat(m[1]),
+    text: decodeXmlEntities(m[3] ?? ""),
+    duration: parseFloat(m[2] ?? "0"),
+    offset: parseFloat(m[1] ?? "0"),
     lang,
   }));
 }

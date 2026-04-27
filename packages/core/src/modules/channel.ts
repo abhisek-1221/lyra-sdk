@@ -76,8 +76,9 @@ async function resolveChannelId(http: HttpClient, input: string): Promise<string
   }
 
   const customMatch = input.match(/(?:youtube\.com\/)?(?:c|user)\/([^/\n\s]+)/);
-  if (customMatch) {
-    return searchChannelId(http, customMatch[1]);
+  const customName = customMatch?.[1];
+  if (customName) {
+    return searchChannelId(http, customName);
   }
 
   return input;
@@ -102,7 +103,7 @@ export async function getChannel(http: HttpClient, urlOrId: string): Promise<Cha
   const subs = parseInt(item.statistics.subscriberCount ?? "0", 10);
   const views = parseInt(item.statistics.viewCount ?? "0", 10);
 
-  return {
+  const channel: Channel = {
     id: item.id,
     name: item.snippet.title,
     username: item.snippet.customUrl
@@ -113,10 +114,12 @@ export async function getChannel(http: HttpClient, urlOrId: string): Promise<Cha
     totalViews: views,
     totalViewsFmt: formatNumber(views),
     videoCount: parseInt(item.statistics.videoCount ?? "0", 10),
-    country: item.snippet.country,
     thumbnails: item.snippet.thumbnails as YTThumbnails as Channel["thumbnails"],
     uploadsPlaylistId: item.contentDetails.relatedPlaylists.uploads,
   };
+
+  if (item.snippet.country !== undefined) channel.country = item.snippet.country;
+  return channel;
 }
 
 /**

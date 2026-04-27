@@ -84,6 +84,10 @@ function doFetch(
   return fetch(url, init);
 }
 
+function requestInit(init: RequestInit, signal?: AbortSignal): RequestInit {
+  return signal ? { ...init, signal } : init;
+}
+
 function retryConfig(options?: TranscriptOptions) {
   return {
     retries: options?.retries ?? 0,
@@ -113,7 +117,7 @@ async function fetchCaptionTracks(
 
   const watchUrl = `${protocol}://www.youtube.com/watch?v=${identifier}`;
   const watchRes = await fetchWithRetry(
-    () => doFetch(watchUrl, { method: "GET", headers, signal }, options?.customFetch),
+    () => doFetch(watchUrl, requestInit({ method: "GET", headers }, signal), options?.customFetch),
     retries,
     retryDelay,
     signal
@@ -149,12 +153,14 @@ async function fetchCaptionTracks(
     () =>
       doFetch(
         playerUrl,
-        {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: playerBody,
-          signal,
-        },
+        requestInit(
+          {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: playerBody,
+          },
+          signal
+        ),
         options?.customFetch
       ),
     retries,
@@ -249,7 +255,8 @@ export async function fetchTranscript(
   const { retries, retryDelay, signal } = retryConfig(options);
 
   const transcriptRes = await fetchWithRetry(
-    () => doFetch(transcriptUrl, { method: "GET", headers, signal }, options?.customFetch),
+    () =>
+      doFetch(transcriptUrl, requestInit({ method: "GET", headers }, signal), options?.customFetch),
     retries,
     retryDelay,
     signal

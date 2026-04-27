@@ -48,12 +48,11 @@ export class CommentQueryBuilder {
   }
 
   async execute(): Promise<CommentQueryResult> {
-    const opts: CommentOptions = {
-      order: this.orderValue,
-      maxResults: this.limitValue,
-      searchTerms: this.searchValue,
-      textFormat: this.textFormatValue,
-    };
+    const opts: CommentOptions = {};
+    if (this.orderValue !== undefined) opts.order = this.orderValue;
+    if (this.limitValue !== undefined) opts.maxResults = this.limitValue;
+    if (this.searchValue !== undefined) opts.searchTerms = this.searchValue;
+    if (this.textFormatValue !== undefined) opts.textFormat = this.textFormatValue;
 
     let threads = await getVideoComments(this.http, this.videoId, opts);
 
