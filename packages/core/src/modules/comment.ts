@@ -134,6 +134,12 @@ export async function hydrateMissingReplies(
   textFormat: CommentTextFormat = "plainText",
   concurrency = REPLY_FETCH_CONCURRENCY
 ): Promise<CommentThread[]> {
+  if (!Number.isFinite(concurrency) || concurrency < 1) {
+    concurrency = Math.max(1, Math.floor(REPLY_FETCH_CONCURRENCY));
+  } else {
+    concurrency = Math.floor(concurrency);
+  }
+
   const needsReplies = threads
     .map((thread, index) => ({ thread, index }))
     .filter(
