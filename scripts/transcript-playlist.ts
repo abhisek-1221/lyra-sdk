@@ -1,5 +1,5 @@
-import { toPlainText, transcribePlaylist } from "../packages/core/src/modules/transcript.js";
 import { config } from "dotenv";
+import { toPlainText, transcribePlaylist } from "../packages/core/src/modules/transcript.js";
 
 config();
 
