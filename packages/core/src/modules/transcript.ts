@@ -56,6 +56,10 @@ export function transcribeVideo(
 export function transcribeVideo(
   videoId: string,
   options?: TranscriptOptions
+): Promise<TranscriptLine[] | TranscriptWithMeta>;
+export function transcribeVideo(
+  videoId: string,
+  options?: TranscriptOptions
 ): Promise<TranscriptLine[] | TranscriptWithMeta> {
   return fetchTranscript(videoId, options);
 }
