@@ -1,6 +1,9 @@
 import { toPlainText, transcribePlaylist } from "../packages/core/src/modules/transcript.js";
+import { config } from "dotenv";
 
-const API_KEY = process.env.YT_API_KEY!;
+config();
+
+const API_KEY = process.env.YOUTUBE_API_KEY!;
 const PLAYLIST_ID = process.argv[2] ?? "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf";
 
 async function main() {
