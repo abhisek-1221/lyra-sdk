@@ -6,7 +6,7 @@ import type {
   CommentTextFormat,
 } from "../types.js";
 import { extractVideoId } from "../utils/index.js";
-import { getCommentReplies, getCommentStats, getVideoComments } from "./comment.js";
+import { getCommentStats, getVideoComments, hydrateMissingReplies } from "./comment.js";
 
 export class CommentQueryBuilder {
   private readonly http: HttpClient;
@@ -62,18 +62,8 @@ export class CommentQueryBuilder {
     }
 
     if (this.fetchAllReplies) {
-      const needsReplies = threads.filter(
-        (t) => t.totalReplyCount > 0 && (!t.replies || t.replies.length < t.totalReplyCount)
-      );
-
       const textFormat = this.textFormatValue ?? "plainText";
-      await Promise.all(
-        needsReplies.map(async (t) => {
-          const idx = threads.indexOf(t);
-          const allReplies = await getCommentReplies(this.http, t.topLevelComment.id, textFormat);
-          threads[idx] = { ...t, replies: allReplies };
-        })
-      );
+      threads = await hydrateMissingReplies(this.http, threads, textFormat);
     }
 
     const stats = getCommentStats(this.videoId, threads);

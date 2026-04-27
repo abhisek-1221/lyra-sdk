@@ -52,6 +52,7 @@ interface YTCommentListResponse {
 }
 
 const PAGE_SIZE = 100;
+const REPLY_FETCH_CONCURRENCY = 5;
 
 function mapComment(c: YTCommentResource, textFormat: CommentTextFormat): Comment {
   return {
@@ -88,15 +89,60 @@ function resolveVideoId(urlOrId: string): string {
   return extractVideoId(urlOrId) ?? urlOrId;
 }
 
-function buildParams(opts: CommentOptions): Record<string, string> {
+function buildParams(opts: CommentOptions, maxResults: number = PAGE_SIZE): Record<string, string> {
   const params: Record<string, string> = {
     part: "snippet,replies",
-    maxResults: String(opts.maxResults ?? PAGE_SIZE),
+    maxResults: String(Math.min(Math.max(maxResults, 1), PAGE_SIZE)),
   };
   if (opts.order) params.order = opts.order;
   if (opts.searchTerms) params.searchTerms = opts.searchTerms;
   if (opts.textFormat) params.textFormat = opts.textFormat;
   return params;
+}
+
+async function pool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < items.length) {
+      const idx = next++;
+      results[idx] = await fn(items[idx], idx);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+export async function hydrateMissingReplies(
+  http: HttpClient,
+  threads: CommentThread[],
+  textFormat: CommentTextFormat = "plainText",
+  concurrency = REPLY_FETCH_CONCURRENCY
+): Promise<CommentThread[]> {
+  const needsReplies = threads
+    .map((thread, index) => ({ thread, index }))
+    .filter(
+      ({ thread }) =>
+        thread.totalReplyCount > 0 &&
+        (!thread.replies || thread.replies.length < thread.totalReplyCount)
+    );
+
+  if (needsReplies.length === 0) return threads;
+
+  const updated = [...threads];
+  await pool(needsReplies, concurrency, async ({ thread, index }) => {
+    const allReplies = await getCommentReplies(http, thread.topLevelComment.id, textFormat);
+    updated[index] = { ...thread, replies: allReplies };
+  });
+
+  return updated;
 }
 
 export async function getVideoComments(
@@ -107,12 +153,17 @@ export async function getVideoComments(
   const videoId = resolveVideoId(videoUrlOrId);
   const textFormat = opts.textFormat ?? "plainText";
   const maxItems = opts.maxResults ?? Infinity;
+  if (maxItems <= 0) return [];
+
   const threads: CommentThread[] = [];
   let pageToken: string | undefined;
 
   do {
+    const remaining = maxItems === Infinity ? PAGE_SIZE : maxItems - threads.length;
+    if (remaining <= 0) break;
+
     const params: Record<string, string> = {
-      ...buildParams(opts),
+      ...buildParams(opts, remaining),
       videoId,
     };
     if (pageToken) params.pageToken = pageToken;
@@ -169,27 +220,8 @@ export async function getCommentsWithReplies(
   opts: CommentOptions = {}
 ): Promise<CommentThread[]> {
   const threads = await getVideoComments(http, videoUrlOrId, opts);
-
-  const needsReplies = threads.filter(
-    (t) => t.totalReplyCount > 0 && (!t.replies || t.replies.length < t.totalReplyCount)
-  );
-
-  if (needsReplies.length === 0) return threads;
-
   const textFormat = opts.textFormat ?? "plainText";
-  await Promise.all(
-    needsReplies.map(async (t, i) => {
-      const idx = threads.indexOf(t);
-      const allReplies = await getCommentReplies(http, t.topLevelComment.id, textFormat);
-      threads[idx] = { ...t, replies: allReplies };
-
-      if (i > 0 && i % 5 === 0) {
-        await new Promise((r) => setTimeout(r, 100));
-      }
-    })
-  );
-
-  return threads;
+  return hydrateMissingReplies(http, threads, textFormat);
 }
 
 export async function getTopComments(
@@ -225,12 +257,17 @@ export async function getChannelComments(
 ): Promise<CommentThread[]> {
   const textFormat = opts.textFormat ?? "plainText";
   const maxItems = opts.maxResults ?? Infinity;
+  if (maxItems <= 0) return [];
+
   const threads: CommentThread[] = [];
   let pageToken: string | undefined;
 
   do {
+    const remaining = maxItems === Infinity ? PAGE_SIZE : maxItems - threads.length;
+    if (remaining <= 0) break;
+
     const params: Record<string, string> = {
-      ...buildParams(opts),
+      ...buildParams(opts, remaining),
       allThreadsRelatedToChannelId: channelId,
     };
     if (pageToken) params.pageToken = pageToken;
