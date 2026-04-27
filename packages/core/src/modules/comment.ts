@@ -167,9 +167,7 @@ export async function getVideoComments(
 ): Promise<CommentThread[]> {
   const videoId = resolveVideoId(videoUrlOrId);
   const textFormat = opts.textFormat ?? "plainText";
-  const maxItems = Number.isFinite(opts.maxResults)
-    ? Math.floor(opts.maxResults!)
-    : Infinity;
+  const maxItems = Number.isFinite(opts.maxResults) ? Math.floor(opts.maxResults!) : Infinity;
   if (maxItems <= 0) return [];
 
   const threads: CommentThread[] = [];
@@ -273,9 +271,7 @@ export async function getChannelComments(
   opts: CommentOptions = {}
 ): Promise<CommentThread[]> {
   const textFormat = opts.textFormat ?? "plainText";
-  const maxItems = Number.isFinite(opts.maxResults)
-    ? Math.floor(opts.maxResults!)
-    : Infinity;
+  const maxItems = Number.isFinite(opts.maxResults) ? Math.floor(opts.maxResults!) : Infinity;
   if (maxItems <= 0) return [];
 
   const threads: CommentThread[] = [];
