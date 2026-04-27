@@ -14,77 +14,19 @@
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from "../http.js";
+import {
+  fetchPlaylistInfo,
+  fetchPlaylistVideoIds,
+  fetchPlaylistVideos,
+} from "../internal/youtube.js";
 import type {
-  PlaylistInfo,
   PlaylistQueryResult,
   PlaylistVideo,
   PlaylistVideoFilters,
   SortField,
   SortOrder,
 } from "../types.js";
-import type { YTThumbnails } from "../types-internal.js";
-import {
-  formatDuration,
-  formatDurationClock,
-  formatNumber,
-  parseDuration,
-} from "../utils/index.js";
-
-// ---------------------------------------------------------------------------
-// YouTube API response shapes (internal)
-// ---------------------------------------------------------------------------
-
-interface YTPlaylistResource {
-  id: string;
-  snippet: {
-    title: string;
-    description: string;
-    thumbnails: YTThumbnails;
-  };
-}
-
-interface YTPlaylistListResponse {
-  items: YTPlaylistResource[];
-}
-
-interface YTPlaylistItemResource {
-  contentDetails: {
-    videoId: string;
-  };
-}
-
-interface YTPlaylistItemsResponse {
-  items: YTPlaylistItemResource[];
-  nextPageToken?: string;
-}
-
-interface YTVideoResource {
-  id: string;
-  snippet: {
-    title: string;
-    description: string;
-    channelTitle: string;
-    publishedAt: string;
-    thumbnails: YTThumbnails;
-  };
-  statistics: {
-    viewCount?: string;
-    likeCount?: string;
-  };
-  contentDetails: {
-    duration: string;
-  };
-}
-
-interface YTVideoListResponse {
-  items: YTVideoResource[];
-}
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const PAGE_SIZE = 50;
+import { formatDuration } from "../utils/index.js";
 
 // ---------------------------------------------------------------------------
 // PlaylistQueryBuilder
@@ -168,10 +110,13 @@ export class PlaylistQueryBuilder {
    * Execute the query and return the result.
    */
   async execute(): Promise<PlaylistQueryResult> {
-    const [info, videoIds] = await Promise.all([this.getPlaylistInfo(), this.getAllVideoIds()]);
+    const [info, videoIds] = await Promise.all([
+      fetchPlaylistInfo(this.http, this.playlistId),
+      fetchPlaylistVideoIds(this.http, this.playlistId),
+    ]);
 
     const originalCount = videoIds.length;
-    let videos = await this.getVideoDetails(videoIds);
+    let videos = await fetchPlaylistVideos(this.http, videoIds);
 
     videos = this.applyFilters(videos);
     videos = this.applySort(videos);
@@ -195,91 +140,6 @@ export class PlaylistQueryBuilder {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
-
-  private async getPlaylistInfo(): Promise<PlaylistInfo> {
-    const data = await this.http.get<YTPlaylistListResponse>("playlists", {
-      part: "snippet",
-      id: this.playlistId,
-    });
-
-    const item = data.items?.[0];
-    if (!item) {
-      throw new Error(`Playlist not found: ${this.playlistId}`);
-    }
-
-    return {
-      id: item.id,
-      title: item.snippet.title,
-      description: item.snippet.description,
-      thumbnails: item.snippet.thumbnails as YTThumbnails as PlaylistInfo["thumbnails"],
-    };
-  }
-
-  private async getAllVideoIds(): Promise<string[]> {
-    const ids: string[] = [];
-    let pageToken: string | undefined;
-
-    do {
-      const params: Record<string, string> = {
-        part: "contentDetails",
-        playlistId: this.playlistId,
-        maxResults: PAGE_SIZE.toString(),
-      };
-      if (pageToken) {
-        params.pageToken = pageToken;
-      }
-
-      const page = await this.http.get<YTPlaylistItemsResponse>("playlistItems", params);
-
-      if (!page.items?.length) break;
-
-      for (const item of page.items) {
-        ids.push(item.contentDetails.videoId);
-      }
-
-      pageToken = page.nextPageToken;
-    } while (pageToken);
-
-    return ids;
-  }
-
-  private async getVideoDetails(videoIds: string[]): Promise<PlaylistVideo[]> {
-    if (videoIds.length === 0) return [];
-
-    const chunks = this.chunkArray(videoIds, PAGE_SIZE);
-
-    const results = await Promise.all(
-      chunks.map((chunk) =>
-        this.http.get<YTVideoListResponse>("videos", {
-          part: "snippet,statistics,contentDetails",
-          id: chunk.join(","),
-        })
-      )
-    );
-
-    return results.flatMap((response) =>
-      (response.items ?? []).map((item) => {
-        const duration = parseDuration(item.contentDetails.duration);
-        const views = parseInt(item.statistics.viewCount ?? "0", 10);
-        const likes = parseInt(item.statistics.likeCount ?? "0", 10);
-
-        return {
-          id: item.id,
-          title: item.snippet.title,
-          description: item.snippet.description,
-          channelTitle: item.snippet.channelTitle,
-          publishedAt: new Date(item.snippet.publishedAt),
-          duration,
-          durationFmt: formatDurationClock(duration),
-          views,
-          viewsFmt: formatNumber(views),
-          likes,
-          likesFmt: formatNumber(likes),
-          thumbnails: item.snippet.thumbnails as YTThumbnails as PlaylistVideo["thumbnails"],
-        };
-      })
-    );
-  }
 
   private applyFilters(videos: PlaylistVideo[]): PlaylistVideo[] {
     if (!this.filters) return videos;
@@ -334,13 +194,5 @@ export class PlaylistQueryBuilder {
     if (start > videos.length) return [];
 
     return videos.slice(start - 1, end);
-  }
-
-  private chunkArray<T>(arr: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < arr.length; i += size) {
-      chunks.push(arr.slice(i, i + size));
-    }
-    return chunks;
   }
 }

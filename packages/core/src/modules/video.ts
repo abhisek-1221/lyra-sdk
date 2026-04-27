@@ -4,6 +4,7 @@
 
 import { NotFoundError } from "../errors.js";
 import type { HttpClient } from "../http.js";
+import { chunkArray, YOUTUBE_MAX_RESULTS } from "../internal/youtube.js";
 import type { Video } from "../types.js";
 import type { YTThumbnails } from "../types-internal.js";
 import {
@@ -42,10 +43,6 @@ interface YTVideoListResponse {
   items: YTVideoResource[];
 }
 
-interface YTChannelSnippetResponse {
-  items: Array<{ snippet: { title: string } }>;
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -59,9 +56,6 @@ function resolveId(urlOrId: string): string {
 
 /**
  * Fetch full details for a single video.
- *
- * Resolves the channel name via an additional channels.list call so the
- * consumer never has to think about channel IDs.
  */
 export async function getVideo(http: HttpClient, urlOrId: string): Promise<Video> {
   const id = resolveId(urlOrId);
@@ -74,9 +68,7 @@ export async function getVideo(http: HttpClient, urlOrId: string): Promise<Video
   const item = data.items?.[0];
   if (!item) throw new NotFoundError("Video", id);
 
-  const channelName = await resolveChannelName(http, item.snippet.channelId);
-
-  return mapVideo(item, channelName);
+  return mapVideo(item);
 }
 
 /**
@@ -87,7 +79,7 @@ export async function getVideo(http: HttpClient, urlOrId: string): Promise<Video
  */
 export async function getVideos(http: HttpClient, urlsOrIds: string[]): Promise<Video[]> {
   const ids = urlsOrIds.map(resolveId);
-  const chunks = chunkArray(ids, 50);
+  const chunks = chunkArray(ids, YOUTUBE_MAX_RESULTS);
 
   const results = await Promise.all(
     chunks.map((chunk) =>
@@ -100,12 +92,7 @@ export async function getVideos(http: HttpClient, urlsOrIds: string[]): Promise<
 
   const allItems = results.flatMap((r) => r.items ?? []);
 
-  const channelIds = Array.from(new Set(allItems.map((i) => i.snippet.channelId)));
-  const channelNames = await resolveChannelNames(http, channelIds);
-
-  return allItems.map((item) =>
-    mapVideo(item, channelNames.get(item.snippet.channelId) ?? "Unknown Channel")
-  );
+  return allItems.map(mapVideo);
 }
 
 /**
@@ -130,7 +117,7 @@ export async function getVideoTitles(
   urlsOrIds: string[]
 ): Promise<Record<string, string>> {
   const ids = urlsOrIds.map(resolveId);
-  const chunks = chunkArray(ids, 50);
+  const chunks = chunkArray(ids, YOUTUBE_MAX_RESULTS);
 
   const results = await Promise.all(
     chunks.map((chunk) =>
@@ -159,7 +146,7 @@ export async function getVideoTitles(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function mapVideo(item: YTVideoResource, channelName: string): Video {
+function mapVideo(item: YTVideoResource): Video {
   const views = parseInt(item.statistics.viewCount ?? "0", 10);
   const likes = parseInt(item.statistics.likeCount ?? "0", 10);
   const comments = parseInt(item.statistics.commentCount ?? "0", 10);
@@ -169,7 +156,7 @@ function mapVideo(item: YTVideoResource, channelName: string): Video {
     id: item.id,
     title: item.snippet.title,
     description: item.snippet.description,
-    channel: channelName,
+    channel: item.snippet.channelTitle,
     channelId: item.snippet.channelId,
     views,
     viewsFmt: formatNumber(views),
@@ -183,47 +170,4 @@ function mapVideo(item: YTVideoResource, channelName: string): Video {
     publishedAt: new Date(item.snippet.publishedAt),
     thumbnails: item.snippet.thumbnails as YTThumbnails as Video["thumbnails"],
   };
-}
-
-async function resolveChannelName(http: HttpClient, channelId: string): Promise<string> {
-  const data = await http.get<YTChannelSnippetResponse>("channels", {
-    part: "snippet",
-    id: channelId,
-  });
-  return data.items?.[0]?.snippet.title ?? "Unknown Channel";
-}
-
-async function resolveChannelNames(
-  http: HttpClient,
-  channelIds: string[]
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-  if (channelIds.length === 0) return map;
-
-  const chunks = chunkArray(channelIds, 50);
-
-  const results = await Promise.all(
-    chunks.map((chunk) =>
-      http.get<{ items: Array<{ id: string; snippet: { title: string } }> }>("channels", {
-        part: "snippet",
-        id: chunk.join(","),
-      })
-    )
-  );
-
-  for (const r of results) {
-    for (const item of r.items ?? []) {
-      map.set(item.id, item.snippet.title);
-    }
-  }
-
-  return map;
-}
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
 }
