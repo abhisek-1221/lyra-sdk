@@ -126,7 +126,14 @@ export class HttpClient {
   }
 
   private resourceIdForParams(params: Record<string, string>): string | undefined {
-    return params.id ?? params.playlistId ?? params.parentId ?? params.channelId;
+    return (
+      params.id ??
+      params.videoId ??
+      params.playlistId ??
+      params.allThreadsRelatedToChannelId ??
+      params.parentId ??
+      params.channelId
+    );
   }
 
   private async safeBody(res: Response): Promise<string> {
