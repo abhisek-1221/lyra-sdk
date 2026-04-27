@@ -3,8 +3,8 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
-    url: "src/modules/url.ts",
-    fmt: "src/utils/format.ts",
+    url: "src/url.ts",
+    fmt: "src/fmt.ts",
     transcript: "src/modules/transcript.ts",
   },
   format: ["esm", "cjs"],
