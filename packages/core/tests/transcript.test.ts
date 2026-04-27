@@ -1,7 +1,7 @@
 import { readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { listCaptionTracks, TranscriptClient, transcribeVideo } from "../src/modules/transcript.js";
 import { transcribePlaylist } from "../src/transcript/batch.js";
 import { FsCache } from "../src/transcript/cache/file-store.js";
@@ -25,7 +25,7 @@ import {
   validateLang,
 } from "../src/transcript/parse.js";
 import { fetchWithRetry, isRetryable } from "../src/transcript/retry.js";
-import type { TranscriptLine } from "../src/transcript/types.js";
+import type { TranscriptLine, TranscriptWithMeta } from "../src/transcript/types.js";
 
 const FIXTURES = join(__dirname, "fixtures");
 
@@ -277,9 +277,9 @@ describe("transcribeVideo (integration with mocked fetch)", () => {
 
     expect(result).toHaveProperty("meta");
     expect(result).toHaveProperty("lines");
-    const res = result as { meta: unknown; lines: TranscriptLine[] };
-    expect(res.meta).toBeDefined();
-    expect(res.lines).toHaveLength(5);
+    expectTypeOf(result).toMatchTypeOf<TranscriptWithMeta>();
+    expect(result.meta).toBeDefined();
+    expect(result.lines).toHaveLength(5);
   });
 
   it("throws TranscriptVideoUnavailableError for non-OK watch page", async () => {
