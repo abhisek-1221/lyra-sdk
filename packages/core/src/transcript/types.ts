@@ -42,6 +42,12 @@ export interface TranscriptOptions {
   retryDelay?: number;
 }
 
+export type TranscriptOptionsWithMeta = TranscriptOptions & { includeMeta: true };
+
+export type TranscriptOptionsWithoutMeta = Omit<TranscriptOptions, "includeMeta"> & {
+  includeMeta?: false;
+};
+
 export interface CacheStore {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttl?: number): Promise<void>;

@@ -130,6 +130,20 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
+function makeThread(index: number) {
+  return {
+    ...THREAD_2,
+    id: `thread${index}`,
+    snippet: {
+      ...THREAD_2.snippet,
+      topLevelComment: {
+        ...THREAD_2.snippet.topLevelComment,
+        id: `comment${index}`,
+      },
+    },
+  };
+}
+
 describe("getVideoComments", () => {
   it("fetches comment threads for a video", async () => {
     const http = createMockHttp({ commentThreads: SINGLE_PAGE });
@@ -171,6 +185,46 @@ describe("getVideoComments", () => {
 
     expect(threads).toHaveLength(2);
     expect(http.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats maxResults as total limit while clamping each page to 100", async () => {
+    const http = new HttpClient({ apiKey: "test-key" });
+    const paramsSeen: Array<Record<string, string> | undefined> = [];
+    let callCount = 0;
+
+    vi.spyOn(http, "get").mockImplementation(
+      async (path: string, params?: Record<string, string>) => {
+        if (path !== "commentThreads") throw new Error(`Unexpected path: ${path}`);
+        paramsSeen.push(params);
+        callCount++;
+
+        if (callCount === 1) {
+          return {
+            items: Array.from({ length: 100 }, (_, i) => makeThread(i)),
+            nextPageToken: "PAGE2",
+          };
+        }
+
+        return {
+          items: Array.from({ length: 50 }, (_, i) => makeThread(i + 100)),
+        };
+      }
+    );
+
+    const threads = await getVideoComments(http, "dQw4w9WgXcQ", { maxResults: 150 });
+
+    expect(threads).toHaveLength(150);
+    expect(paramsSeen[0]?.maxResults).toBe("100");
+    expect(paramsSeen[1]?.maxResults).toBe("50");
+  });
+
+  it("returns immediately when maxResults is zero", async () => {
+    const http = createMockHttp({ commentThreads: SINGLE_PAGE });
+
+    const threads = await getVideoComments(http, "dQw4w9WgXcQ", { maxResults: 0 });
+
+    expect(threads).toEqual([]);
+    expect(http.get).not.toHaveBeenCalled();
   });
 
   it("maps reply comments from thread", async () => {
@@ -287,6 +341,39 @@ describe("getCommentsWithReplies", () => {
 
     expect(threads[0].replies).toHaveLength(1);
     expect(commentCallCount).toBe(0);
+  });
+
+  it("limits concurrent reply fetches", async () => {
+    const http = new HttpClient({ apiKey: "test-key" });
+    let active = 0;
+    let maxActive = 0;
+
+    vi.spyOn(http, "get").mockImplementation(async (path: string) => {
+      if (path === "commentThreads") {
+        return {
+          items: Array.from({ length: 6 }, (_, i) => ({
+            ...makeThread(i),
+            replies: undefined,
+            snippet: { ...makeThread(i).snippet, totalReplyCount: 1 },
+          })),
+        };
+      }
+
+      if (path === "comments") {
+        active++;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        active--;
+        return REPLY_PAGE;
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    const threads = await getCommentsWithReplies(http, "dQw4w9WgXcQ");
+
+    expect(threads).toHaveLength(6);
+    expect(maxActive).toBeLessThanOrEqual(5);
   });
 });
 

@@ -29,6 +29,52 @@ function buildCacheKey(videoId: string, lang: string | undefined, withMeta: bool
   return withMeta ? `lyra:tc:${videoId}:${l}:full` : `lyra:tc:${videoId}:${l}`;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isTranscriptLine(value: unknown): value is TranscriptLine {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.text === "string" &&
+    typeof value.duration === "number" &&
+    typeof value.offset === "number" &&
+    typeof value.lang === "string"
+  );
+}
+
+function isTranscriptLines(value: unknown): value is TranscriptLine[] {
+  return Array.isArray(value) && value.every(isTranscriptLine);
+}
+
+function isVideoMeta(value: unknown): value is VideoMeta {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.videoId === "string" &&
+    typeof value.title === "string" &&
+    typeof value.author === "string" &&
+    typeof value.channelId === "string" &&
+    typeof value.lengthSeconds === "number" &&
+    typeof value.viewCount === "number" &&
+    typeof value.description === "string" &&
+    Array.isArray(value.keywords) &&
+    value.keywords.every((keyword) => typeof keyword === "string") &&
+    Array.isArray(value.thumbnails) &&
+    typeof value.isLiveContent === "boolean"
+  );
+}
+
+function isTranscriptWithMeta(value: unknown): value is TranscriptWithMeta {
+  return isRecord(value) && isVideoMeta(value.meta) && isTranscriptLines(value.lines);
+}
+
+function isCachedTranscriptResult(
+  value: unknown,
+  withMeta: boolean
+): value is TranscriptLine[] | TranscriptWithMeta {
+  return withMeta ? isTranscriptWithMeta(value) : isTranscriptLines(value);
+}
+
 function doFetch(
   url: string,
   init: RequestInit,
@@ -36,6 +82,10 @@ function doFetch(
 ): Promise<Response> {
   if (customFetch) return customFetch(url, init);
   return fetch(url, init);
+}
+
+function requestInit(init: RequestInit, signal?: AbortSignal): RequestInit {
+  return signal ? { ...init, signal } : init;
 }
 
 function retryConfig(options?: TranscriptOptions) {
@@ -67,7 +117,7 @@ async function fetchCaptionTracks(
 
   const watchUrl = `${protocol}://www.youtube.com/watch?v=${identifier}`;
   const watchRes = await fetchWithRetry(
-    () => doFetch(watchUrl, { method: "GET", headers, signal }, options?.customFetch),
+    () => doFetch(watchUrl, requestInit({ method: "GET", headers }, signal), options?.customFetch),
     retries,
     retryDelay,
     signal
@@ -103,12 +153,14 @@ async function fetchCaptionTracks(
     () =>
       doFetch(
         playerUrl,
-        {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: playerBody,
-          signal,
-        },
+        requestInit(
+          {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: playerBody,
+          },
+          signal
+        ),
         options?.customFetch
       ),
     retries,
@@ -171,7 +223,8 @@ export async function fetchTranscript(
     const cached = await options.cache.get(cacheKey);
     if (cached) {
       try {
-        return JSON.parse(cached) as TranscriptLine[] | TranscriptWithMeta;
+        const parsed: unknown = JSON.parse(cached);
+        if (isCachedTranscriptResult(parsed, withMeta)) return parsed;
       } catch {
         // stale entry — fall through to fresh fetch
       }
@@ -202,7 +255,8 @@ export async function fetchTranscript(
   const { retries, retryDelay, signal } = retryConfig(options);
 
   const transcriptRes = await fetchWithRetry(
-    () => doFetch(transcriptUrl, { method: "GET", headers, signal }, options?.customFetch),
+    () =>
+      doFetch(transcriptUrl, requestInit({ method: "GET", headers }, signal), options?.customFetch),
     retries,
     retryDelay,
     signal

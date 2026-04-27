@@ -1,6 +1,15 @@
+import { config } from "dotenv";
 import { toPlainText, transcribePlaylist } from "../packages/core/src/modules/transcript.js";
 
-const API_KEY = process.env.YT_API_KEY!;
+config();
+
+const apiKey = process.env.YOUTUBE_API_KEY;
+if (!apiKey) {
+  console.error("Error: YOUTUBE_API_KEY not set. Add it to your .env file or export it.");
+  console.error("Hint: cp .env.example .env and fill in your key");
+  process.exit(1);
+}
+
 const PLAYLIST_ID = process.argv[2] ?? "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf";
 
 async function main() {
@@ -8,7 +17,7 @@ async function main() {
   console.log(`Playlist: ${PLAYLIST_ID}\n`);
 
   const result = await transcribePlaylist(PLAYLIST_ID, {
-    apiKey: API_KEY,
+    apiKey,
     concurrency: 3,
     onProgress(done, total, videoId, status) {
       const icon = status === "success" ? "+" : "x";

@@ -72,12 +72,13 @@ async function resolveChannelId(http: HttpClient, input: string): Promise<string
 
   const username = extractUsername(input) ?? (input.startsWith("@") ? input.slice(1) : null);
   if (username) {
-    return searchChannelId(http, username);
+    return (await findChannelIdByHandle(http, username)) ?? searchChannelId(http, username);
   }
 
   const customMatch = input.match(/(?:youtube\.com\/)?(?:c|user)\/([^/\n\s]+)/);
-  if (customMatch) {
-    return searchChannelId(http, customMatch[1]);
+  const customName = customMatch?.[1];
+  if (customName) {
+    return searchChannelId(http, customName);
   }
 
   return input;
@@ -102,7 +103,7 @@ export async function getChannel(http: HttpClient, urlOrId: string): Promise<Cha
   const subs = parseInt(item.statistics.subscriberCount ?? "0", 10);
   const views = parseInt(item.statistics.viewCount ?? "0", 10);
 
-  return {
+  const channel: Channel = {
     id: item.id,
     name: item.snippet.title,
     username: item.snippet.customUrl
@@ -113,10 +114,12 @@ export async function getChannel(http: HttpClient, urlOrId: string): Promise<Cha
     totalViews: views,
     totalViewsFmt: formatNumber(views),
     videoCount: parseInt(item.statistics.videoCount ?? "0", 10),
-    country: item.snippet.country,
     thumbnails: item.snippet.thumbnails as YTThumbnails as Channel["thumbnails"],
     uploadsPlaylistId: item.contentDetails.relatedPlaylists.uploads,
   };
+
+  if (item.snippet.country !== undefined) channel.country = item.snippet.country;
+  return channel;
 }
 
 /**
@@ -174,6 +177,15 @@ export async function getChannelVideos(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+async function findChannelIdByHandle(http: HttpClient, handle: string): Promise<string | null> {
+  const data = await http.get<{ items: Array<{ id: string }> }>("channels", {
+    part: "id",
+    forHandle: handle.startsWith("@") ? handle : `@${handle}`,
+  });
+
+  return data.items?.[0]?.id ?? null;
+}
 
 async function searchChannelId(http: HttpClient, query: string): Promise<string> {
   const data = await http.get<{

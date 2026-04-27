@@ -6,6 +6,8 @@ import type {
   PlaylistTranscriptResult,
   TranscriptLine,
   TranscriptOptions,
+  TranscriptOptionsWithMeta,
+  TranscriptOptionsWithoutMeta,
   TranscriptWithMeta,
 } from "../transcript/types.js";
 
@@ -14,8 +16,17 @@ export class TranscriptClient {
 
   async transcribe(
     videoId: string,
+    overrides: TranscriptOptionsWithMeta
+  ): Promise<TranscriptWithMeta>;
+  async transcribe(
+    videoId: string,
+    overrides: TranscriptOptionsWithoutMeta
+  ): Promise<TranscriptLine[]>;
+  async transcribe(
+    videoId: string,
     overrides?: TranscriptOptions
-  ): Promise<TranscriptLine[] | TranscriptWithMeta> {
+  ): Promise<TranscriptLine[] | TranscriptWithMeta>;
+  async transcribe(videoId: string, overrides?: TranscriptOptions) {
     const merged = { ...this.defaults, ...overrides };
     return fetchTranscript(videoId, merged);
   }
@@ -36,12 +47,16 @@ export class TranscriptClient {
 
 export function transcribeVideo(
   videoId: string,
-  options?: TranscriptOptions
+  options: TranscriptOptionsWithMeta
+): Promise<TranscriptWithMeta>;
+export function transcribeVideo(
+  videoId: string,
+  options?: TranscriptOptionsWithoutMeta
 ): Promise<TranscriptLine[]>;
 export function transcribeVideo(
   videoId: string,
-  options: TranscriptOptions & { includeMeta: true }
-): Promise<TranscriptWithMeta>;
+  options?: TranscriptOptions
+): Promise<TranscriptLine[] | TranscriptWithMeta>;
 export function transcribeVideo(
   videoId: string,
   options?: TranscriptOptions
@@ -70,6 +85,8 @@ export type {
   PlaylistTranscriptResult,
   TranscriptLine,
   TranscriptOptions,
+  TranscriptOptionsWithMeta,
+  TranscriptOptionsWithoutMeta,
   TranscriptWithMeta,
   VideoMeta,
   VideoTranscriptResult,

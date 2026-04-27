@@ -7,7 +7,7 @@
 // discoverable API surface.
 // ---------------------------------------------------------------------------
 
-import { HttpClient } from "./http.js";
+import { HttpClient, type HttpClientConfig } from "./http.js";
 import { getChannel, getChannelVideos } from "./modules/channel.js";
 import {
   flattenComments,
@@ -57,11 +57,10 @@ export class YTClient {
   private readonly http: HttpClient;
 
   constructor(apiKey: string, options: YTOptions = {}) {
-    this.http = new HttpClient({
-      apiKey,
-      baseUrl: options.baseUrl,
-      maxRetries: options.maxRetries,
-    });
+    const httpConfig: HttpClientConfig = { apiKey };
+    if (options.baseUrl !== undefined) httpConfig.baseUrl = options.baseUrl;
+    if (options.maxRetries !== undefined) httpConfig.maxRetries = options.maxRetries;
+    this.http = new HttpClient(httpConfig);
   }
 
   // -----------------------------------------------------------------------

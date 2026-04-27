@@ -2,12 +2,13 @@
   "name": "lyra",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "npm@11.9.0",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "biome check --write .",
-    "format:check": "biome format --check .",
+    "format:check": "biome check .",
     "check-types": "turbo run check-types",
     "prepare": "husky"
   },

@@ -54,6 +54,8 @@ export type {
   PlaylistTranscriptResult,
   TranscriptLine,
   TranscriptOptions,
+  TranscriptOptionsWithMeta,
+  TranscriptOptionsWithoutMeta,
   TranscriptWithMeta,
   VideoMeta,
   VideoTranscriptResult,

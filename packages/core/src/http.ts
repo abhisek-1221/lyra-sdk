@@ -40,7 +40,7 @@ export class HttpClient {
    * @param path  - API path *without* leading slash, e.g. `"videos"`
    * @param params - Query parameters (the `key` param is injected automatically)
    */
-  async get<T = unknown>(path: string, params: Record<string, string> = {}): Promise<T> {
+  async get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
     const url = this.buildUrl(path, params);
     let lastError: Error | undefined;
 
@@ -52,7 +52,14 @@ export class HttpClient {
           return (await res.json()) as T;
         }
 
-        this.throwForStatus(res.status, await this.safeBody(res));
+        const body = await this.safeBody(res);
+        if (this.isRetryableStatus(res.status) && attempt < this.maxRetries) {
+          lastError = new YTError(`YouTube API error (${res.status}): ${body}`, res.status);
+          await this.sleep(2 ** attempt * 300);
+          continue;
+        }
+
+        this.throwForStatus(res.status, body, path, params);
       } catch (err) {
         if (err instanceof YTError) throw err;
 
@@ -80,7 +87,12 @@ export class HttpClient {
     return url;
   }
 
-  private throwForStatus(status: number, body: string): never {
+  private throwForStatus(
+    status: number,
+    body: string,
+    path: string,
+    params: Record<string, string>
+  ): never {
     if (status === 401 || (status === 403 && body.includes("API key"))) {
       throw new AuthError();
     }
@@ -88,9 +100,40 @@ export class HttpClient {
       throw new QuotaError();
     }
     if (status === 404) {
-      throw new NotFoundError("Resource", "unknown");
+      throw new NotFoundError(this.resourceForPath(path), this.resourceIdForParams(params) ?? path);
     }
     throw new YTError(`YouTube API error (${status}): ${body}`, status);
+  }
+
+  private isRetryableStatus(status: number): boolean {
+    return status === 429 || (status >= 500 && status <= 599);
+  }
+
+  private resourceForPath(path: string): string {
+    const resources: Record<string, string> = {
+      channels: "Channel",
+      commentThreads: "CommentThread",
+      comments: "Comment",
+      i18nLanguages: "I18nLanguage",
+      i18nRegions: "I18nRegion",
+      playlistItems: "PlaylistItem",
+      playlists: "Playlist",
+      search: "SearchResult",
+      videoCategories: "VideoCategory",
+      videos: "Video",
+    };
+    return resources[path] ?? path;
+  }
+
+  private resourceIdForParams(params: Record<string, string>): string | undefined {
+    return (
+      params.id ??
+      params.videoId ??
+      params.playlistId ??
+      params.allThreadsRelatedToChannelId ??
+      params.parentId ??
+      params.channelId
+    );
   }
 
   private async safeBody(res: Response): Promise<string> {

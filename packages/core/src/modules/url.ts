@@ -39,12 +39,13 @@ export function parseURL(input: string): ParsedURL {
   const channelId = extractChannelId(trimmed);
 
   if (videoId) {
-    return {
+    const parsed: ParsedURL = {
       isValid: true,
       type: "video",
       videoId,
-      playlistId: playlistId ?? undefined,
     };
+    if (playlistId !== null) parsed.playlistId = playlistId;
+    return parsed;
   }
   if (playlistId) {
     return { isValid: true, type: "playlist", playlistId };
