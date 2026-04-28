@@ -62,8 +62,36 @@ icon: List
     ### Framework Examples
 
     * Added Hono, NestJS, and Next.js API server examples alongside Express
-    * API Reference now shows framework-specific code samples (Express, Hono, Next.js)
+     * API Reference now shows framework-specific code samples (Express, Hono, Next.js)
 
+  </Update>
+
+  <Update label="v2.0.2">
+    ### New Features
+
+    * Added playlist and video retrieval capabilities with concurrent fetching and enriched metadata — `getPlaylist` and `getVideos` now support batched concurrent requests with full snippet enrichment
+    * Exposed URL parsing and formatting utilities via new public entry points (`lyra-sdk/url`, `lyra-sdk/fmt`) — no API key required
+
+    ### Bug Fixes
+
+    * Fixed 404 error messages for comment endpoints — `resourceIdForParams` now includes `videoId` and `allThreadsRelatedToChannelId` so `getVideoComments` and `getChannelComments` produce the correct resource ID in error context
+    * Added validation for `concurrency` parameter in `hydrateMissingReplies` — non-finite, zero, or negative values are normalized to prevent silent no-ops and `RangeError` crashes
+    * Normalized `maxResults`/`maxItems` to safe integers in comment pagination — prevents `NaN` and fractional values from being sent to the YouTube Data API
+    * Added validation for cached transcript data to prevent stale entries — cache entries are now validated for structural integrity before serving
+    * Added `TranscriptOptions` union fallback overload to `transcribeVideo` — callers passing the base `TranscriptOptions` type no longer fail overload resolution
+
+    ### Improvements
+
+    * Improved retry logic with exponential backoff for transient API failures — configurable `retries` and `retryDelay` on all transcript and comment requests
+    * Enhanced type inference for transcript requests with explicit `TranscriptOptions` overload in `transcribeVideo`
+    * Implemented concurrency limits for efficient reply fetching in `hydrateMissingReplies` — configurable per-call concurrency parameter
+    * Added fail-fast validation for `YOUTUBE_API_KEY` in batch transcript scripts with clear error messages and `.env` setup hints
+    * Added explicit Vitest imports to `entrypoints.test.ts` for consistency with other test files
+    * Aligned `biome.json` `$schema` version to match minimum installed `@biomejs/biome` version (2.4.12)
+
+    ### Breaking Changes
+
+    * None — fully backwards-compatible with v2.0.0
   </Update>
 
   <Update label="v1.1.0">
