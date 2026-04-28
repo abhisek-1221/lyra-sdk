@@ -1,12 +1,19 @@
-# lyra-sdk
+
+<div align="center">
+
+<h1 style="font-size: 3em; line-height: 1">
+  <img src="https://raw.githubusercontent.com/abhisek-1221/lyra-sdk/main/apps/docs/public/logo.svg" width="42" style="vertical-align: middle" />
+  Lyra SDK
+</h1>
 
 [![npm version](https://img.shields.io/npm/v/lyra-sdk.svg)](https://www.npmjs.com/package/lyra-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 A powerful TypeScript SDK for working with YouTube data. Fetch videos, channels, playlists, comments, and transcripts — all with full type safety and zero dependencies.
 
-**🌐 Website:** [uselyra.xyz](https://uselyra.xyz)  
-**📚 Documentation:** [docs.uselyra.xyz](https://docs.uselyra.xyz)
+**🌐 [Website](https://uselyra.xyz)** · **📚 [Docs](https://docs.uselyra.xyz)**
+
+</div>
 
 ---
 
@@ -16,7 +23,7 @@ A powerful TypeScript SDK for working with YouTube data. Fetch videos, channels,
 npm install lyra-sdk
 ```
 
-Requires Node.js 18+ and a [YouTube Data API v3 key](https://console.cloud.google.com/apis/credentials).
+Requires Node.js 22+ and a [YouTube Data API v3 key](https://console.cloud.google.com/apis/credentials).
 
 ---
 
@@ -28,15 +35,16 @@ import { yt } from 'lyra-sdk'
 const client = yt(process.env.YOUTUBE_API_KEY!)
 
 // Fetch a video
-const video = await client.video('dQw4w9WgXcQ')
+const video = await client.video(videoUrl)
 console.log(video.title, video.viewsFmt)
 
 // Fetch a channel by handle
-const channel = await client.channel('@MrBeast')
+const channelHandle = '@MrBeast'
+const channel = await client.channel(channelHandle)
 console.log(channel.name, channel.subscribersFmt)
 
 // Fetch a full playlist
-const playlist = await client.playlist('PL...')
+const playlist = await client.playlist(playlistUrl)
 console.log(playlist.title, playlist.videoCount)
 ```
 
@@ -47,7 +55,8 @@ console.log(playlist.title, playlist.videoCount)
 ```typescript
 import { transcribeVideo, toPlainText } from 'lyra-sdk/transcript'
 
-const lines = await transcribeVideo('dQw4w9WgXcQ')
+const videoUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+const lines = await transcribeVideo(videoUrl)
 console.log(toPlainText(lines)) // Full transcript as plain text
 ```
 
@@ -60,7 +69,7 @@ The transcript module uses YouTube's internal Innertube API — **no quota consu
 ```typescript
 import { transcribePlaylist, InMemoryCache } from 'lyra-sdk'
 
-const result = await transcribePlaylist('PL...', {
+const result = await transcribePlaylist(playlistUrl, {
   apiKey: process.env.YOUTUBE_API_KEY!,
   concurrency: 5,
   cache: new InMemoryCache(),
@@ -80,19 +89,19 @@ console.log(`Succeeded: ${result.succeeded}, Failed: ${result.failed}`)
 
 ```typescript
 // Fetch all comment threads
-const threads = await client.comments('dQw4w9WgXcQ')
+const threads = await client.comments(videoUrl)
 
 // Top comments by relevance
-const top5 = await client.topComments('dQw4w9WgXcQ', 5)
+const top5 = await client.topComments(videoUrl, 5)
 
 // All replies to a specific comment
-const replies = await client.commentReplies('UgwSomeCommentId')
+const replies = await client.commentReplies(commentId)
 
 // Search comments by keyword
-const results = await client.searchComments('dQw4w9WgXcQ', 'great song')
+const results = await client.searchComments(videoUrl, 'great song')
 
 // Compute aggregate stats
-const stats = client.commentStats('dQw4w9WgXcQ', threads)
+const stats = client.commentStats(videoUrl, threads)
 console.log(`Unique authors: ${stats.uniqueAuthors}`)
 ```
 
@@ -102,7 +111,7 @@ console.log(`Unique authors: ${stats.uniqueAuthors}`)
 
 ```typescript
 const result = await client
-  .playlistQuery('PL...')
+  .playlistQuery(playlistUrl)
   .filterByDuration({ min: 300 })
   .filterByViews({ min: 100_000 })
   .sortBy('views', 'desc')
@@ -118,7 +127,7 @@ const result = await client
 import { parseURL, extractVideoId } from 'lyra-sdk/url'
 import { formatNumber, formatDurationClock } from 'lyra-sdk/fmt'
 
-parseURL('https://youtu.be/dQw4w9WgXcQ')
+parseURL(videoUrl)
 formatNumber(1_763_613_349) // '1.8B'
 formatDurationClock(214)    // '3:34'
 ```

@@ -1,12 +1,19 @@
-# lyra-sdk
+<div align="center">
+
+<h1 style="font-size: 3em; line-height: 2">
+  <img src="https://raw.githubusercontent.com/abhisek-1221/lyra-sdk/main/apps/docs/public/logo.svg" width="42" style="vertical-align: middle" />
+  Lyra SDK
+</h1>
 
 [![npm version](https://img.shields.io/npm/v/lyra-sdk.svg)](https://www.npmjs.com/package/lyra-sdk)
+[![npm downloads](https://img.shields.io/npm/dt/lyra-sdk)](https://www.npmjs.com/package/lyra-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 A powerful TypeScript SDK for working with YouTube data. Fetch videos, channels, playlists, comments, and transcripts — all with full type safety and zero dependencies.
 
-**🌐 Website:** [uselyra.xyz](https://uselyra.xyz)  
-**📚 Documentation:** [docs.uselyra.xyz](https://docs.uselyra.xyz)
+**🌐 [Website](https://uselyra.xyz)** · **📚 [Docs](https://docs.uselyra.xyz)**
+
+</div>
 
 ---
 
@@ -28,15 +35,18 @@ import { yt } from 'lyra-sdk'
 const client = yt(process.env.YOUTUBE_API_KEY!)
 
 // Fetch a video
-const video = await client.video('dQw4w9WgXcQ')
+const videoUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+const video = await client.video(videoUrl)
 console.log(video.title, video.viewsFmt) // "Rick Astley - Never Gonna Give You Up", "1.8B"
 
 // Fetch a channel by handle
-const channel = await client.channel('@MrBeast')
+const channelHandle = '@MrBeast'
+const channel = await client.channel(channelHandle)
 console.log(channel.name, channel.subscribersFmt) // "MrBeast", "478M"
 
 // Fetch a full playlist
-const playlist = await client.playlist('PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')
+const playlistUrl = 'https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf'
+const playlist = await client.playlist(playlistUrl)
 console.log(playlist.title, playlist.videoCount)
 ```
 
@@ -47,7 +57,8 @@ console.log(playlist.title, playlist.videoCount)
 ```typescript
 import { transcribeVideo, toPlainText } from 'lyra-sdk/transcript'
 
-const lines = await transcribeVideo('dQw4w9WgXcQ')
+const videoUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+const lines = await transcribeVideo(videoUrl)
 console.log(lines[0].text) // "♪ We're no strangers to love ♪"
 console.log(toPlainText(lines)) // Full transcript as plain text
 ```
@@ -65,7 +76,8 @@ import { transcribePlaylist, InMemoryCache } from 'lyra-sdk'
 
 const cache = new InMemoryCache()
 
-const result = await transcribePlaylist('PL...', {
+const playlistUrl = 'https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf'
+const result = await transcribePlaylist(playlistUrl, {
   apiKey: process.env.YOUTUBE_API_KEY!,
   concurrency: 5,
   cache,
@@ -89,19 +101,20 @@ console.log(`Succeeded: ${result.succeeded}, Failed: ${result.failed}`)
 
 ```typescript
 // Fetch all comment threads
-const threads = await client.comments('dQw4w9WgXcQ')
+const videoUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+const threads = await client.comments(videoUrl)
 
 // Top comments by relevance
-const top5 = await client.topComments('dQw4w9WgXcQ', 5)
+const top5 = await client.topComments(videoUrl, 5)
 
 // All replies to a specific comment
 const replies = await client.commentReplies('UgwSomeCommentId')
 
 // Search comments by keyword
-const results = await client.searchComments('dQw4w9WgXcQ', 'great song')
+const results = await client.searchComments(videoUrl, 'great song')
 
 // Compute aggregate stats
-const stats = client.commentStats('dQw4w9WgXcQ', threads)
+const stats = client.commentStats(videoUrl, threads)
 console.log(`Unique authors: ${stats.uniqueAuthors}`)
 console.log(`Most liked: ${stats.mostLikedComment?.text}`)
 ```
@@ -114,7 +127,7 @@ Filter, sort, and slice playlist videos with a chainable API:
 
 ```typescript
 const result = await client
-  .playlistQuery('PL...')
+  .playlistQuery(playlistUrl)
   .filterByDuration({ min: 300 })      // At least 5 minutes
   .filterByViews({ min: 100_000 })     // At least 100K views
   .sortBy('views', 'desc')             // Sort by views, descending
@@ -129,10 +142,11 @@ const result = await client
 ```typescript
 import { parseURL, extractVideoId } from 'lyra-sdk/url'
 
-const result = parseURL('https://youtu.be/dQw4w9WgXcQ')
+const videoUrl = 'https://youtu.be/dQw4w9WgXcQ'
+const result = parseURL(videoUrl)
 // { isValid: true, type: 'video', videoId: 'dQw4w9WgXcQ' }
 
-extractVideoId('https://youtube.com/watch?v=dQw4w9WgXcQ') // 'dQw4w9WgXcQ'
+extractVideoId(videoUrl) // 'dQw4w9WgXcQ'
 ```
 
 ---
