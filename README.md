@@ -1,3 +1,4 @@
+
 <div align="center">
 
 <h1 style="font-size: 3em; line-height: 2">
@@ -12,7 +13,7 @@
 A powerful TypeScript SDK for working with YouTube data. Fetch videos, channels, playlists, comments, and transcripts — all with full type safety and zero dependencies.
 
 **🌐 [Website](https://uselyra.xyz)** · **📚 [Docs](https://docs.uselyra.xyz)**
-
+<img width="1302" height="850" alt="LYRA-HEADER" src="https://github.com/user-attachments/assets/84be664e-2fec-424b-ac95-9175671d64b5" />
 </div>
 
 ---
