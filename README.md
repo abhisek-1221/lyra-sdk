@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1 style="font-size: 3em; line-height: 2">
-  <img src="https://raw.githubusercontent.com/abhisek-1221/lyra-sdk/main/apps/docs/public/logo.svg" width="42" style="vertical-align: middle" />
+  <img src="https://raw.githubusercontent.com/abhisek-1221/lyra-sdk/main/apps/docs/public/logo.svg" width="28" style="vertical-align: middle" />
   Lyra SDK
 </h1>
 
