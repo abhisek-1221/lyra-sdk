@@ -1,10 +1,18 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
-import { InMemoryCache, transcribePlaylist } from "lyra-sdk/transcript";
-import { batchTranscriptSchema } from "../schemas/transcript.js";
+import { InMemoryCache, transcribePlaylist, transcribeVideo } from "lyra-sdk/transcript";
+import { batchTranscriptSchema, transcriptSchema } from "../schemas/transcript.js";
 
 const cache = new InMemoryCache();
 const router = Router();
+
+router.get("/transcript/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const query = transcriptSchema.parse(req.query);
+
+  const lines = await transcribeVideo(id, { ...query, cache });
+  res.json(lines);
+});
 
 router.post("/playlist/:id/transcript", async (req: Request, res: Response) => {
   const { id } = req.params;
