@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { createAITools, vercelTool } from "../packages/core/src/ai-tools/index.js";
+import { createAITools } from "../packages/core/src/ai-tools/index.js";
 
 config();
 
@@ -17,21 +17,6 @@ if (!GEMINI_KEY) {
 
 const ai = createAITools({ apiKey: YT_KEY });
 
-const tools = {
-  getVideo: vercelTool(ai.getVideo),
-  getVideos: vercelTool(ai.getVideos),
-  getChannel: vercelTool(ai.getChannel),
-  getChannelVideos: vercelTool(ai.getChannelVideos),
-  getPlaylist: vercelTool(ai.getPlaylist),
-  getPlaylistInfo: vercelTool(ai.getPlaylistInfo),
-  getPlaylistVideos: vercelTool(ai.getPlaylistVideos),
-  getComments: vercelTool(ai.getComments),
-  getTopComments: vercelTool(ai.getTopComments),
-  searchComments: vercelTool(ai.searchComments),
-  transcribeVideo: vercelTool(ai.transcribeVideo),
-  batchTranscribe: vercelTool(ai.batchTranscribe),
-};
-
 const prompt = process.argv[2];
 if (!prompt) {
   console.error("Usage: npx tsx scripts/ai-tools.ts '<your prompt>'");
@@ -44,8 +29,23 @@ console.log(`Prompt: ${prompt}\n`);
 console.log("Working...\n");
 
 async function main() {
-  const { generateText } = await import("ai");
+  const { generateText, tool } = await import("ai");
   const { google } = await import("@ai-sdk/google");
+
+  const tools = {
+    getVideo: tool(ai.getVideo),
+    getVideos: tool(ai.getVideos),
+    getChannel: tool(ai.getChannel),
+    getChannelVideos: tool(ai.getChannelVideos),
+    getPlaylist: tool(ai.getPlaylist),
+    getPlaylistInfo: tool(ai.getPlaylistInfo),
+    getPlaylistVideos: tool(ai.getPlaylistVideos),
+    getComments: tool(ai.getComments),
+    getTopComments: tool(ai.getTopComments),
+    searchComments: tool(ai.searchComments),
+    transcribeVideo: tool(ai.transcribeVideo),
+    batchTranscribe: tool(ai.batchTranscribe),
+  };
 
   const result = await generateText({
     model: google("gemini-2.5-flash"),
@@ -62,9 +62,7 @@ async function main() {
         const tc = toolCalls![i];
         const tr = toolResults?.[i];
         console.log(`    tool: ${tc?.toolName}, args: ${JSON.stringify(tc?.args)?.slice(0, 80)}`);
-        console.log(
-          `    result: ${tr?.result ? "data present" : "(empty)"}`
-        );
+        console.log(`    result: ${tr?.result ? "data present" : "(empty)"}`);
       }
     },
   });
