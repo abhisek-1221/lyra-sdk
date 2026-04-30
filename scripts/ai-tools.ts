@@ -43,7 +43,7 @@ console.log("\n=== Lyra AI Tools ===\n");
 console.log(`Prompt: ${prompt}\n`);
 console.log("Working...\n");
 
-try {
+async function main() {
   const { generateText } = await import("ai");
   const { google } = await import("@ai-sdk/google");
 
@@ -57,7 +57,9 @@ try {
   console.log("--- Agent Response ---\n");
   console.log(result.text);
   console.log(`\n(Steps: ${result.steps?.length ?? 0})`);
-} catch (err) {
+}
+
+main().catch((err) => {
   console.error("Agent error:", err);
   process.exit(1);
-}
+});
