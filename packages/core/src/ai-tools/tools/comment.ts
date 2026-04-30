@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { yt } from "../index.js";
-import type { ToolDefinition } from "../types.js";
-import type { AIToolsConfig } from "../types.js";
-import { videoIdParam, maxResultsParam, queryParam } from "../schemas.js";
+import { yt } from "../../index.js";
+import { maxResultsParam, queryParam, videoIdParam } from "../schemas.js";
+import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
 function createOk<T>(data: T) {
   return { success: true as const, data };
@@ -63,8 +62,7 @@ export function searchCommentsTool(
   const client = yt(config.apiKey);
 
   return {
-    description:
-      "Search comments on a YouTube video by keyword. Returns matching comment threads.",
+    description: "Search comments on a YouTube video by keyword. Returns matching comment threads.",
     parameters: z.object({
       videoId: videoIdParam,
       query: queryParam,

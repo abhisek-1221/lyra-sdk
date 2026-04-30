@@ -8,9 +8,7 @@ export const videoIdsParam = z
   .max(50)
   .describe("Array of YouTube video IDs or URLs (1-50)");
 
-export const channelIdParam = z
-  .string()
-  .describe("YouTube channel ID, @handle, or URL");
+export const channelIdParam = z.string().describe("YouTube channel ID, @handle, or URL");
 
 export const playlistIdParam = z.string().describe("YouTube playlist ID or URL");
 
@@ -34,7 +32,4 @@ export const limitParam = z
 
 export const queryParam = z.string().describe("Search query or keyword");
 
-export const langParam = z
-  .string()
-  .optional()
-  .describe("Language code (e.g. en, es, fr, de, ja)");
+export const langParam = z.string().optional().describe("Language code (e.g. en, es, fr, de, ja)");

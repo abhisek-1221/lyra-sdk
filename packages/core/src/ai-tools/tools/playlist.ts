@@ -1,16 +1,13 @@
 import { z } from "zod";
-import { yt } from "../index.js";
-import type { ToolDefinition } from "../types.js";
-import type { AIToolsConfig } from "../types.js";
+import { yt } from "../../index.js";
 import { playlistIdParam } from "../schemas.js";
+import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
 function createOk<T>(data: T) {
   return { success: true as const, data };
 }
 
-export function getPlaylistTool(
-  config: AIToolsConfig
-): ToolDefinition<{ playlistId: string }> {
+export function getPlaylistTool(config: AIToolsConfig): ToolDefinition<{ playlistId: string }> {
   const client = yt(config.apiKey);
 
   return {
@@ -28,9 +25,7 @@ export function getPlaylistTool(
   };
 }
 
-export function getPlaylistInfoTool(
-  config: AIToolsConfig
-): ToolDefinition<{ playlistId: string }> {
+export function getPlaylistInfoTool(config: AIToolsConfig): ToolDefinition<{ playlistId: string }> {
   const client = yt(config.apiKey);
 
   return {

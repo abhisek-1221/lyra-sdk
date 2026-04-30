@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { fetchTranscript } from "../../transcript/fetch.js";
 import type { TranscriptLine, TranscriptOptions } from "../../transcript/types.js";
-import type { ToolDefinition } from "../types.js";
-import type { AIToolsConfig } from "../types.js";
-import { videoIdParam, videoIdsParam, langParam } from "../schemas.js";
+import { langParam, videoIdParam, videoIdsParam } from "../schemas.js";
+import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
 function createOk<T>(data: T) {
   return { success: true as const, data };
@@ -62,9 +61,7 @@ export function batchTranscribeTool(
     description:
       "Batch fetch transcripts for multiple video IDs. Pass an array of YouTube video IDs or URLs. No API key required. Returns per-video results with success/failure status.",
     parameters: z.object({
-      videoIds: videoIdsParam.describe(
-        "Array of YouTube video IDs to transcribe"
-      ),
+      videoIds: videoIdsParam.describe("Array of YouTube video IDs to transcribe"),
       lang: langParam,
     }),
     async execute({ videoIds, lang }) {
@@ -72,7 +69,14 @@ export function batchTranscribeTool(
         const results = await pool(
           videoIds,
           5,
-          async (videoId): Promise<{ videoId: string; status: string; lines?: TranscriptLine[]; error?: string }> => {
+          async (
+            videoId
+          ): Promise<{
+            videoId: string;
+            status: string;
+            lines?: TranscriptLine[];
+            error?: string;
+          }> => {
             try {
               const options: TranscriptOptions = { lang };
               if (config.cache) options.cache = config.cache;
