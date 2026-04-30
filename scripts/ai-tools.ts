@@ -55,13 +55,30 @@ async function main() {
     prompt,
     maxSteps: 15,
     onStepFinish({ text, toolCalls, toolResults, finishReason }) {
-      console.log(`  [step] finishReason: ${finishReason}, text: ${text?.slice(0, 80) ?? "(none)"}, toolCalls: ${toolCalls?.length ?? 0}`);
+      console.log(
+        `  [step] reason: ${finishReason}, text: ${text?.slice(0, 80) ?? "(none)"}, calls: ${toolCalls?.length ?? 0}`
+      );
+      for (let i = 0; i < (toolCalls?.length ?? 0); i++) {
+        const tc = toolCalls![i];
+        const tr = toolResults?.[i];
+        console.log(`    tool: ${tc?.toolName}, args: ${JSON.stringify(tc?.args).slice(0, 80)}`);
+        console.log(`    result: ${tr?.result?.success}, ${tr?.result?.data ? "data present" : tr?.result?.error ?? "(empty)"}`);
+      }
     },
   });
 
   console.log("\n--- Agent Response ---\n");
   console.log(result.text || "(empty)");
   console.log(`\n(Steps: ${result.steps?.length ?? 0})`);
+  console.log(`Finish reason: ${result.finishReason}`);
+  console.log(`Tool calls: ${result.toolCalls?.length ?? 0}`);
+  for (const tc of result.toolCalls ?? []) {
+    console.log(`  ${tc.toolName}:`, JSON.stringify(tc.args).slice(0, 100));
+  }
+  console.log(`Tool results: ${result.toolResults?.length ?? 0}`);
+  for (const tr of result.toolResults ?? []) {
+    console.log(`  success: ${tr.result?.success}, data:`, tr.result?.data ? JSON.stringify(tr.result.data).slice(0, 80) : tr.result?.error ?? "(empty)");
+  }
 }
 
 main().catch((err) => {
