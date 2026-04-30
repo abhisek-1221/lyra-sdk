@@ -49,13 +49,18 @@ async function main() {
 
   const result = await generateText({
     model: google("gemini-2.5-flash"),
+    system:
+      "You are a YouTube research assistant. Use the tools provided to answer questions about YouTube videos, channels, playlists, comments, and transcripts. Always call the relevant tool before answering.",
     tools,
     prompt,
     maxSteps: 15,
+    onStepFinish({ text, toolCalls, toolResults, finishReason }) {
+      console.log(`  [step] finishReason: ${finishReason}, text: ${text?.slice(0, 80) ?? "(none)"}, toolCalls: ${toolCalls?.length ?? 0}`);
+    },
   });
 
-  console.log("--- Agent Response ---\n");
-  console.log(result.text);
+  console.log("\n--- Agent Response ---\n");
+  console.log(result.text || "(empty)");
   console.log(`\n(Steps: ${result.steps?.length ?? 0})`);
 }
 
