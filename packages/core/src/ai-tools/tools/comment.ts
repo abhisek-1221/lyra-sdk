@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { yt } from "../../index.js";
-import { maxResultsParam, queryParam, videoIdParam } from "../schemas.js";
+import { videoIdParam, maxResultsParam, queryParam } from "../schemas.js";
 import type { AIToolsConfig, ToolDefinition } from "../types.js";
-
-function createOk<T>(data: T) {
-  return { success: true as const, data };
-}
 
 export function getCommentsTool(
   config: AIToolsConfig
@@ -20,15 +16,10 @@ export function getCommentsTool(
       maxResults: maxResultsParam,
     }),
     async execute({ videoId, maxResults }) {
-      try {
-        const threads = await client.comments(videoId, {
-          maxResults,
-          textFormat: "plainText",
-        });
-        return createOk(threads);
-      } catch (err) {
-        return { success: false, error: String(err) };
-      }
+      return await client.comments(videoId, {
+        maxResults,
+        textFormat: "plainText",
+      });
     },
   };
 }
@@ -46,12 +37,7 @@ export function getTopCommentsTool(
       limit: maxResultsParam.describe("Number of top comments to return"),
     }),
     async execute({ videoId, limit }) {
-      try {
-        const threads = await client.topComments(videoId, limit);
-        return createOk(threads);
-      } catch (err) {
-        return { success: false, error: String(err) };
-      }
+      return await client.topComments(videoId, limit);
     },
   };
 }
@@ -62,18 +48,14 @@ export function searchCommentsTool(
   const client = yt(config.apiKey);
 
   return {
-    description: "Search comments on a YouTube video by keyword. Returns matching comment threads.",
+    description:
+      "Search comments on a YouTube video by keyword. Returns matching comment threads.",
     parameters: z.object({
       videoId: videoIdParam,
       query: queryParam,
     }),
     async execute({ videoId, query }) {
-      try {
-        const threads = await client.searchComments(videoId, query);
-        return createOk(threads);
-      } catch (err) {
-        return { success: false, error: String(err) };
-      }
+      return await client.searchComments(videoId, query);
     },
   };
 }

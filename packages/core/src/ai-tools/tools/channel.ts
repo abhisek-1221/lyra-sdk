@@ -3,11 +3,9 @@ import { yt } from "../../index.js";
 import { channelIdParam, maxResultsParam } from "../schemas.js";
 import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
-function createOk<T>(data: T) {
-  return { success: true as const, data };
-}
-
-export function getChannelTool(config: AIToolsConfig): ToolDefinition<{ channelId: string }> {
+export function getChannelTool(
+  config: AIToolsConfig
+): ToolDefinition<{ channelId: string }> {
   const client = yt(config.apiKey);
 
   return {
@@ -15,12 +13,7 @@ export function getChannelTool(config: AIToolsConfig): ToolDefinition<{ channelI
       "Fetch YouTube channel metadata by ID, @handle, or URL. Returns name, subscribers, description, and thumbnail.",
     parameters: z.object({ channelId: channelIdParam }),
     async execute({ channelId }) {
-      try {
-        const channel = await client.channel(channelId);
-        return createOk(channel);
-      } catch (err) {
-        return { success: false, error: String(err) };
-      }
+      return await client.channel(channelId);
     },
   };
 }
@@ -38,12 +31,7 @@ export function getChannelVideosTool(
       limit: maxResultsParam,
     }),
     async execute({ channelId, limit }) {
-      try {
-        const videos = await client.channelVideos(channelId, { limit });
-        return createOk(videos);
-      } catch (err) {
-        return { success: false, error: String(err) };
-      }
+      return await client.channelVideos(channelId, { limit });
     },
   };
 }
