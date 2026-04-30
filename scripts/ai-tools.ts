@@ -4,14 +4,14 @@ import { createAITools, vercelTool } from "../packages/core/src/ai-tools/index.j
 config();
 
 const YT_KEY = process.env.YOUTUBE_API_KEY;
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
 if (!YT_KEY) {
   console.error("Error: YOUTUBE_API_KEY not set. Add it to your .env or export it.");
   process.exit(1);
 }
 if (!GEMINI_KEY) {
-  console.error("Error: GEMINI_API_KEY not set. Add it to your .env or export it.");
+  console.error("Error: GOOGLE_GENERATIVE_AI_API_KEY not set. Add it to your .env or export it.");
   process.exit(1);
 }
 
