@@ -1,0 +1,5 @@
+{
+  "title": "Agent Providers",
+  "icon": "Bot",
+  "pages": ["vercel-ai-sdk"]
+}
