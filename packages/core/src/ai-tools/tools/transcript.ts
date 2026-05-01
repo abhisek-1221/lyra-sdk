@@ -4,6 +4,31 @@ import type { TranscriptLine, TranscriptOptions } from "../../transcript/types.j
 import { langParam, videoIdParam, videoIdsParam } from "../schemas.js";
 import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
+const BATCH_CONCURRENCY = 5;
+
+async function pool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < items.length) {
+      const idx = next++;
+      const item = items[idx];
+      if (item !== undefined) {
+        results[idx] = await fn(item, idx);
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
 export function transcribeVideoTool(
   config: AIToolsConfig
 ): ToolDefinition<{ videoId: string; lang?: string }> {
@@ -33,26 +58,26 @@ export function batchTranscribeTool(
       lang: langParam,
     }),
     async execute({ videoIds, lang }) {
-      const results = await Promise.all(
-        videoIds.map(
-          async (
-            videoId
-          ): Promise<{
-            videoId: string;
-            status: string;
-            lines?: TranscriptLine[];
-            error?: string;
-          }> => {
-            try {
-              const options: TranscriptOptions = { lang };
-              if (config.cache) options.cache = config.cache;
-              const lines = (await fetchTranscript(videoId, options)) as TranscriptLine[];
-              return { videoId, status: "success", lines };
-            } catch (err) {
-              return { videoId, status: "failed", error: String(err) };
-            }
+      const results = await pool(
+        videoIds,
+        BATCH_CONCURRENCY,
+        async (
+          videoId
+        ): Promise<{
+          videoId: string;
+          status: string;
+          lines?: TranscriptLine[];
+          error?: string;
+        }> => {
+          try {
+            const options: TranscriptOptions = { lang };
+            if (config.cache) options.cache = config.cache;
+            const lines = (await fetchTranscript(videoId, options)) as TranscriptLine[];
+            return { videoId, status: "success", lines };
+          } catch (err) {
+            return { videoId, status: "failed", error: String(err) };
           }
-        )
+        }
       );
       return results;
     },

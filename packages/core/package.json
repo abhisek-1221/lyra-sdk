@@ -90,11 +90,7 @@
   "peerDependencies": {
     "zod": "^3.0.0 || ^4.0.0"
   },
-  "peerDependenciesMeta": {
-    "zod": {
-      "optional": true
-    }
-  },
+  "peerDependenciesMeta": {},
   "engines": {
     "node": ">=18"
   },
