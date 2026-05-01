@@ -3,9 +3,7 @@ import { yt } from "../../index.js";
 import { playlistIdParam } from "../schemas.js";
 import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
-export function getPlaylistTool(
-  config: AIToolsConfig
-): ToolDefinition<{ playlistId: string }> {
+export function getPlaylistTool(config: AIToolsConfig): ToolDefinition<{ playlistId: string }> {
   const client = yt(config.apiKey);
 
   return {
@@ -18,9 +16,7 @@ export function getPlaylistTool(
   };
 }
 
-export function getPlaylistInfoTool(
-  config: AIToolsConfig
-): ToolDefinition<{ playlistId: string }> {
+export function getPlaylistInfoTool(config: AIToolsConfig): ToolDefinition<{ playlistId: string }> {
   const client = yt(config.apiKey);
 
   return {

@@ -48,7 +48,7 @@ async function main() {
   };
 
   const result = await generateText({
-    model: google("gemini-2.5-flash"),
+    model: google("gemini-flash-latest"),
     system:
       "You are a YouTube research assistant. Use the tools provided to answer questions about YouTube videos, channels, playlists, comments, and transcripts. Always call the relevant tool before answering.",
     tools,

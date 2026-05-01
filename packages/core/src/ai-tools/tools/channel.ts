@@ -3,9 +3,7 @@ import { yt } from "../../index.js";
 import { channelIdParam, maxResultsParam } from "../schemas.js";
 import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
-export function getChannelTool(
-  config: AIToolsConfig
-): ToolDefinition<{ channelId: string }> {
+export function getChannelTool(config: AIToolsConfig): ToolDefinition<{ channelId: string }> {
   const client = yt(config.apiKey);
 
   return {
