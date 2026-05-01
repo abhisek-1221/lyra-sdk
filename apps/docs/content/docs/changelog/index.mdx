@@ -6,6 +6,31 @@ icon: List
 
 <Updates>
 
+  <Update label="v2.0.4">
+    ### New Features
+
+    * Added `lyra-sdk/ai-tools` subpath — 12 pre-built AI tools for Vercel AI SDK, Mastra, and LangChain (`getVideo`, `getChannel`, `getComments`, `transcribeVideo`, `batchTranscribe`, and more)
+    * Added `vercelTool()` wrapper — wraps tool definitions for Vercel AI SDK's `tool()` function
+    * Added `createAITools(config)` factory — instantiates all 12 tools with shared API key and optional cache
+    * Added single video transcript REST endpoint: `GET /api/transcript/:id`
+    * Added `scripts/ai-tools.ts` — integration test script for AI agent workflows with Gemini
+
+    ### Bug Fixes
+
+    * Fixed Zod peer dependency — removed `optional: true` from `peerDependenciesMeta` so `lyra-sdk/ai-tools` consumers are required to install zod
+    * Added concurrency limiting to `batchTranscribe` tool — capped at 5 parallel requests to prevent unbounded concurrent API calls
+    * Fixed import path collisions in `ai-tools` tool modules
+
+    ### Documentation
+
+    * Added Agent Providers section with Vercel AI SDK usage guide
+    * All 12 tools documented with parameter types, return types, and usage examples
+
+    ### Breaking Changes
+
+    * Zod is now a required peer dependency (previously optional) — install `zod` alongside `lyra-sdk` if you use `lyra-sdk/ai-tools`
+  </Update>
+
   <Update label="v2.0.2">
     ### New Features
 

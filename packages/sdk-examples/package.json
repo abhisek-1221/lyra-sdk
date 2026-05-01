@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "tsx src/client.ts && tsx src/utils.ts && tsx src/video.ts && tsx src/playlist.ts && tsx src/channel.ts",
+    "test:ai-tools": "tsx ../../scripts/ai-tools.ts",
     "test:client": "tsx src/client.ts",
     "test:utils": "tsx src/utils.ts",
     "test:video": "tsx src/video.ts",
@@ -20,7 +21,9 @@
     "zod": "^4.4.1"
   },
   "devDependencies": {
+    "@ai-sdk/google": "^3.0.66",
     "@types/express": "^5.0.6",
+    "ai": "^6.0.171",
     "tsx": "^4.0.0"
   }
 }

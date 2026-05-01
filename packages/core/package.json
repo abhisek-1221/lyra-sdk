@@ -1,6 +1,6 @@
 {
   "name": "lyra-sdk",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "TypeScript SDK for YouTube workflows",
   "author": "",
   "license": "MIT",
@@ -57,6 +57,16 @@
         "types": "./dist/transcript.d.cts",
         "default": "./dist/transcript.cjs"
       }
+    },
+    "./ai-tools": {
+      "import": {
+        "types": "./dist/ai-tools.d.ts",
+        "default": "./dist/ai-tools.js"
+      },
+      "require": {
+        "types": "./dist/ai-tools.d.cts",
+        "default": "./dist/ai-tools.cjs"
+      }
     }
   },
   "sideEffects": false,
@@ -73,8 +83,14 @@
     "channel",
     "comments",
     "transcript",
-    "captions"
+    "captions",
+    "ai",
+    "vercel-ai-sdk"
   ],
+  "peerDependencies": {
+    "zod": "^3.0.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {},
   "engines": {
     "node": ">=18"
   },

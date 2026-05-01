@@ -1,0 +1,288 @@
+---
+title: Vercel AI SDK
+description: Use Lyra SDK tools with the Vercel AI SDK for agent-powered YouTube research, transcription, and analysis
+icon: Play
+---
+
+## Overview
+
+Lyra SDK ships 12 pre-built AI tools via the `lyra-sdk/ai-tools` subpath. These tools work with the [Vercel AI SDK](https://sdk.vercel.ai) to give AI agents direct access to YouTube data — videos, channels, playlists, comments, and transcripts.
+
+The tools handle API authentication, pagination, error handling, and data formatting. Your agent just calls `getVideo`, `getChannel`, `transcribeVideo`, etc., and receives clean, typed results.
+
+## Installation
+
+```bash
+# lyra-sdk + Vercel AI SDK + a provider
+npm install lyra-sdk ai @ai-sdk/openai
+# or
+npm install lyra-sdk ai @ai-sdk/google
+# or
+npm install lyra-sdk ai @ai-sdk/anthropic
+```
+
+## Quick Start
+
+### 1. Create the tools instance
+
+```ts
+import { createAITools } from 'lyra-sdk/ai-tools'
+
+const ai = createAITools({ apiKey: process.env.YOUTUBE_API_KEY! })
+```
+
+This returns an object with all 12 tool definitions, pre-configured with your YouTube API key.
+
+### 2. Wrap tools for your AI SDK provider
+
+```ts
+import { generateText, tool } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  tools: {
+    getVideo: tool(ai.getVideo),
+    getChannel: tool(ai.getChannel),
+    transcribeVideo: tool(ai.transcribeVideo),
+    getComments: tool(ai.getComments),
+  },
+  prompt: 'Give trancription , views and channel info about the https://youtu.be/D4fkiQfzw_I?si=e91tk1L0G2woVyKR',
+})
+
+console.log(result.text)
+```
+
+### 3. Supported providers
+
+All [Vercel AI SDK providers](https://sdk.vercel.ai/providers) work out of the box — OpenAI, Google Gemini, Anthropic Claude, Groq, xAI, Mistral, and more.
+
+## Available Tools
+
+All 12 tools are available through `createAITools()`:
+
+| Tool | API Key? | Description |
+|------|----------|-------------|
+| `getVideo` | Yes | Fetch video details — title, views, channel, duration |
+| `getVideos` | Yes | Batch fetch multiple videos by IDs |
+| `getChannel` | Yes | Fetch channel metadata — name, subscribers, description |
+| `getChannelVideos` | Yes | Fetch recent uploads from a channel |
+| `getPlaylist` | Yes | Fetch a complete playlist with all video data |
+| `getPlaylistInfo` | Yes | Fetch playlist metadata only (1 quota unit) |
+| `getPlaylistVideos` | Yes | List all video IDs in a playlist (1 quota unit) |
+| `getComments` | Yes | Fetch comment threads with auto-pagination |
+| `getTopComments` | Yes | Fetch top comments sorted by relevance |
+| `searchComments` | Yes | Search comments by keyword |
+| `transcribeVideo` | No | Fetch transcript for a single video |
+| `batchTranscribe` | No | Batch fetch transcripts for multiple video IDs |
+
+## Tool Reference
+
+### `getVideo`
+
+```ts
+// Parameters
+{ videoId: string }
+// Returns
+{ id, title, description, channel, channelId, views, viewsFmt,
+  likes, likesFmt, comments, commentsFmt, duration, durationFmt,
+  published, publishedAt, thumbnails }
+```
+
+### `getVideos`
+
+```ts
+// Parameters
+{ videoIds: string[] } // 1–50 IDs or URLs
+// Returns
+Array<{ id, title, description, channel, channelId, views, viewsFmt, ... }>
+```
+
+### `getChannel`
+
+```ts
+// Parameters
+{ channelId: string } // ID, @handle, or URL
+// Returns
+{ id, name, username, subscribers, subscribersFmt, totalViews, totalViewsFmt,
+  description, thumbnails }
+```
+
+### `getChannelVideos`
+
+```ts
+// Parameters
+{ channelId: string, limit?: number } // limit: 1–100, default 20
+// Returns
+Array<{ id, title, thumbnails, publishedAt }>
+```
+
+### `getPlaylist`
+
+```ts
+// Parameters
+{ playlistId: string } // ID or URL
+// Returns
+{ id, title, description, thumbnails, videoCount, totalDuration,
+  totalDurationFmt, videos: Array<{ id, title, duration, ... }> }
+```
+
+### `getPlaylistInfo`
+
+```ts
+// Parameters
+{ playlistId: string }
+// Returns
+{ id, title, description, thumbnails, videoCount }
+```
+
+### `getPlaylistVideos`
+
+```ts
+// Parameters
+{ playlistId: string }
+// Returns
+string[] // Array of video IDs
+```
+
+### `getComments`
+
+```ts
+// Parameters
+{ videoId: string, maxResults?: number } // maxResults: 1–100, default 20
+// Returns
+Array<{ id, videoId, channelId, topLevelComment, totalReplyCount, replies? }>
+```
+
+### `getTopComments`
+
+```ts
+// Parameters
+{ videoId: string, limit?: number } // limit: 1–50, default 10
+// Returns
+Array<{ id, videoId, channelId, topLevelComment, totalReplyCount }>
+```
+
+### `searchComments`
+
+```ts
+// Parameters
+{ videoId: string, query: string }
+// Returns
+Array<{ id, videoId, channelId, topLevelComment, totalReplyCount }>
+```
+
+### `transcribeVideo`
+
+```ts
+// Parameters
+{ videoId: string, lang?: string } // lang: e.g. 'en', 'es', 'fr'
+// Returns
+Array<{ text: string, duration: number, offset: number, lang: string }>
+```
+
+### `batchTranscribe`
+
+```ts
+// Parameters
+{ videoIds: string[], lang?: string }
+// Returns
+Array<{ videoId: string, status: 'success' | 'failed', lines?: TranscriptLine[], error?: string }>
+```
+
+## Examples
+
+### Research a YouTube channel
+
+```ts
+import { createAITools } from 'lyra-sdk/ai-tools'
+import { generateText, tool } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+const ai = createAITools({ apiKey: process.env.YOUTUBE_API_KEY! })
+
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  tools: {
+    getChannel: tool(ai.getChannel),
+    getChannelVideos: tool(ai.getChannelVideos),
+  },
+  prompt: [
+    'Tell me about @MrBeast:',
+    '1. How many subscribers?',
+    '2. What are the titles of their 3 most recent videos?',
+  ].join('\n'),
+})
+```
+
+### Transcribe and analyze a video
+
+```ts
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  tools: {
+    getVideo: tool(ai.getVideo),
+    transcribeVideo: tool(ai.transcribeVideo),
+  },
+  prompt: [
+    'For the video https://youtu.be/D4fkiQfzw_I?si=e91tk1L0G2woVyKR:',
+    '1. What is the title?',
+    '2. Transcribe it and summarize the first 30 seconds.',
+  ].join('\n'),
+})
+```
+
+### Analyze top comments
+
+```ts
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  tools: {
+    getVideo: tool(ai.getVideo),
+    getTopComments: tool(ai.getTopComments),
+    searchComments: tool(ai.searchComments),
+  },
+  prompt: [
+    'For the video https://youtu.be/D4fkiQfzw_I?si=e91tk1L0G2woVyKR:',
+    '1. What is the like-to-view ratio?',
+    '2. Summarize the sentiment of the top 10 comments.',
+    '3. Are there any comments mentioning "love"?',
+  ].join('\n'),
+})
+```
+
+### Research a playlist
+
+```ts
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  tools: {
+    getPlaylistInfo: tool(ai.getPlaylistInfo),
+    getPlaylistVideos: tool(ai.getPlaylistVideos),
+    getVideos: tool(ai.getVideos),
+    batchTranscribe: tool(ai.batchTranscribe),
+  },
+  prompt: [
+    'Research the playlist https://youtube.com/playlist?list=PLQ-uHSnFig5M9fW16o2l35jrfdsxGknNB&si=WQ644HMNgCb8TZZB:',
+    '1. What is the playlist about?',
+    '2. How many videos are in it?',
+    '3. What are their titles?',
+    '4. Transcribe the first video and summarize it in one sentence.',
+  ].join('\n'),
+})
+```
+
+## Error Handling
+
+All tools throw native SDK errors (`NotFoundError`, `QuotaError`, `AuthError`) when API calls fail. The Vercel AI SDK catches these and passes error messages to the LLM, which can self-correct or inform the user:
+
+```ts
+// The LLM receives the error message and can retry or explain:
+// "The video 'invalid-id' was not found. Let me try with a different ID."
+```
+
+## Next Steps
+
+- See the full [API Reference](/docs/api-reference) for all SDK functions
+- Check the [SDK Reference](/docs/sdk/video) for detailed parameter documentation
+- Run the interactive test: `npx tsx scripts/ai-tools.ts "your prompt"`
