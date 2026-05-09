@@ -157,6 +157,48 @@ try {
 | `lyra-sdk/url` | Standalone URL utilities (no API key) |
 | `lyra-sdk/fmt` | Standalone formatters (no API key) |
 | `lyra-sdk/transcript` | Transcript fetching (no API key for single videos) |
+| `lyra-sdk/ai-tools` | Pre-built AI tools for Vercel AI SDK and agent workflows |
+
+---
+
+## Agent Skills
+
+Add Lyra SDK agent skills to your project:
+
+```bash
+npx skills add abhisek-1221/lyra-skills
+```
+
+Works with Claude Code, Codex, OpenCode etc.
+
+---
+
+## Vercel AI SDK
+
+Use Lyra SDK with the Vercel AI SDK for agent-powered YouTube research:
+
+```ts
+import { createAITools } from 'lyra-sdk/ai-tools'
+import { generateText, tool } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+const ai = createAITools({ apiKey: process.env.YOUTUBE_API_KEY! })
+
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  tools: {
+    getVideo:    tool(ai.getVideo),
+    getChannel:  tool(ai.getChannel),
+    transcribeVideo: tool(ai.transcribeVideo),
+    getComments: tool(ai.getComments),
+  },
+  prompt: 'How many subscribers does @MrBeast have, and what is the title of his latest video?',
+})
+
+console.log(result.text)
+```
+
+Also integrates with all [Vercel AI SDK providers](https://sdk.vercel.ai/providers) — Google Gemini, Anthropic Claude, Groq, Mistral, and more.
 
 ---
 
