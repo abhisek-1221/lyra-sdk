@@ -64,6 +64,38 @@ The transcript module uses YouTube's internal Innertube API — **no quota consu
 
 ---
 
+## Production Deployments & Proxy Support
+
+YouTube may block requests from datacenter or serverless IPs (Vercel, Cloudflare Workers, AWS Lambda, etc.) when fetching transcripts. Route requests through a residential proxy using the `customFetch` option.
+
+**Node.js (https-proxy-agent):**
+
+```ts
+import { transcribeVideo } from 'lyra-sdk/transcript'
+import { HttpsProxyAgent } from 'https-proxy-agent'
+
+const agent = new HttpsProxyAgent('http://user:pass@proxy.webshare.io:8080')
+const lines = await transcribeVideo(videoUrl, {
+  customFetch: (url, init) => fetch(url, { ...init, agent }),
+})
+```
+
+**Node.js 20+ (undici — no extra deps):**
+
+```ts
+import { transcribeVideo } from 'lyra-sdk/transcript'
+import { ProxyAgent } from 'undici'
+
+const agent = new ProxyAgent('http://user:pass@proxy.webshare.io:8080')
+const lines = await transcribeVideo(videoUrl, {
+  customFetch: (url, init) => fetch(url, { ...init, dispatcher: agent }),
+})
+```
+
+Works with providers like Webshare, Bright Data, Oxylabs, Smartproxy, and any HTTP/HTTPS proxy.
+
+---
+
 ## Transcribe Playlist (Batch)
 
 ```typescript
