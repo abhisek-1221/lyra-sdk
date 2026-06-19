@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { DEFAULT_CACHE_TTL } from "../constants.js";
 import type { CacheStore } from "../types.js";
 
@@ -17,9 +17,9 @@ export class FsCache implements CacheStore {
   private readonly ready: Promise<void>;
 
   constructor(cacheDir: string = "./cache", defaultTTL: number = DEFAULT_CACHE_TTL) {
-    this.cacheDir = cacheDir;
+    this.cacheDir = resolve(cacheDir);
     this.defaultTTL = defaultTTL;
-    this.ready = mkdir(cacheDir, { recursive: true }).then(() => {});
+    this.ready = mkdir(this.cacheDir, { recursive: true }).then(() => {});
   }
 
   async get(key: string): Promise<string | null> {
@@ -38,9 +38,11 @@ export class FsCache implements CacheStore {
 
   async set(key: string, value: string, ttl?: number): Promise<void> {
     await this.ready;
-    const filePath = join(this.cacheDir, sanitizeKey(key));
+    const finalPath = join(this.cacheDir, sanitizeKey(key));
+    const tmpPath = `${finalPath}.tmp`;
     const payload = JSON.stringify({ value, expires: Date.now() + (ttl ?? this.defaultTTL) });
-    await writeFile(filePath, payload, "utf-8");
+    await writeFile(tmpPath, payload, "utf-8");
+    await rename(tmpPath, finalPath);
   }
 
   async clear(): Promise<void> {
