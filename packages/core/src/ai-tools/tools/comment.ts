@@ -5,7 +5,7 @@ import type { AIToolsConfig, ToolDefinition } from "../types.js";
 
 export function getCommentsTool(
   config: AIToolsConfig
-): ToolDefinition<{ videoId: string; maxResults?: number }> {
+): ToolDefinition<{ videoId: string; maxResults?: number | undefined }> {
   const client = yt(config.apiKey);
 
   return {
@@ -26,7 +26,7 @@ export function getCommentsTool(
 
 export function getTopCommentsTool(
   config: AIToolsConfig
-): ToolDefinition<{ videoId: string; limit?: number }> {
+): ToolDefinition<{ videoId: string; limit?: number | undefined }> {
   const client = yt(config.apiKey);
 
   return {

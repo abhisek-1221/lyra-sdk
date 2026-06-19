@@ -221,9 +221,9 @@ export type CommentOrder = "time" | "relevance";
 export type CommentTextFormat = "html" | "plainText";
 
 export interface CommentOptions {
-  order?: CommentOrder;
-  maxResults?: number;
-  searchTerms?: string;
+  order?: CommentOrder | undefined;
+  maxResults?: number | undefined;
+  searchTerms?: string | undefined;
   textFormat?: CommentTextFormat;
 }
 
@@ -246,7 +246,7 @@ export interface ParsedURL {
 
 export interface YTOptions {
   /** Base URL override — useful for testing with a mock server. */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** Max retries on transient / 5xx errors. Default: 2. */
-  maxRetries?: number;
+  maxRetries?: number | undefined;
 }

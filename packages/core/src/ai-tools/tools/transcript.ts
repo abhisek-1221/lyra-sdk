@@ -31,7 +31,7 @@ async function pool<T, R>(
 
 export function transcribeVideoTool(
   config: AIToolsConfig
-): ToolDefinition<{ videoId: string; lang?: string }> {
+): ToolDefinition<{ videoId: string; lang?: string | undefined }> {
   return {
     description:
       "Fetch transcript/captions for a single YouTube video. No API key required. Optionally specify a language code (e.g. en, es, fr).",
@@ -49,7 +49,7 @@ export function transcribeVideoTool(
 
 export function batchTranscribeTool(
   config: AIToolsConfig
-): ToolDefinition<{ videoIds: string[]; lang?: string }> {
+): ToolDefinition<{ videoIds: string[]; lang?: string | undefined }> {
   return {
     description:
       "Batch fetch transcripts for multiple video IDs. Pass an array of YouTube video IDs or URLs. No API key required. Returns per-video results with success/failure status.",

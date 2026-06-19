@@ -128,7 +128,7 @@ export async function getChannel(http: HttpClient, urlOrId: string): Promise<Cha
 export async function getChannelVideos(
   http: HttpClient,
   urlOrId: string,
-  options: { limit?: number } = {}
+  options: { limit?: number | undefined } = {}
 ): Promise<RecentVideo[]> {
   const limit = Math.min(options.limit ?? 5, 50);
   const channel = await getChannel(http, urlOrId);
