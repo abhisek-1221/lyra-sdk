@@ -69,10 +69,7 @@ describeE2E("YTClient.playlistQuery (e2e)", () => {
     const video = await client.video(FIXTURE_VIDEO_ID);
     const channel = await client.channel(video.channelId);
 
-    const result = await client
-      .playlistQuery(channel.uploadsPlaylistId)
-      .between(1, 2)
-      .execute();
+    const result = await client.playlistQuery(channel.uploadsPlaylistId).between(1, 2).execute();
 
     expect(result.videoCount).toBeLessThanOrEqual(2);
     expect(result.videos.length).toBe(result.videoCount);
