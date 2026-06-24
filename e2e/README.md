@@ -70,7 +70,7 @@ The workflow's `npm run test:e2e` triggers a turbo task that depends on
 `^build`, so `lyra-sdk` is rebuilt before the suite runs. That keeps
 this layer honest: it tests the published artifact, not the source.
 
-## Conventions for new e2e cases
+## Contribution Guideline: Conventions for new e2e cases
 
 When adding a new test file:
 

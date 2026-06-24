@@ -52,8 +52,9 @@ export function getApiKey(): string | null {
 export const e2eEnabled: boolean = getApiKey() !== null;
 
 /**
- * Pre-built `it` and `describe` that auto-skip when no API key is set
- * AND apply a 30 s per-test timeout. Use these in every e2e test file:
+ * Pre-built `it` and `describe` that auto-skip when no API key is set.
+ * The 30 s per-test timeout is configured globally in `vitest.config.ts`
+ * (`testTimeout`), so we don't need to extend the chain here.
  *
  * ```ts
  * import { itE2E, describeE2E } from "./_setup.js";
@@ -63,7 +64,7 @@ export const e2eEnabled: boolean = getApiKey() !== null;
  * });
  * ```
  */
-export const itE2E = it.skipIf(!e2eEnabled).extend({ timeout: E2E_TIMEOUT_MS });
+export const itE2E = it.skipIf(!e2eEnabled);
 export const describeE2E = describe.skipIf(!e2eEnabled);
 
 /**
