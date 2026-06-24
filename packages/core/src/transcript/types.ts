@@ -110,10 +110,7 @@ export interface PlaylistTranscriptOptions extends TranscriptOptions {
   from?: number | undefined;
   to?: number | undefined;
   concurrency?: number | undefined;
-  onProgress?: ((
-    done: number,
-    total: number,
-    videoId: string,
-    status: VideoTranscriptStatus
-  ) => void) | undefined;
+  onProgress?:
+    | ((done: number, total: number, videoId: string, status: VideoTranscriptStatus) => void)
+    | undefined;
 }
