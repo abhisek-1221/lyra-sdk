@@ -12,6 +12,7 @@
       "packages/sdk-examples/src/**/*.tsx",
       "packages/sdk-examples/**/*.json",
       "packages/core/**/*.json",
+      "e2e/**/*.ts",
       "scripts/**/*.ts",
       "scripts/**/*.tsx",
       "biome.json",

@@ -1,0 +1,17 @@
+{
+  "name": "@repo/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests for the lyra-sdk packages — hits real YouTube APIs, gated on YOUTUBE_API_KEY",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "lyra-sdk": "*"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  }
+}
