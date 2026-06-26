@@ -1,0 +1,44 @@
+{
+  "name": "@lyra-sdk/evaluation",
+  "version": "0.1.0",
+  "description": "Retrieval evaluation: metrics, datasets, and a benchmark runner. Phase 2 ships Recall@K, Precision@K, HitRate, MRR, MAP, NDCG plus a Benchmark runner.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lyra-sdk/kernel": "0.1.0",
+    "@lyra-sdk/retrieval": "0.1.0",
+    "@lyra-sdk/storage": "0.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
