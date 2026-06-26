@@ -1,7 +1,7 @@
 import { KernelError } from "@lyra-sdk/kernel";
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
-import type { VectorIndex } from "@lyra-sdk/index";
+import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
 import type { RetrievalResult, Retriever } from "@lyra-sdk/retrieval";
 import type { Chunk, ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
 import { RetrievalPipelineBuilder } from "../builder/retrieval-pipeline-builder.js";
@@ -21,6 +21,15 @@ export interface RetrievalPipelineDeps {
   readonly index: VectorIndex;
   readonly contentResolver: ChunkContentResolver;
   readonly retriever: Retriever;
+  /**
+   * Optional lexical index. When provided, the pipeline
+   * populates it with each chunk's text during ingest so that a
+   * `BM25Retriever` (or any other lexical retriever) can search
+   * the same corpus. The pipeline does NOT own the index's
+   * lifecycle — the application constructs it and uses the same
+   * reference to build its `BM25Retriever`.
+   */
+  readonly lexicalIndex?: BM25Index;
 }
 
 /**

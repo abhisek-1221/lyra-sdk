@@ -42,6 +42,7 @@ export function buildRetrievalPipeline(b: RetrievalPipelineBuilder): RetrievalPi
     index: b._index as VectorIndex,
     contentResolver: b._contentResolver ?? new SpanChunkContentResolver(b._documents),
     retriever: b._retriever ?? defaultRetriever(b._index, b._embedder, b._chunks),
+    ...(b._lexicalIndex !== undefined ? { lexicalIndex: b._lexicalIndex } : {}),
   });
 }
 

@@ -1,6 +1,6 @@
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
-import type { VectorIndex } from "@lyra-sdk/index";
+import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
 import type { Retriever } from "@lyra-sdk/retrieval";
 import type { ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
 import { buildRetrievalPipeline } from "../orchestration/build-retrieval-pipeline.js";
@@ -39,6 +39,7 @@ export class RetrievalPipelineBuilder {
   public _index?: VectorIndex;
   public _contentResolver?: ChunkContentResolver;
   public _retriever?: Retriever;
+  public _lexicalIndex?: BM25Index;
 
   public withParser<P>(parser: SourceParser<P>): this {
     this._sourceParser = parser as SourceParser<unknown>;
@@ -77,6 +78,17 @@ export class RetrievalPipelineBuilder {
 
   public withRetriever(retriever: Retriever): this {
     this._retriever = retriever;
+    return this;
+  }
+
+  /**
+   * Phase 2: provide a BM25 lexical index. The pipeline will
+   * populate it with each chunk's text during ingest. The
+   * application retains ownership of the index and uses the
+   * same reference to build its `BM25Retriever`.
+   */
+  public withLexicalIndex(index: BM25Index): this {
+    this._lexicalIndex = index;
     return this;
   }
 
