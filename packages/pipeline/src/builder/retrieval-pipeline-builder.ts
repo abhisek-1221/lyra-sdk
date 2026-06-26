@@ -1,6 +1,8 @@
 import type { Embedder } from "@lyra-sdk/embedding";
+import type { ContextBuilder } from "@lyra-sdk/context";
 import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
 import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
+import type { Reranker } from "@lyra-sdk/reranking";
 import type { Retriever } from "@lyra-sdk/retrieval";
 import type { ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
 import { buildRetrievalPipeline } from "../orchestration/build-retrieval-pipeline.js";
@@ -26,6 +28,12 @@ import type { RetrievalPipeline } from "../orchestration/retrieval-pipeline.js";
  *   - `withRetriever` for the query path. Defaults to a
  *     `DenseRetriever` composed from `index`, `embedder`, and
  *     `chunkRepository`.
+ *   - `withLexicalIndex` (Phase 2) to populate a BM25 index
+ *     during ingest.
+ *   - `withReranker` (Phase 3) to reorder candidates before
+ *     context construction.
+ *   - `withContextBuilder` (Phase 3) to assemble the final
+ *     prompt context.
  */
 export class RetrievalPipelineBuilder {
   // Internal state. Marked with the `_internal` prefix and exposed
@@ -40,6 +48,8 @@ export class RetrievalPipelineBuilder {
   public _contentResolver?: ChunkContentResolver;
   public _retriever?: Retriever;
   public _lexicalIndex?: BM25Index;
+  public _reranker?: Reranker;
+  public _contextBuilder?: ContextBuilder;
 
   public withParser<P>(parser: SourceParser<P>): this {
     this._sourceParser = parser as SourceParser<unknown>;
@@ -89,6 +99,24 @@ export class RetrievalPipelineBuilder {
    */
   public withLexicalIndex(index: BM25Index): this {
     this._lexicalIndex = index;
+    return this;
+  }
+
+  /**
+   * Phase 3: provide a `Reranker`. The pipeline runs it on the
+   * `Retriever`'s output before the context builder.
+   */
+  public withReranker(reranker: Reranker): this {
+    this._reranker = reranker;
+    return this;
+  }
+
+  /**
+   * Phase 3: provide a `ContextBuilder`. The pipeline runs it on
+   * the reranked candidates to produce the prompt context.
+   */
+  public withContextBuilder(builder: ContextBuilder): this {
+    this._contextBuilder = builder;
     return this;
   }
 

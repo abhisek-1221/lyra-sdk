@@ -79,6 +79,9 @@ class CapturingIndex implements VectorIndex {
   async search(): Promise<readonly SearchHit[]> {
     return [];
   }
+  async getMany(): Promise<readonly (IndexedVector | null)[]> {
+    return [];
+  }
   async delete(): Promise<void> {
     /* no-op */
   }
@@ -149,7 +152,9 @@ describe("RetrievalPipeline", () => {
       retriever: stubRetriever({ query: "x", results: [], durationMs: 1 }),
     });
     const out = await pipeline.query("x", 3);
-    expect(out.query).toBe("x");
+    expect(out.retrieval.query).toBe("x");
+    expect(out.reranked).toEqual([]);
+    expect(out.context.chunks).toEqual([]);
   });
 
   it("dispose makes subsequent calls throw", async () => {
@@ -227,7 +232,7 @@ describe("RetrievalPipelineBuilder", () => {
       .build();
     await pipeline.ingest(makeTranscript("v1", ["alpha"]));
     const out = await pipeline.query("alpha");
-    expect(out.results.length).toBeGreaterThanOrEqual(0);
+    expect(out.retrieval.results.length).toBeGreaterThanOrEqual(0);
   });
 });
 

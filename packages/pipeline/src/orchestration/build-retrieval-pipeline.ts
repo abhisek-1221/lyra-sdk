@@ -1,7 +1,9 @@
 import { SpanChunkContentResolver, type ChunkStrategy, type SourceParser } from "@lyra-sdk/ingestion";
 import { DenseRetriever } from "@lyra-sdk/retrieval";
 import type { Embedder } from "@lyra-sdk/embedding";
+import type { ContextBuilder } from "@lyra-sdk/context";
 import type { VectorIndex } from "@lyra-sdk/index";
+import type { Reranker } from "@lyra-sdk/reranking";
 import type { Retriever } from "@lyra-sdk/retrieval";
 import type { ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
 import { KernelError } from "@lyra-sdk/kernel";
@@ -43,6 +45,10 @@ export function buildRetrievalPipeline(b: RetrievalPipelineBuilder): RetrievalPi
     contentResolver: b._contentResolver ?? new SpanChunkContentResolver(b._documents),
     retriever: b._retriever ?? defaultRetriever(b._index, b._embedder, b._chunks),
     ...(b._lexicalIndex !== undefined ? { lexicalIndex: b._lexicalIndex } : {}),
+    ...(b._reranker !== undefined ? { reranker: b._reranker as Reranker } : {}),
+    ...(b._contextBuilder !== undefined
+      ? { contextBuilder: b._contextBuilder as ContextBuilder }
+      : {}),
   });
 }
 

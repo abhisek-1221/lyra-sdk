@@ -19,4 +19,5 @@
 
 export { RetrievalPipelineBuilder } from "./builder/retrieval-pipeline-builder.js";
 export { RetrievalPipeline, type RetrievalPipelineDeps, type Chunk } from "./orchestration/retrieval-pipeline.js";
+export { type PipelineResult } from "./orchestration/pipeline-result.js";
 export { RetrievalRuntime } from "./runtime/retrieval-runtime.js";

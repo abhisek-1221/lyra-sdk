@@ -102,11 +102,11 @@ describe("Phase 2 composition — end-to-end (spec §12)", () => {
     expect(vectorIdx.stats().vectors).toBe(1);
 
     const result = await pipeline.query("OAuth2 access tokens", 5);
-    expect(result.query).toBe("OAuth2 access tokens");
-    expect(result.results.length).toBeGreaterThan(0);
+    expect(result.retrieval.query).toBe("OAuth2 access tokens");
+    expect(result.retrieval.results.length).toBeGreaterThan(0);
     // The dense and bm25 retriever share the same chunk; fusion
     // surfaces the chunk once.
-    expect(result.results[0]?.chunk.id).toBe("c1");
+    expect(result.retrieval.results[0]?.chunk.id).toBe("c1");
   });
 
   it("composes MultiQuery → Hybrid → Parent (the spec's §12 example)", async () => {
@@ -154,9 +154,9 @@ describe("Phase 2 composition — end-to-end (spec §12)", () => {
     await pipeline.ingest("ignored — parser is stubbed");
 
     const result = await pipeline.query("How do I authenticate?", 5);
-    expect(result.query).toBe("How do I authenticate?");
+    expect(result.retrieval.query).toBe("How do I authenticate?");
     // The parent's contract: a fully-resolved chunk per hit.
-    expect(result.results[0]?.chunk.id).toBe("c1");
+    expect(result.retrieval.results[0]?.chunk.id).toBe("c1");
   });
 
   it("a RewriteRetriever wrapping a DenseRetriever works through the pipeline", async () => {
@@ -182,6 +182,6 @@ describe("Phase 2 composition — end-to-end (spec §12)", () => {
 
     await pipeline.ingest("ignored");
     const result = await pipeline.query("OAuth2", 5);
-    expect(result.results.length).toBeGreaterThan(0);
+    expect(result.retrieval.results.length).toBeGreaterThan(0);
   });
 });

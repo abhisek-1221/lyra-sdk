@@ -1,11 +1,14 @@
 import { KernelError } from "@lyra-sdk/kernel";
 import type { Embedder } from "@lyra-sdk/embedding";
+import type { ContextBuilder } from "@lyra-sdk/context";
 import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
 import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
-import type { RetrievalResult, Retriever } from "@lyra-sdk/retrieval";
+import type { Reranker } from "@lyra-sdk/reranking";
+import type { Retriever } from "@lyra-sdk/retrieval";
 import type { Chunk, ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
 import { RetrievalPipelineBuilder } from "../builder/retrieval-pipeline-builder.js";
 import { RetrievalRuntime } from "../runtime/retrieval-runtime.js";
+import { emptyContext, type PipelineResult } from "./pipeline-result.js";
 
 /**
  * The runtime configuration for a `RetrievalPipeline`. Held as a
@@ -30,6 +33,16 @@ export interface RetrievalPipelineDeps {
    * reference to build its `BM25Retriever`.
    */
   readonly lexicalIndex?: BM25Index;
+  /**
+   * Optional reranker. Applied to the retriever's output before
+   * the context builder. Phase 3.
+   */
+  readonly reranker?: Reranker;
+  /**
+   * Optional context builder. Applied to the reranked output to
+   * produce the final prompt context. Phase 3.
+   */
+  readonly contextBuilder?: ContextBuilder;
 }
 
 /**
@@ -87,11 +100,25 @@ export class RetrievalPipeline {
   }
 
   /**
-   * Query the index. Delegates to the configured `Retriever`.
+   * Query the index. Delegates to the configured `Retriever`,
+   * then optionally runs the configured `Reranker` and
+   * `ContextBuilder`. Returns a `PipelineResult` that holds
+   * the original `RetrievalResult`, the reranked candidates,
+   * and the assembled `Context`.
    */
-  public async query(text: string, k = 5): Promise<RetrievalResult> {
+  public async query(text: string, k = 5): Promise<PipelineResult> {
     this.assertNotDisposed();
-    return this.deps.retriever.retrieve(text, k);
+    const retrieval = await this.deps.retriever.retrieve(text, k);
+    let reranked = retrieval.results;
+    if (this.deps.reranker !== undefined) {
+      const out = await this.deps.reranker.rerank(text, retrieval.results);
+      reranked = out.results;
+    }
+    const context =
+      this.deps.contextBuilder !== undefined
+        ? await this.deps.contextBuilder.build(reranked)
+        : emptyContext();
+    return { retrieval, reranked, context };
   }
 
   /**
