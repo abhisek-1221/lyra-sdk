@@ -54,16 +54,27 @@ export class DenseRetriever implements Retriever {
     }
     const candidates = await this.index.search(queryEmbedding.vector, k);
     const ids = candidates.map((c) => c.id);
-    const resolved = await this.chunks.getMany(ids);
+    const [resolved, vectors] = await Promise.all([
+      this.chunks.getMany(ids),
+      this.index.getMany(ids),
+    ]);
 
     const byId = new Map<string, Chunk>();
     for (const c of resolved) {
       if (c !== null) byId.set(c.id, c);
     }
+    const vecById = new Map<string, Float32Array>();
+    for (const v of vectors) {
+      if (v !== null) vecById.set(v.id, v.vector);
+    }
     const scored: ScoredChunk[] = [];
     for (const cand of candidates) {
       const chunk = byId.get(cand.id);
-      if (chunk !== undefined) {
+      if (chunk === undefined) continue;
+      const embedding = vecById.get(cand.id);
+      if (embedding !== undefined) {
+        scored.push({ chunk, score: cand.score, embedding });
+      } else {
         scored.push({ chunk, score: cand.score });
       }
     }

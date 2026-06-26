@@ -62,6 +62,13 @@ export class BruteForceIndex implements VectorIndex {
     this.store.delete(id);
   }
 
+  public async getMany(ids: readonly ChunkId[]): Promise<readonly (IndexedVector | null)[]> {
+    return ids.map((id) => {
+      const vector = this.store.get(id);
+      return vector === undefined ? null : { id, vector };
+    });
+  }
+
   public stats(): IndexStats {
     let bytes = 0;
     for (const v of this.store.values()) {

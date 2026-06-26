@@ -22,12 +22,23 @@ class StubEmbedder implements Embedder {
 
 class StubIndex implements VectorIndex {
   public upserted: readonly IndexedVector[] = [];
-  constructor(private readonly hits: readonly SearchHit[]) {}
+  constructor(
+    private readonly hits: readonly SearchHit[],
+    private readonly vectors: ReadonlyMap<string, Float32Array> = new Map(),
+  ) {}
   async upsert(items: readonly IndexedVector[]): Promise<void> {
     this.upserted = items;
   }
   async search(_q: Float32Array, k: number): Promise<readonly SearchHit[]> {
     return this.hits.slice(0, k);
+  }
+  async getMany(
+    ids: readonly import("@lyra-sdk/kernel").ChunkId[],
+  ): Promise<readonly (IndexedVector | null)[]> {
+    return ids.map((id) => {
+      const v = this.vectors.get(id);
+      return v === undefined ? null : { id, vector: v };
+    });
   }
   async delete(): Promise<void> {
     /* no-op */
