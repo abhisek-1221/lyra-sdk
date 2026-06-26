@@ -35,3 +35,22 @@ export {
   type BenchmarkOptions,
   type BenchmarkReport,
 } from "./benchmark/benchmark.js";
+export {
+  RerankingBenchmark,
+  type RerankingBenchmarkOptions,
+  type RerankingBenchmarkReport,
+} from "./benchmark/reranking/reranking-benchmark.js";
+export {
+  ContextBenchmark,
+  type ContextBenchmarkOptions,
+  type ContextBenchmarkReport,
+  type ContextDataset,
+  type ContextExample,
+} from "./benchmark/context/context-benchmark.js";
+export {
+  MockReverserReranker,
+  MockJinaReranker,
+  MockVoyageReranker,
+  MockCohereReranker,
+  MockBGEReranker,
+} from "./benchmark/scenarios/mock-rerankers.js";
