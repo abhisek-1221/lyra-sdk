@@ -32,10 +32,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@lyra-sdk/kernel": "0.1.0",
+    "@lyra-sdk/context": "0.1.0",
     "@lyra-sdk/embedding": "0.1.0",
     "@lyra-sdk/ingestion": "0.1.0",
     "@lyra-sdk/index": "0.1.0",
+    "@lyra-sdk/kernel": "0.1.0",
+    "@lyra-sdk/reranking": "0.1.0",
     "@lyra-sdk/retrieval": "0.1.0",
     "@lyra-sdk/storage": "0.1.0"
   },
