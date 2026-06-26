@@ -1,7 +1,7 @@
 import { KernelError } from "@lyra-sdk/kernel";
 import type { Embedding } from "@lyra-sdk/embedding";
 import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
-import type { IndexedVector, VectorIndex } from "@lyra-sdk/index";
+import type { BM25Index, IndexedVector, VectorIndex } from "@lyra-sdk/index";
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { Chunk, ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
 import type { RetrievalPipelineDeps } from "../orchestration/retrieval-pipeline.js";
@@ -20,6 +20,7 @@ export class RetrievalRuntime {
   private readonly documents: DocumentRepository;
   private readonly index: VectorIndex;
   private readonly contentResolver: ChunkContentResolver;
+  private readonly lexicalIndex: BM25Index | undefined;
 
   constructor(deps: RetrievalPipelineDeps) {
     this.sourceParser = deps.sourceParser;
@@ -29,6 +30,7 @@ export class RetrievalRuntime {
     this.documents = deps.documents;
     this.index = deps.index;
     this.contentResolver = deps.contentResolver;
+    this.lexicalIndex = deps.lexicalIndex;
   }
 
   /**
@@ -56,6 +58,15 @@ export class RetrievalRuntime {
         "internal",
         `RetrievalRuntime: resolver returned ${texts.length} texts for ${chunks.length} chunks`,
       );
+    }
+
+    // 5b. Populate the lexical index (if any) with each chunk's
+    //     text. The application owns the index; the pipeline only
+    //     feeds it.
+    if (this.lexicalIndex !== undefined) {
+      for (let i = 0; i < chunks.length; i++) {
+        this.lexicalIndex.add(chunks[i]!.id, texts[i]!);
+      }
     }
 
     // 6. Embed in a single batch.
