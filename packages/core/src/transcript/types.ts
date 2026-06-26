@@ -30,16 +30,16 @@ export interface CaptionTrack {
 }
 
 export interface TranscriptOptions {
-  lang?: string;
-  userAgent?: string;
-  useHttp?: boolean;
-  includeMeta?: boolean;
+  lang?: string | undefined;
+  userAgent?: string | undefined;
+  useHttp?: boolean | undefined;
+  includeMeta?: boolean | undefined;
   customFetch?: (url: string, init?: RequestInit) => Promise<Response>;
   signal?: AbortSignal;
   cache?: CacheStore;
-  cacheTTL?: number;
-  retries?: number;
-  retryDelay?: number;
+  cacheTTL?: number | undefined;
+  retries?: number | undefined;
+  retryDelay?: number | undefined;
 }
 
 export type TranscriptOptionsWithMeta = TranscriptOptions & { includeMeta: true };
@@ -107,13 +107,10 @@ export interface PlaylistTranscriptResult {
 
 export interface PlaylistTranscriptOptions extends TranscriptOptions {
   apiKey: string;
-  from?: number;
-  to?: number;
-  concurrency?: number;
-  onProgress?: (
-    done: number,
-    total: number,
-    videoId: string,
-    status: VideoTranscriptStatus
-  ) => void;
+  from?: number | undefined;
+  to?: number | undefined;
+  concurrency?: number | undefined;
+  onProgress?:
+    | ((done: number, total: number, videoId: string, status: VideoTranscriptStatus) => void)
+    | undefined;
 }

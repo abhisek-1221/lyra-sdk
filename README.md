@@ -190,6 +190,24 @@ try {
 
 ---
 
+## Development & Testing
+
+The repo has two test layers:
+
+- **Unit tests** in `packages/core/tests/` — fast, fully-mocked, run on every PR.
+- **End-to-end tests** in `e2e/` — exercise the built SDK against the real YouTube Data API / innertube endpoints. Gated on `YOUTUBE_API_KEY`; auto-skips when unset. Runs nightly in CI plus on demand.
+
+```bash
+# Unit tests
+npm test
+
+# End-to-end tests (requires YOUTUBE_API_KEY)
+export YOUTUBE_API_KEY=AIza...
+npm run test:e2e
+```
+
+---
+
 ## What's Coming
 
 - **Lyra CLI** — Command-line tool for batch operations and pipeline automation

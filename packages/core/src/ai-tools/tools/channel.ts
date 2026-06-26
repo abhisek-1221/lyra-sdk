@@ -18,7 +18,7 @@ export function getChannelTool(config: AIToolsConfig): ToolDefinition<{ channelI
 
 export function getChannelVideosTool(
   config: AIToolsConfig
-): ToolDefinition<{ channelId: string; limit?: number }> {
+): ToolDefinition<{ channelId: string; limit?: number | undefined }> {
   const client = yt(config.apiKey);
 
   return {

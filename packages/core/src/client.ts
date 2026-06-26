@@ -97,7 +97,10 @@ export class YTClient {
   }
 
   /** Fetch recent uploads for a channel. */
-  async channelVideos(urlOrId: string, options?: { limit?: number }): Promise<RecentVideo[]> {
+  async channelVideos(
+    urlOrId: string,
+    options?: { limit?: number | undefined }
+  ): Promise<RecentVideo[]> {
     return getChannelVideos(this.http, urlOrId, options);
   }
 

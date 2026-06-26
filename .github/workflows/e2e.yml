@@ -1,0 +1,48 @@
+name: E2E Tests
+
+# End-to-end tests against the real YouTube Data API / innertube endpoints.
+#
+# These are intentionally NOT part of the per-PR pipeline: each run costs
+# ~20 YouTube quota units and a non-trivial amount of wall-clock time.
+# We run them nightly so we catch drift within 24h, and we expose a manual
+# trigger so they can be re-run on demand from the Actions UI.
+#
+# Required secret: `YOUTUBE_API_KEY` (a Google Cloud API key with the
+# YouTube Data API v3 enabled).
+on:
+  schedule:
+    # 06:00 UTC every day — off-peak for both GitHub Actions and
+    # most of YouTube's traffic. Adjust if you notice quota pressure.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+# Don't cancel a previous run if a nightly gets re-triggered manually.
+concurrency:
+  group: e2e-tests
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: lyra-sdk e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        env:
+          HUSKY: 0
+
+      - name: Run e2e suite
+        run: npm run test:e2e
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
