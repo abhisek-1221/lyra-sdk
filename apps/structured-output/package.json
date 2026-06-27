@@ -1,0 +1,30 @@
+{
+  "name": "@lyra-sdk-example/structured-output",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Use a JSON-schema constrained prompt to extract structured data from a transcript.",
+  "scripts": {
+    "dev": "node --import tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lyra-sdk/context": "0.1.0",
+    "@lyra-sdk/embedding": "0.1.0",
+    "@lyra-sdk/generation": "0.1.0",
+    "@lyra-sdk/index": "0.1.0",
+    "@lyra-sdk/ingestion": "0.1.0",
+    "@lyra-sdk/kernel": "0.1.0",
+    "@lyra-sdk/pipeline": "0.1.0",
+    "@lyra-sdk/prompt": "0.1.0",
+    "@lyra-sdk/reranking": "0.1.0",
+    "@lyra-sdk/retrieval": "0.1.0",
+    "@lyra-sdk/storage": "0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
