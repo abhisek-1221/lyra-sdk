@@ -1,7 +1,9 @@
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { ContextBuilder } from "@lyra-sdk/context";
+import type { Generator } from "@lyra-sdk/generation";
 import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
 import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
+import type { PromptBuilder } from "@lyra-sdk/prompt";
 import type { Reranker } from "@lyra-sdk/reranking";
 import type { Retriever } from "@lyra-sdk/retrieval";
 import type { ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
@@ -50,6 +52,8 @@ export class RetrievalPipelineBuilder {
   public _lexicalIndex?: BM25Index;
   public _reranker?: Reranker;
   public _contextBuilder?: ContextBuilder;
+  public _promptBuilder?: PromptBuilder;
+  public _generator?: Generator;
 
   public withParser<P>(parser: SourceParser<P>): this {
     this._sourceParser = parser as SourceParser<unknown>;
@@ -117,6 +121,27 @@ export class RetrievalPipelineBuilder {
    */
   public withContextBuilder(builder: ContextBuilder): this {
     this._contextBuilder = builder;
+    return this;
+  }
+
+  /**
+   * Phase 4: provide a `PromptBuilder`. The pipeline runs it on
+   * the assembled `Context` and the user's query to produce a
+   * `Prompt`. Ignored when no `Generator` is configured.
+   */
+  public withPromptBuilder(builder: PromptBuilder): this {
+    this._promptBuilder = builder;
+    return this;
+  }
+
+  /**
+   * Phase 4: provide a `Generator`. The pipeline calls it with
+   * the assembled `Prompt` and threads the result back through
+   * the `ask` method. Required for `ask`; `query` works
+   * without it.
+   */
+  public withGenerator(generator: Generator): this {
+    this._generator = generator;
     return this;
   }
 

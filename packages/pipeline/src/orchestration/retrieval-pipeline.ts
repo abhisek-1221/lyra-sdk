@@ -1,13 +1,17 @@
 import { KernelError } from "@lyra-sdk/kernel";
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { ContextBuilder } from "@lyra-sdk/context";
+import type { Generator, GenerationOptions } from "@lyra-sdk/generation";
 import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
 import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
+import { DefaultPromptBuilder, type Prompt, type PromptBuilder } from "@lyra-sdk/prompt";
 import type { Reranker } from "@lyra-sdk/reranking";
 import type { Retriever } from "@lyra-sdk/retrieval";
 import type { Chunk, ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
 import { RetrievalPipelineBuilder } from "../builder/retrieval-pipeline-builder.js";
 import { RetrievalRuntime } from "../runtime/retrieval-runtime.js";
+import type { AskRequest } from "./ask-request.js";
+import type { AskResult } from "./ask-result.js";
 import { emptyContext, type PipelineResult } from "./pipeline-result.js";
 
 /**
@@ -43,6 +47,19 @@ export interface RetrievalPipelineDeps {
    * produce the final prompt context. Phase 3.
    */
   readonly contextBuilder?: ContextBuilder;
+  /**
+   * Optional prompt builder. Used to assemble a `Prompt` from
+   * the `Context` and the user's query. Phase 4.
+   *
+   * Default: `new DefaultPromptBuilder()` when `generator` is
+   * configured. Ignored when `generator` is not configured.
+   */
+  readonly promptBuilder?: PromptBuilder;
+  /**
+   * Optional generator. When configured, `ask` is available.
+   * Phase 4.
+   */
+  readonly generator?: Generator;
 }
 
 /**
@@ -52,12 +69,17 @@ export interface RetrievalPipelineDeps {
  * Responsibilities:
  *   - `ingest` — orchestrate parser → chunker → embedder → index.
  *     Saves the source document, the chunks, and the vectors.
- *   - `query` — delegate to the configured `Retriever`.
+ *   - `query` — delegate to the configured `Retriever`, then
+ *     optionally run the configured `Reranker` and
+ *     `ContextBuilder`. Phase 3.
+ *   - `ask` — run the full chain (retrieve → rerank → build
+ *     context → build prompt → generate) and return the
+ *     `AskResult`. Phase 4.
  *   - `dispose` — release resources via the runtime.
  *
  * The pipeline deliberately does **not** know about HTTP, cache
  * files, or specific providers. Those are cross-cutting concerns
- * applied at the embedder and repository boundaries.
+ * applied at the embedder, repository, and generator boundaries.
  */
 export class RetrievalPipeline {
   private readonly deps: RetrievalPipelineDeps;
@@ -122,6 +144,58 @@ export class RetrievalPipeline {
   }
 
   /**
+   * Run the full RAG chain: `query → build prompt → generate`.
+   * Returns an `AskResult` with the `PipelineResult`, the
+   * assembled `Prompt`, and the `GenerationResponse`.
+   *
+   * The pipeline is the **single seam** that lifts citations
+   * from `Context` to `GenerationResponse`. `Prompt` does not
+   * carry citations; the prompt builder emits citation
+   * markers (`[1]`, `[2]`, …) inline in the rendered chunk
+   * text, and the application reads
+   * `askResult.generation.citations` (or
+   * `askResult.pipeline.context.citations` — same array) to
+   * render the matching footer.
+   *
+   * Throws when no `generator` is configured. A pipeline
+   * without a generator is a valid query-only pipeline; the
+   * application builds a `Prompt` itself and calls the
+   * generator directly.
+   */
+  public async ask<T = unknown>(request: AskRequest, options?: GenerationOptions): Promise<AskResult<T>> {
+    this.assertNotDisposed();
+    if (this.deps.generator === undefined) {
+      throw new KernelError(
+        "invalid_argument",
+        "RetrievalPipeline.ask requires a generator; configure one with withGenerator()",
+      );
+    }
+
+    const pipelineResult = await this.query(request.query, request.k ?? 5);
+
+    let prompt: Prompt;
+    if (request.prompt !== undefined) {
+      prompt = request.prompt;
+    } else {
+      const builder: PromptBuilder = this.deps.promptBuilder ?? new DefaultPromptBuilder();
+      prompt = builder.build({
+        query: request.query,
+        context: pipelineResult.context,
+        ...(request.system !== undefined ? { system: request.system } : {}),
+        ...(request.conversation !== undefined ? { conversation: request.conversation } : {}),
+      });
+    }
+
+    const generation = await this.deps.generator.generate<T>({ prompt }, options);
+    const citations = pipelineResult.context.citations;
+    return {
+      pipeline: pipelineResult,
+      prompt,
+      generation: { ...generation, citations } as typeof generation,
+    };
+  }
+
+  /**
    * Release any resources held by the repositories and the runtime.
    * After `dispose`, all subsequent calls throw.
    */
@@ -149,3 +223,4 @@ export class RetrievalPipeline {
 }
 
 export type { Chunk };
+
