@@ -191,9 +191,9 @@ try {
 | `lyra-sdk/transcript` | Transcript and caption fetching (no API key needed for single videos) |
 | `lyra-sdk/ai-tools` | Pre-built tools for Vercel AI SDK and agent workflows |
 
-### RAG runtime (`@lyra-sdk/*`)
+### Context Layer (`@lyra-sdk/*`)
 
-Composable packages for building retrieval and RAG pipelines on top of YouTube transcripts.
+Composable packages for turning YouTube transcripts into searchable, citeable context for LLM workflows.
 
 | Package | Layer | Description |
 |---------|-------|-------------|
@@ -210,7 +210,7 @@ Composable packages for building retrieval and RAG pipelines on top of YouTube t
 | `@lyra-sdk/pipeline` | Orchestration | `RetrievalPipeline` — ingest, query, and `ask()` end-to-end |
 | `@lyra-sdk/evaluation` | Evaluation | Recall@K, MRR, NDCG, and benchmark runners |
 
-### Context Layer Usage
+### Context Layer usage
 
 **YouTube URL → transcript → `SourceDocument`**
 
@@ -222,7 +222,7 @@ const transcript = await loader.load({ url: 'https://youtu.be/dQw4w9WgXcQ' })
 const document = new TranscriptParser().parse(transcript)
 ```
 
-**Retrieval-only pipeline (`query`)**
+**Semantic search (`query`)**
 
 ```typescript
 import { RetrievalPipeline } from '@lyra-sdk/pipeline'
@@ -256,7 +256,7 @@ console.log(result.retrieval.results.map((r) => r.score))
 pipeline.dispose()
 ```
 
-**Full Context (`ask`)**
+**Grounded answers (`ask`)**
 
 ```typescript
 import { DefaultContextBuilder, TranscriptOrdering, TranscriptExpander } from '@lyra-sdk/context'
