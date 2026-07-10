@@ -13,7 +13,7 @@ import { OpenAIGenerator, type Generator } from "@lyra-sdk/generation";
 import { DefaultContextBuilder, TranscriptOrdering, TranscriptExpander } from "@lyra-sdk/context";
 import { DefaultPromptBuilder } from "@lyra-sdk/prompt";
 import { RetrievalPipeline } from "@lyra-sdk/pipeline";
-import { SpanChunkContentResolver } from "@lyra-sdk/ingestion";
+import { RecursiveChunkStrategy, SpanChunkContentResolver, TranscriptParser } from "@lyra-sdk/ingestion";
 import type { Embedder } from "@lyra-sdk/embedding";
 
 export function buildYoutubeQaPipeline(opts: { embedder: Embedder; generator: Generator }) {
@@ -24,18 +24,8 @@ export function buildYoutubeQaPipeline(opts: { embedder: Embedder; generator: Ge
   const resolver = new SpanChunkContentResolver(documents);
 
   return new RetrievalPipeline({
-    sourceParser: {
-      parse(input: { meta: { videoId: string }; lines: readonly { text: string }[] }) {
-        return {
-          id: input.meta.videoId as never,
-          sourceUri: `youtube:${input.meta.videoId}`,
-          content: input.lines.map((l) => l.text).join(" "),
-          blocks: input.lines.map((l) => ({ text: l.text, metadata: {} })),
-          metadata: { videoId: input.meta.videoId },
-        };
-      },
-    },
-    segmenter: transcriptSegmenter(),
+    sourceParser: new TranscriptParser(),
+    segmenter: new RecursiveChunkStrategy(),
     embedder: opts.embedder,
     chunks,
     documents,
@@ -51,27 +41,6 @@ export function buildYoutubeQaPipeline(opts: { embedder: Embedder; generator: Ge
     promptBuilder: new DefaultPromptBuilder(),
     generator: opts.generator,
   });
-}
-
-function transcriptSegmenter(): import("@lyra-sdk/ingestion").ChunkStrategy {
-  return {
-    async chunk(document) {
-      const out = [];
-      let cursor = 0;
-      for (const block of document.blocks) {
-        const start = cursor;
-        const end = cursor + block.text.length;
-        out.push({
-          id: `${document.id}-${start}` as never,
-          documentId: document.id as never,
-          span: { sourceId: document.id as never, start, end },
-          metadata: {},
-        });
-        cursor = end;
-      }
-      return out;
-    },
-  };
 }
 
 void OpenAIEmbedder;
