@@ -181,12 +181,127 @@ try {
 
 ## Packages
 
+### Core SDK (`lyra-sdk`)
+
 | Package | Description |
 |---------|-------------|
-| `lyra-sdk` | Core SDK — all functions, types, and utilities |
+| `lyra-sdk` | Core SDK — videos, channels, playlists, comments, and utilities |
 | `lyra-sdk/url` | Standalone URL utilities (no API key needed) |
 | `lyra-sdk/fmt` | Standalone formatters (no API key needed) |
 | `lyra-sdk/transcript` | Transcript and caption fetching (no API key needed for single videos) |
+| `lyra-sdk/ai-tools` | Pre-built tools for Vercel AI SDK and agent workflows |
+
+### RAG runtime (`@lyra-sdk/*`)
+
+Composable packages for building retrieval and RAG pipelines on top of YouTube transcripts.
+
+| Package | Layer | Description |
+|---------|-------|-------------|
+| `@lyra-sdk/kernel` | Foundation | Branded ids, `TextSpan`, and the shared error hierarchy |
+| `@lyra-sdk/storage` | Persistence | Document and chunk repositories (in-memory in Phase 1) |
+| `@lyra-sdk/ingestion` | Ingestion | Source parsers, chunk strategies, and YouTube transcript loading |
+| `@lyra-sdk/embedding` | Embedding | Provider-agnostic embedders (OpenAI, Ollama, Jina, Voyage, …) |
+| `@lyra-sdk/index` | Index | Vector index contracts, similarity metrics, and `BruteForceIndex` |
+| `@lyra-sdk/retrieval` | Retrieval | Dense, BM25, hybrid, parent-document, and multi-query retrievers |
+| `@lyra-sdk/reranking` | Reranking | MMR, cross-encoder, and cascade rerankers |
+| `@lyra-sdk/context` | Context | Token budgeting, ordering, expansion, deduplication, and citations |
+| `@lyra-sdk/prompt` | Prompt | Provider-independent prompt construction |
+| `@lyra-sdk/generation` | Generation | LLM providers (OpenAI, Anthropic, Gemini, OpenRouter, Ollama) |
+| `@lyra-sdk/pipeline` | Orchestration | `RetrievalPipeline` — ingest, query, and `ask()` end-to-end |
+| `@lyra-sdk/evaluation` | Evaluation | Recall@K, MRR, NDCG, and benchmark runners |
+
+### Context Layer Usage
+
+**YouTube URL → transcript → `SourceDocument`**
+
+```typescript
+import { CoreYouTubeTranscriptLoader, TranscriptParser } from '@lyra-sdk/ingestion'
+
+const loader = new CoreYouTubeTranscriptLoader()
+const transcript = await loader.load({ url: 'https://youtu.be/dQw4w9WgXcQ' })
+const document = new TranscriptParser().parse(transcript)
+```
+
+**Retrieval-only pipeline (`query`)**
+
+```typescript
+import { RetrievalPipeline } from '@lyra-sdk/pipeline'
+import { TranscriptParser, RecursiveChunkStrategy, SpanChunkContentResolver } from '@lyra-sdk/ingestion'
+import { OpenAIEmbedder } from '@lyra-sdk/embedding'
+import { BruteForceIndex, CosineSimilarity } from '@lyra-sdk/index'
+import { DenseRetriever } from '@lyra-sdk/retrieval'
+import { InMemoryChunkRepository, InMemoryDocumentRepository } from '@lyra-sdk/storage'
+
+const documents = new InMemoryDocumentRepository()
+const chunks = new InMemoryChunkRepository()
+const index = new BruteForceIndex(new CosineSimilarity())
+const embedder = new OpenAIEmbedder({ apiKey: process.env.OPENAI_API_KEY! })
+const retriever = new DenseRetriever({ index, embedder, chunks })
+const resolver = new SpanChunkContentResolver(documents)
+
+const pipeline = new RetrievalPipeline({
+  sourceParser: new TranscriptParser(),
+  segmenter: new RecursiveChunkStrategy(),
+  embedder,
+  chunks,
+  documents,
+  index,
+  contentResolver: resolver,
+  retriever,
+})
+
+await pipeline.ingest(transcript)
+const result = await pipeline.query('What did they say about love?', 5)
+console.log(result.retrieval.results.map((r) => r.score))
+pipeline.dispose()
+```
+
+**Full Context (`ask`)**
+
+```typescript
+import { DefaultContextBuilder, TranscriptOrdering, TranscriptExpander } from '@lyra-sdk/context'
+import { DefaultPromptBuilder } from '@lyra-sdk/prompt'
+import { OpenAIGenerator } from '@lyra-sdk/generation'
+
+const generator = new OpenAIGenerator({ apiKey: process.env.OPENAI_API_KEY! })
+
+const pipeline = new RetrievalPipeline({
+  // ...same wiring as above
+  contextBuilder: new DefaultContextBuilder({
+    tokenBudget: 4000,
+    resolver,
+    ordering: new TranscriptOrdering(),
+    expander: new TranscriptExpander(),
+  }),
+  promptBuilder: new DefaultPromptBuilder(),
+  generator,
+})
+
+const out = await pipeline.ask({ query: 'Summarize the key points.' })
+console.log(out.generation.text)
+console.log(out.generation.citations)
+```
+
+**Vercel AI SDK tools**
+
+```typescript
+import { createAITools } from 'lyra-sdk/ai-tools'
+import { generateText, tool } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+const ai = createAITools({ apiKey: process.env.YOUTUBE_API_KEY! })
+
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  tools: {
+    getVideo: tool(ai.getVideo),
+    transcribeVideo: tool(ai.transcribeVideo),
+  },
+  prompt: 'What is the title of dQw4w9WgXcQ?',
+})
+
+console.log(result.text)
+```
 
 ---
 
@@ -214,7 +329,15 @@ npm run test:e2e
 - **OpenClaw integration** — Structured data extraction powered by LLMs
 - **Ollama support** — Local LLM inference for content analysis
 - **Hermes Agent** — Autonomous agent for YouTube research and monitoring
-- **Built-in tool support** — Native integrations with Vercel AI SDK, Mastra, and LangChain
+
+**Agent framework integrations**
+
+| Integration | Status |
+|-------------|--------|
+| Vercel AI SDK | Done |
+| Mastra | In Progress |
+| CrewAI | In Pipeline |
+| LangChain | In Pipeline |
 
 ---
 
