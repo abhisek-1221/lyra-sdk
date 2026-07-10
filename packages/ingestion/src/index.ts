@@ -27,6 +27,13 @@ export type {
   TranscriptWithMetaMirror,
 } from "./parser/transcript-mirror.js";
 export { TranscriptParser } from "./parser/transcript-parser.js";
+export type { YouTubeInput } from "./parser/youtube/youtube-input.js";
+export { YouTubeTranscriptSourceParser } from "./parser/youtube/youtube-transcript-source-parser.js";
+export type {
+  YouTubeTranscriptLoader,
+  YouTubeTranscriptLoadOptions,
+} from "./parser/youtube/youtube-transcript-loader.js";
+export { CoreYouTubeTranscriptLoader } from "./parser/youtube/core-youtube-transcript-loader.js";
 
 export type { ChunkStrategy } from "./chunk-strategy.js";
 export type { ChunkContentResolver } from "./chunk-content-resolver.js";
