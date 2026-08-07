@@ -1,0 +1,45 @@
+{
+  "name": "@lyra-sdk/retrieval",
+  "version": "0.1.0",
+  "description": "Retriever contract and the Phase 1 DenseRetriever. BM25, hybrid, parent, recursive, and multi-query retrievers land in Phase 2.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lyra-sdk/kernel": "0.1.0",
+    "@lyra-sdk/embedding": "0.1.0",
+    "@lyra-sdk/index": "0.1.0",
+    "@lyra-sdk/storage": "0.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
