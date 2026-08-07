@@ -92,6 +92,25 @@ describe("TranscriptExpander", () => {
     expect(ids).not.toContain(createChunkId("c"));
   });
 
+  it("skips an oversized candidate but keeps scanning for smaller ones", () => {
+    const big: ContextChunk = { ...chunk("big", 1000), text: "x".repeat(50) };
+    const corpus = [chunk("a", 0), big, chunk("c", 2000)];
+    const r = new TranscriptExpander({ windowMs: 30_000, maxAddedChars: 10, corpus });
+    const out = r.expand([chunk("a", 0)]);
+    const ids = out.map((c) => c.chunkId);
+    // `big` (50 chars) does not fit, but `text-c` (6 chars) still does.
+    expect(ids).not.toContain(createChunkId("big"));
+    expect(ids).toContain(createChunkId("c"));
+  });
+
+  it("does not abandon later seeds when an earlier one has an oversized neighbor", () => {
+    const big: ContextChunk = { ...chunk("big", 1000, "doc-1"), text: "x".repeat(50) };
+    const corpus = [chunk("a", 0, "doc-1"), big, chunk("d", 0, "doc-2"), chunk("e", 1000, "doc-2")];
+    const r = new TranscriptExpander({ windowMs: 30_000, maxAddedChars: 10, corpus });
+    const out = r.expand([chunk("a", 0, "doc-1"), chunk("d", 0, "doc-2")]);
+    expect(out.map((c) => c.chunkId)).toContain(createChunkId("e"));
+  });
+
   it("does not pull in chunks from other documents", () => {
     const corpus = [
       chunk("a", 0, "doc-1"),

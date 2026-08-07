@@ -21,7 +21,7 @@ function scored(
   score: number,
   start: number,
   end: number,
-  extra: { timestamp?: number; title?: string } = {},
+  extra: { timestamp?: number; title?: string; speaker?: string } = {},
 ): ScoredChunk {
   return {
     chunk: {
@@ -31,6 +31,7 @@ function scored(
       metadata: {
         ...(extra.timestamp !== undefined ? { timestamp: extra.timestamp } : {}),
         ...(extra.title !== undefined ? { title: extra.title } : {}),
+        ...(extra.speaker !== undefined ? { speaker: extra.speaker } : {}),
       },
     },
     score,
@@ -136,6 +137,17 @@ describe("DefaultContextBuilder", () => {
     expect(out.chunks[0]?.text).toBe("hello  world");
   });
 
+  it("cites both sources of a merged chunk", async () => {
+    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "hello world")]]);
+    const b = new DefaultContextBuilder({ tokenBudget: 1000, documents });
+    const out = await b.build([
+      scored("c-1", "doc-1", "hello", 0.9, 0, 5),
+      scored("c-2", "doc-1", " world", 0.8, 5, 11),
+    ]);
+    expect(out.chunks).toHaveLength(1);
+    expect(out.citations.map((c) => c.key)).toEqual(["doc-1:c-1", "doc-1:c-2"]);
+  });
+
   it("strips metadata by default (MetadataStrippingCompressor is the default)", async () => {
     const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abc")]]);
     const b = new DefaultContextBuilder({ tokenBudget: 1000, documents });
@@ -168,6 +180,21 @@ describe("DefaultContextBuilder", () => {
     });
     const out = await b.build([scored("c-1", "doc-1", "x", 0.9, 0, 1, { timestamp: 1234 })]);
     expect(out.chunks[0]?.timestamp).toBe(1234);
+  });
+
+  it("carries timestamp, speaker and embedding together (no field is dropped)", async () => {
+    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abc")]]);
+    const b = new DefaultContextBuilder({
+      tokenBudget: 1000,
+      documents,
+      compression: { name: "noop", compress: (xs) => xs },
+    });
+    const embedding = new Float32Array([1, 0, 0]);
+    const sc = scored("c-1", "doc-1", "x", 0.9, 0, 1, { timestamp: 1234, speaker: "Ada" });
+    const out = await b.build([{ ...sc, embedding }]);
+    expect(out.chunks[0]?.timestamp).toBe(1234);
+    expect(out.chunks[0]?.speaker).toBe("Ada");
+    expect(out.chunks[0]?.embedding).toBe(embedding);
   });
 
   it("propagates ScoredChunk.embedding into ContextChunk.embedding", async () => {

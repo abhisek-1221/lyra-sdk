@@ -4,7 +4,9 @@ import type { Deduplicator } from "../strategies.js";
 /**
  * Drops near-duplicate chunks. Cosine similarity above the
  * configured threshold (default 0.95) means the two chunks are
- * effectively the same; the lower-scored one is dropped.
+ * effectively the same; the first-encountered one is kept and
+ * the later one is dropped. Callers that need score-based
+ * selection should sort by score descending before calling.
  *
  * The contract is text-based: this deduplicator requires the
  * caller to have supplied `embedding` on each chunk (e.g. via a
@@ -53,11 +55,23 @@ export class NearDeduplicator implements Deduplicator {
   }
 }
 
+/**
+ * Cosine similarity: `(a · b) / (||a|| · ||b||)`. Returns 0 for a
+ * length mismatch or a zero-magnitude vector, so a pathological
+ * embedding never yields `NaN` and never trips the threshold.
+ */
 function cosineSim(a: Float32Array, b: Float32Array): number {
   if (a.length !== b.length) return 0;
-  let s = 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
   for (let i = 0; i < a.length; i++) {
-    s += (a[i] ?? 0) * (b[i] ?? 0);
+    const ai = a[i] ?? 0;
+    const bi = b[i] ?? 0;
+    dot += ai * bi;
+    normA += ai * ai;
+    normB += bi * bi;
   }
-  return s;
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }

@@ -142,7 +142,7 @@ export class DefaultContextBuilder implements ContextBuilder {
         ...(typeof labelRaw === "string" ? { label: labelRaw } : {}),
         ...(typeof urlRaw === "string" ? { url: urlRaw } : {}),
       });
-      const out: ContextChunk = {
+      let out: ContextChunk = {
         chunkId: c.chunk.id,
         documentId: c.chunk.documentId,
         text,
@@ -152,14 +152,14 @@ export class DefaultContextBuilder implements ContextBuilder {
       };
       const ts = c.chunk.metadata["timestamp"];
       if (typeof ts === "number") {
-        return { ...out, timestamp: ts };
+        out = { ...out, timestamp: ts };
       }
       const speaker = c.chunk.metadata["speaker"];
       if (typeof speaker === "string") {
-        return { ...out, speaker };
+        out = { ...out, speaker };
       }
       if (c.embedding !== undefined) {
-        return { ...out, embedding: c.embedding };
+        out = { ...out, embedding: c.embedding };
       }
       return out;
     });
@@ -175,7 +175,9 @@ export class DefaultContextBuilder implements ContextBuilder {
     const chainMs = Date.now() - tChain;
 
     // 4. Assemble Context.
-    const citations: readonly ContextCitation[] = dedupeCitations(xs.map((c) => c.citation));
+    const citations: readonly ContextCitation[] = dedupeCitations(
+      xs.flatMap((c) => [c.citation, ...(c.mergedCitations ?? [])]),
+    );
     return {
       chunks: xs,
       citations,

@@ -13,7 +13,9 @@ export interface TranscriptExpanderOptions {
   readonly windowMs?: number;
   /**
    * Optional cap on total text length (chars) added by expansion.
-   * When the cap is reached, expansion stops. Default: no cap.
+   * A candidate that would push the total past the cap is skipped;
+   * scanning continues, so smaller candidates can still fit.
+   * Default: no cap.
    */
   readonly maxAddedChars?: number;
   /**
@@ -106,7 +108,7 @@ export class TranscriptExpander implements Expander {
         if (Math.abs(cand.timestamp - t) > this.windowMs) continue;
         if (seen.has(String(cand.chunkId))) continue;
         if (this.maxAddedChars !== undefined && addedChars + cand.text.length > this.maxAddedChars) {
-          return out;
+          continue;
         }
         seen.add(String(cand.chunkId));
         out.push(cand);

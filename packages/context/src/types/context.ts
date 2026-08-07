@@ -8,9 +8,10 @@ export interface Context {
   /** Resolved, ordered, deduplicated, budget-respecting chunks. */
   readonly chunks: readonly ContextChunk[];
   /**
-   * Citations keyed by `ContextCitation.key`, in citation order.
-   * The order matches the chunk order: chunk `i` cites
-   * `citations[i]` after dedup.
+   * Citations keyed by `ContextCitation.key`, deduped and in
+   * first-seen chunk order. This is not a one-to-one mapping onto
+   * `chunks`: a chunk produced by a merging transform contributes
+   * its own citation plus every citation in `mergedCitations`.
    */
   readonly citations: readonly ContextCitation[];
   /** Tokens consumed by `chunks` (per the supplied `TokenCounter`). */

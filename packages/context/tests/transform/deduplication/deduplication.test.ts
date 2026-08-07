@@ -95,6 +95,31 @@ describe("AdjacentMerger", () => {
     ]);
     expect(out).toHaveLength(2);
   });
+
+  it("keeps the absorbed chunk's citation in mergedCitations", () => {
+    const r = new AdjacentMerger();
+    const out = r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 10, 20)]);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.citation.key).toBe("doc-1:a");
+    expect(out[0]?.mergedCitations?.map((c) => c.key)).toEqual(["doc-1:b"]);
+  });
+
+  it("accumulates citations across a three-way merge", () => {
+    const r = new AdjacentMerger();
+    const out = r.deduplicate([
+      sameDocChunk("a", 0, 10),
+      sameDocChunk("b", 10, 20),
+      sameDocChunk("c", 20, 30),
+    ]);
+    expect(out[0]?.mergedCitations?.map((x) => x.key)).toEqual(["doc-1:b", "doc-1:c"]);
+  });
+
+  it("leaves mergedCitations unset when nothing is merged", () => {
+    const r = new AdjacentMerger();
+    const out = r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 15, 25)]);
+    expect(out[0]?.mergedCitations).toBeUndefined();
+    expect(out[1]?.mergedCitations).toBeUndefined();
+  });
 });
 
 describe("NearDeduplicator", () => {
@@ -103,7 +128,7 @@ describe("NearDeduplicator", () => {
     expect(() => new NearDeduplicator({ threshold: 1.5 })).toThrow();
   });
 
-  it("drops the lower-scored near-duplicate (cosine above threshold)", () => {
+  it("drops the later near-duplicate (cosine above threshold)", () => {
     // Two vectors with cosine 1.0 (identical). The second will be dropped.
     const r = new NearDeduplicator({ threshold: 0.95 });
     const a = chunk("a", 0, 10, [1, 0]);
@@ -112,16 +137,34 @@ describe("NearDeduplicator", () => {
     expect(out).toHaveLength(1);
   });
 
-  it("keeps the higher-scored one (chunkId tie break)", () => {
+  it("keeps the first-encountered chunk regardless of score", () => {
     const r = new NearDeduplicator({ threshold: 0.95 });
-    const a = chunk("a", 0, 10, [1, 0]);
-    a.score = 0.5;
-    const b = chunk("b", 0, 10, [0.99, 0.01]); // near 1.0
-    b.score = 0.9;
+    const a: ContextChunk = { ...chunk("a", 0, 10, [1, 0]), score: 0.5 };
+    const b: ContextChunk = { ...chunk("b", 0, 10, [0.99, 0.01]), score: 0.9 }; // near 1.0
     const out = r.deduplicate([a, b]);
-    // a is processed first; b is dropped because it's similar to a.
+    // a is processed first; b is dropped even though it scores higher.
     expect(out).toHaveLength(1);
     expect(out[0]?.chunkId).toBe(createChunkId("a"));
+  });
+
+  it("compares direction, not magnitude (large vectors are not near-duplicates)", () => {
+    // Dot product is 20 -- far above any threshold -- but the cosine
+    // is 20 / 101 = 0.198, so neither chunk dominates the other.
+    const r = new NearDeduplicator({ threshold: 0.95 });
+    const out = r.deduplicate([chunk("a", 0, 10, [10, 1]), chunk("b", 0, 10, [1, 10])]);
+    expect(out).toHaveLength(2);
+  });
+
+  it("treats parallel vectors of different magnitude as duplicates", () => {
+    const r = new NearDeduplicator({ threshold: 0.95 });
+    const out = r.deduplicate([chunk("a", 0, 10, [10, 0]), chunk("b", 0, 10, [3, 0])]);
+    expect(out).toHaveLength(1);
+  });
+
+  it("keeps chunks with a zero-magnitude embedding (similarity is 0, not NaN)", () => {
+    const r = new NearDeduplicator({ threshold: 0.95 });
+    const out = r.deduplicate([chunk("a", 0, 10, [0, 0]), chunk("b", 0, 10, [0, 0])]);
+    expect(out).toHaveLength(2);
   });
 
   it("keeps chunks without embeddings (cannot judge similarity)", () => {

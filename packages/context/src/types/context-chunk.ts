@@ -57,5 +57,12 @@ export interface ContextChunk {
    */
   readonly embedding?: Float32Array;
   readonly citation: ContextCitation;
+  /**
+   * Citations of chunks absorbed into this one by a merging
+   * transform (e.g. `AdjacentMerger`). A merged chunk's text
+   * spans several sources, so `citation` alone under-attributes
+   * it; `ContextBuilder` folds these into `Context.citations`.
+   */
+  readonly mergedCitations?: readonly ContextCitation[];
   readonly metadata?: Readonly<Record<string, string | number | boolean>>;
 }

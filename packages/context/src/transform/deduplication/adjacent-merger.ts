@@ -6,7 +6,8 @@ import type { Deduplicator } from "../strategies.js";
  * are consecutive (the start of the next chunk equals the end of
  * the previous). The merged chunk keeps the first chunk's score
  * and the union of spans, with text concatenated by a single
- * space.
+ * space. The absorbed chunks' citations are collected into
+ * `mergedCitations` so attribution survives the merge.
  *
  * Note: this is a *span* adjacency merge, not a transcript
  * utterance merge. Transcript-specific merging is in the
@@ -34,6 +35,11 @@ export class AdjacentMerger implements Deduplicator {
           ...current,
           span: { start: current.span.start, end: next.span.end, sourceId: current.span.sourceId },
           text: `${current.text} ${next.text}`,
+          mergedCitations: [
+            ...(current.mergedCitations ?? []),
+            next.citation,
+            ...(next.mergedCitations ?? []),
+          ],
         };
         if (next.timestamp !== undefined) {
           current = { ...current, timestamp: next.timestamp };
