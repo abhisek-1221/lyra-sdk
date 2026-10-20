@@ -139,6 +139,93 @@ func TestPlaylistQueryFilterSortAndSlice(t *testing.T) {
 	}
 }
 
+func TestPlaylistKeepsRepeatedVideos(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/playlists":
+			writeJSON(t, w, map[string]any{
+				"items": []any{
+					map[string]any{
+						"id":      "PLdup",
+						"snippet": map[string]any{"title": "Dup", "description": ""},
+					},
+				},
+			})
+		case "/playlistItems":
+			writeJSON(t, w, map[string]any{
+				"items": []any{
+					map[string]any{"contentDetails": map[string]string{"videoId": "a"}},
+					map[string]any{"contentDetails": map[string]string{"videoId": "a"}},
+				},
+			})
+		case "/videos":
+			writeJSON(t, w, map[string]any{
+				"items": []any{playlistVideo("a", "10", "PT1M")},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := testClient(t, server.URL)
+	playlist, err := client.Playlist(context.Background(), "PLdup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if playlist.VideoCount != 2 || playlist.TotalDuration != 120 {
+		t.Fatalf("count=%d duration=%d", playlist.VideoCount, playlist.TotalDuration)
+	}
+	if playlist.Videos[0].ID != "a" || playlist.Videos[1].ID != "a" {
+		t.Fatalf("videos = %+v", playlist.Videos)
+	}
+}
+
+func TestPlaylistQueryReplacesDurationBounds(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/playlists":
+			writeJSON(t, w, map[string]any{
+				"items": []any{
+					map[string]any{
+						"id":      "PLbounds",
+						"snippet": map[string]any{"title": "Bounds", "description": ""},
+					},
+				},
+			})
+		case "/playlistItems":
+			writeJSON(t, w, map[string]any{
+				"items": []any{
+					map[string]any{"contentDetails": map[string]string{"videoId": "short"}},
+					map[string]any{"contentDetails": map[string]string{"videoId": "long"}},
+				},
+			})
+		case "/videos":
+			writeJSON(t, w, map[string]any{
+				"items": []any{
+					playlistVideo("short", "1", "PT1M30S"),
+					playlistVideo("long", "1", "PT6M40S"),
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := testClient(t, server.URL)
+	result, err := client.PlaylistQuery("PLbounds").
+		FilterByDuration(60, 120).
+		FilterByDuration(300, 0).
+		Execute(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.VideoCount != 1 || result.Videos[0].ID != "long" {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 func playlistVideo(id, views, duration string) map[string]any {
 	return map[string]any{
 		"id": id,

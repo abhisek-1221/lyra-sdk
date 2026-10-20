@@ -136,10 +136,16 @@ func (c *Client) playlistVideos(ctx context.Context, ids []string) ([]PlaylistVi
 		return nil, err
 	}
 
-	videos := make([]PlaylistVideo, 0)
+	byID := make(map[string]PlaylistVideo)
 	for _, list := range lists {
 		for _, item := range list.Items {
-			videos = append(videos, mapPlaylistVideo(item))
+			byID[item.ID] = mapPlaylistVideo(item)
+		}
+	}
+	videos := make([]PlaylistVideo, 0, len(ids))
+	for _, id := range ids {
+		if video, ok := byID[id]; ok {
+			videos = append(videos, video)
 		}
 	}
 	return videos, nil

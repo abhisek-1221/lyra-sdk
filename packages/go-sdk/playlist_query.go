@@ -33,6 +33,8 @@ type PlaylistQuery struct {
 // FilterByDuration keeps videos whose length in seconds falls in [min, max].
 // A zero bound is unset.
 func (q *PlaylistQuery) FilterByDuration(min, max int) *PlaylistQuery {
+	q.durationMin = nil
+	q.durationMax = nil
 	if min != 0 {
 		q.durationMin = &min
 	}
@@ -45,6 +47,8 @@ func (q *PlaylistQuery) FilterByDuration(min, max int) *PlaylistQuery {
 // FilterByViews keeps videos whose view count falls in [min, max].
 // A zero bound is unset.
 func (q *PlaylistQuery) FilterByViews(min, max int64) *PlaylistQuery {
+	q.viewsMin = nil
+	q.viewsMax = nil
 	if min != 0 {
 		q.viewsMin = &min
 	}
@@ -57,6 +61,8 @@ func (q *PlaylistQuery) FilterByViews(min, max int64) *PlaylistQuery {
 // FilterByLikes keeps videos whose like count falls in [min, max].
 // A zero bound is unset.
 func (q *PlaylistQuery) FilterByLikes(min, max int64) *PlaylistQuery {
+	q.likesMin = nil
+	q.likesMax = nil
 	if min != 0 {
 		q.likesMin = &min
 	}
