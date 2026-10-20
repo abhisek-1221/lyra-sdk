@@ -147,6 +147,8 @@ func resourceForPath(path string) string {
 		return "SearchResult"
 	case "playlistItems":
 		return "PlaylistItem"
+	case "playlists":
+		return "Playlist"
 	default:
 		return path
 	}

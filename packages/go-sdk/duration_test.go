@@ -22,6 +22,23 @@ func TestParseDuration(t *testing.T) {
 	}
 }
 
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		in   int
+		want string
+	}{
+		{in: 0, want: "0s"},
+		{in: 90, want: "1m 30s"},
+		{in: 3600, want: "1h"},
+		{in: 90061, want: "1d 1h 1m 1s"},
+	}
+	for _, tt := range tests {
+		if got := FormatDuration(tt.in); got != tt.want {
+			t.Errorf("FormatDuration(%d) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestFormatDurationClock(t *testing.T) {
 	tests := []struct {
 		in   int
