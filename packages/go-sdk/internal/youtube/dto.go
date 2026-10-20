@@ -75,6 +75,31 @@ type ChannelIDList struct {
 	} `json:"items"`
 }
 
+// Playlist is a playlists.list item.
+type Playlist struct {
+	ID      string `json:"id"`
+	Snippet struct {
+		Title       string     `json:"title"`
+		Description string     `json:"description"`
+		Thumbnails  Thumbnails `json:"thumbnails"`
+	} `json:"snippet"`
+}
+
+// PlaylistList is a playlists.list response.
+type PlaylistList struct {
+	Items []Playlist `json:"items"`
+}
+
+// PlaylistItemPage is one page of playlistItems.list contentDetails.
+type PlaylistItemPage struct {
+	Items []struct {
+		ContentDetails struct {
+			VideoID string `json:"videoId"`
+		} `json:"contentDetails"`
+	} `json:"items"`
+	NextPageToken string `json:"nextPageToken"`
+}
+
 // PlaylistItem is a playlistItems.list snippet.
 type PlaylistItem struct {
 	Snippet struct {
