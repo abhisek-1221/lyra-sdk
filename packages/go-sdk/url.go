@@ -8,6 +8,7 @@ var (
 	usernamePattern   = regexp.MustCompile(`(?:https?://)?(?:www\.)?youtube\.com/@([^/?#\s]+)`)
 	customNamePattern = regexp.MustCompile(`(?:youtube\.com/)?(?:c|user)/([^/?#\s]+)`)
 	bareChannelID     = regexp.MustCompile(`^UC[\w-]{22}$`)
+	playlistIDPattern = regexp.MustCompile(`[?&]list=([a-zA-Z0-9_-]+)`)
 )
 
 // ExtractVideoID returns a video id from a YouTube URL, or "" when none is present.
@@ -35,6 +36,22 @@ func ExtractUsername(raw string) string {
 		return ""
 	}
 	return match[1]
+}
+
+// ExtractPlaylistID returns the list id from a playlist URL, or "".
+func ExtractPlaylistID(raw string) string {
+	match := playlistIDPattern.FindStringSubmatch(raw)
+	if match == nil {
+		return ""
+	}
+	return match[1]
+}
+
+func resolvePlaylistID(urlOrID string) string {
+	if id := ExtractPlaylistID(urlOrID); id != "" {
+		return id
+	}
+	return urlOrID
 }
 
 func resolveVideoID(urlOrID string) string {

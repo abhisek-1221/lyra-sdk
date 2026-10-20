@@ -21,6 +21,8 @@ func TestExtractIDs(t *testing.T) {
 		{name: "handle query", fn: ExtractUsername, in: "https://www.youtube.com/@MrBeast?si=abc", want: "MrBeast"},
 		{name: "handle fragment", fn: ExtractUsername, in: "https://www.youtube.com/@MrBeast#videos", want: "MrBeast"},
 		{name: "no handle", fn: ExtractUsername, in: "https://www.youtube.com/watch?v=abc", want: ""},
+		{name: "playlist", fn: ExtractPlaylistID, in: "https://www.youtube.com/playlist?list=PLxxx", want: "PLxxx"},
+		{name: "playlist query", fn: ExtractPlaylistID, in: "https://www.youtube.com/watch?v=abc&list=PLyyy", want: "PLyyy"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
