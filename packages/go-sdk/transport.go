@@ -149,13 +149,17 @@ func resourceForPath(path string) string {
 		return "PlaylistItem"
 	case "playlists":
 		return "Playlist"
+	case "commentThreads":
+		return "CommentThread"
+	case "comments":
+		return "Comment"
 	default:
 		return path
 	}
 }
 
 func resourceID(params map[string]string, path string) string {
-	for _, key := range []string{"id", "videoId", "playlistId", "channelId"} {
+	for _, key := range []string{"id", "videoId", "playlistId", "channelId", "parentId", "allThreadsRelatedToChannelId"} {
 		if params[key] != "" {
 			return params[key]
 		}
