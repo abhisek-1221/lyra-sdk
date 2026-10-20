@@ -25,7 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	if err := run(ctx, client); err != nil {
@@ -82,6 +82,52 @@ func run(ctx context.Context, client *lyra.Client) error {
 	}
 	for _, item := range recent {
 		fmt.Printf("- %s (%s) %s\n", item.Title, item.DurationFmt, item.UploadAge)
+	}
+
+	const playlistID = "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"
+
+	fmt.Println("\n=== Playlist info ===")
+	info, err := client.PlaylistInfo(ctx, playlistID)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Title: %s\n", info.Title)
+	fmt.Printf("Description: %s\n", info.Description)
+
+	fmt.Println("\n=== Playlist video ids ===")
+	ids, err := client.PlaylistVideoIDs(ctx, playlistID)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Count: %d\n", len(ids))
+	limit := 3
+	if len(ids) < limit {
+		limit = len(ids)
+	}
+	fmt.Printf("First ids: %s\n", strings.Join(ids[:limit], ", "))
+
+	fmt.Println("\n=== Playlist ===")
+	playlist, err := client.Playlist(ctx, playlistID)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Video count: %d\n", playlist.VideoCount)
+	fmt.Printf("Total duration: %s\n", playlist.TotalDurationFmt)
+	for _, item := range playlist.Videos {
+		fmt.Printf("- %s (%s)\n", item.Title, item.DurationFmt)
+	}
+
+	fmt.Println("\n=== Playlist query ===")
+	query, err := client.PlaylistQuery(playlistID).
+		FilterByViews(1000, 0).
+		SortBy("views", "desc").
+		Between(1, 3).
+		Execute(ctx)
+	if err != nil {
+		return err
+	}
+	for _, item := range query.Videos {
+		fmt.Printf("- %s (%s views)\n", item.Title, item.ViewsFmt)
 	}
 	return nil
 }
