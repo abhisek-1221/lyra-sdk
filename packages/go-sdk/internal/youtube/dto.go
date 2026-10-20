@@ -125,3 +125,53 @@ type SearchList struct {
 		} `json:"snippet"`
 	} `json:"items"`
 }
+
+// CommentSnippet is the author and text of one comment.
+type CommentSnippet struct {
+	AuthorDisplayName     string `json:"authorDisplayName"`
+	AuthorProfileImageURL string `json:"authorProfileImageUrl"`
+	AuthorChannelURL      string `json:"authorChannelUrl"`
+	AuthorChannelID       struct {
+		Value string `json:"value"`
+	} `json:"authorChannelId"`
+	TextDisplay  string `json:"textDisplay"`
+	TextOriginal string `json:"textOriginal"`
+	LikeCount    int64  `json:"likeCount"`
+	PublishedAt  string `json:"publishedAt"`
+	UpdatedAt    string `json:"updatedAt"`
+	ParentID     string `json:"parentId"`
+}
+
+// Comment is a comments.list or thread reply item.
+type Comment struct {
+	ID      string         `json:"id"`
+	Snippet CommentSnippet `json:"snippet"`
+}
+
+// CommentThread is a commentThreads.list item.
+type CommentThread struct {
+	ID      string `json:"id"`
+	Snippet struct {
+		ChannelID       string  `json:"channelId"`
+		VideoID         string  `json:"videoId"`
+		TopLevelComment Comment `json:"topLevelComment"`
+		CanReply        bool    `json:"canReply"`
+		TotalReplyCount int     `json:"totalReplyCount"`
+		IsPublic        bool    `json:"isPublic"`
+	} `json:"snippet"`
+	Replies struct {
+		Comments []Comment `json:"comments"`
+	} `json:"replies"`
+}
+
+// CommentThreadList is a commentThreads.list response.
+type CommentThreadList struct {
+	Items         []CommentThread `json:"items"`
+	NextPageToken string          `json:"nextPageToken"`
+}
+
+// CommentList is a comments.list response.
+type CommentList struct {
+	Items         []Comment `json:"items"`
+	NextPageToken string    `json:"nextPageToken"`
+}

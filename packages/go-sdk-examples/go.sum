@@ -1,5 +1,5 @@
-github.com/abhisek-1221/lyra-sdk/packages/go-sdk v0.0.0-20261020094830-e6a6eb14177b h1:SjR2o8XlgiEkH97AyeeTqKy2oaffYxSmFkjsNQjPSk8=
-github.com/abhisek-1221/lyra-sdk/packages/go-sdk v0.0.0-20261020094830-e6a6eb14177b/go.mod h1:8462Wst5GdIFbkPDDTmSoHFhlvvJ2zdyraSlj5ciiSc=
+github.com/abhisek-1221/lyra-sdk/packages/go-sdk v0.2.0 h1:yAPLWyPYMEQc59lzDLg0TMhe8x6vsfQhVN/lhX+4YU0=
+github.com/abhisek-1221/lyra-sdk/packages/go-sdk v0.2.0/go.mod h1:8462Wst5GdIFbkPDDTmSoHFhlvvJ2zdyraSlj5ciiSc=
 golang.org/x/sync v0.24.0 h1:iqiDrGoDgyuvAKrhLQthUEzU/R378N78gXbBjxed7oA=
 golang.org/x/sync v0.24.0/go.mod h1:sUUOizhqBxiL6pEWpqNLUiaJn1ShEbZ6BBqskPbjZm0=
 golang.org/x/text v0.43.0 h1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc=

@@ -102,6 +102,60 @@ type PlaylistQueryResult struct {
 	TotalDurationFmt string
 }
 
+// Comment is one YouTube comment, either top-level or a reply.
+type Comment struct {
+	ID                 string
+	AuthorName         string
+	AuthorProfileImage string
+	AuthorChannelURL   string
+	AuthorChannelID    string
+	Text               string
+	LikeCount          int64
+	PublishedAt        time.Time
+	UpdatedAt          time.Time
+	ParentID           string
+}
+
+// CommentThread is a top-level comment and the replies included with it.
+type CommentThread struct {
+	ID              string
+	VideoID         string
+	ChannelID       string
+	TopLevelComment Comment
+	TotalReplyCount int
+	CanReply        bool
+	IsPublic        bool
+	Replies         []Comment
+}
+
+// CommentStats summarizes a set of comment threads.
+type CommentStats struct {
+	VideoID          string
+	TotalComments    int
+	TotalReplies     int
+	UniqueAuthors    int
+	MostLikedComment *Comment
+	AvgLikes         float64
+	ReplyRatio       float64
+}
+
+// CommentQueryResult is the threads, count, and stats from a comment query.
+type CommentQueryResult struct {
+	VideoID      string
+	Threads      []CommentThread
+	TotalResults int
+	Stats        CommentStats
+}
+
+// CommentOptions controls comment thread listing.
+// MaxResults of 0 means no cap. TextFormat defaults to plainText.
+type CommentOptions struct {
+	Order       string
+	MaxResults  int
+	SearchTerms string
+	TextFormat  string
+}
+
 // RecentVideo is one upload returned by Client.ChannelVideos.
 type RecentVideo struct {
 	ID          string
