@@ -1,0 +1,9 @@
+{
+  "name": "@lyra/go-sdk",
+  "private": true,
+  "scripts": {
+    "build": "go build ./...",
+    "test": "go test ./...",
+    "lint": "go vet ./..."
+  }
+}
