@@ -1,0 +1,7 @@
+{
+  "name": "@lyra/go-sdk-examples",
+  "private": true,
+  "scripts": {
+    "demo": "go run ."
+  }
+}
