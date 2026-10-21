@@ -10,7 +10,7 @@
 [![npm downloads](https://img.shields.io/npm/dt/lyra-sdk)](https://www.npmjs.com/package/lyra-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-A powerful TypeScript SDK for working with YouTube data. Fetch videos, channels, playlists, comments, and transcripts — all with full type safety and zero dependencies.
+TypeScript and Go SDKs for YouTube data. Fetch videos, channels, playlists, comments, and transcripts.
 
 **🌐 [Website](https://uselyra.xyz)** · **📚 [Docs](https://docs.uselyra.xyz)**
 <img width="1302" height="850" alt="LYRA-HEADER" src="https://github.com/user-attachments/assets/84be664e-2fec-424b-ac95-9175671d64b5" />
@@ -49,6 +49,87 @@ console.log(channel.name, channel.subscribersFmt) // "MrBeast", "478M"
 const playlistUrl = 'https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf'
 const playlist = await client.playlist(playlistUrl)
 console.log(playlist.title, playlist.videoCount)
+```
+
+---
+
+## Language support
+
+| Feature | TypeScript SDK | Go SDK |
+|---|---|---|
+| Videos and titles | Done | Done (`v0.3.0`) |
+| Channels and recent uploads | Done | Done |
+| Playlists, ids, and playlist query | Done | Done |
+| Comments, replies, stats, and comment query | Done | Done |
+| Duration, number, and date formatting | Done | Done |
+| URL id extractors | Done | Done for video, channel, and playlist |
+| Transcripts and playlist batch | Done | Planned |
+| Video categories | Done | Planned |
+| Regions and languages | Done | Planned |
+| Context layer (`ingest`, `query`, `ask`) | Beta, in `@lyra-sdk/pipeline` | Planned |
+
+## Go
+
+```bash
+go get github.com/abhisek-1221/lyra-sdk/packages/go-sdk@v0.3.0
+```
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/abhisek-1221/lyra-sdk/packages/go-sdk"
+)
+
+func main() {
+	client, err := lyra.New(os.Getenv("YOUTUBE_API_KEY"))
+	if err != nil {
+		panic(err)
+	}
+	ctx := context.Background()
+
+	video, err := client.Video(ctx, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(video.Title, video.ViewsFmt)
+
+	channel, err := client.Channel(ctx, "@MrBeast")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(channel.Name, channel.SubscribersFmt)
+
+	playlist, err := client.Playlist(ctx, "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(playlist.Title, playlist.VideoCount, playlist.TotalDurationFmt)
+
+	top, err := client.PlaylistQuery(playlist.ID).
+		FilterByViews(1000, 0).
+		SortBy("views", "desc").
+		Between(1, 3).
+		Execute(ctx)
+	if err != nil {
+		panic(err)
+	}
+	for _, item := range top.Videos {
+		fmt.Println(item.Title, item.ViewsFmt)
+	}
+
+	comments, err := client.TopComments(ctx, video.ID, 3)
+	if err != nil {
+		panic(err)
+	}
+	for _, thread := range comments {
+		fmt.Println(thread.TopLevelComment.AuthorName, thread.TopLevelComment.Text)
+	}
+}
 ```
 
 ---
@@ -193,6 +274,8 @@ try {
 
 ### Context Layer (`@lyra-sdk/*`)
 
+Beta in the TypeScript pipeline. Planned for the Go SDK.
+
 Composable packages for turning YouTube transcripts into searchable, citeable context for LLM workflows.
 
 | Package | Layer | Description |
@@ -212,17 +295,11 @@ Composable packages for turning YouTube transcripts into searchable, citeable co
 
 ### Context Layer usage
 
-**YouTube URL → transcript → `SourceDocument`**
+**YouTube URL → ingest → semantic search (`query`)**
 
-```typescript
-import { CoreYouTubeTranscriptLoader, TranscriptParser } from '@lyra-sdk/ingestion'
-
-const loader = new CoreYouTubeTranscriptLoader()
-const transcript = await loader.load({ url: 'https://youtu.be/dQw4w9WgXcQ' })
-const document = new TranscriptParser().parse(transcript)
-```
-
-**Semantic search (`query`)**
+Pass a YouTube URL (or `{ videoId }`) to `pipeline.ingest`. The pipeline
+loads the transcript via `lyra-sdk` / `CoreYouTubeTranscriptLoader`, then
+parses, chunks, embeds, and indexes it.
 
 ```typescript
 import { RetrievalPipeline } from '@lyra-sdk/pipeline'
@@ -250,7 +327,7 @@ const pipeline = new RetrievalPipeline({
   retriever,
 })
 
-await pipeline.ingest(transcript)
+await pipeline.ingest('https://youtu.be/dQw4w9WgXcQ')
 const result = await pipeline.query('What did they say about love?', 5)
 console.log(result.retrieval.results.map((r) => r.score))
 pipeline.dispose()

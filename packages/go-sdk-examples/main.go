@@ -129,6 +129,62 @@ func run(ctx context.Context, client *lyra.Client) error {
 	for _, item := range query.Videos {
 		fmt.Printf("- %s (%s views)\n", item.Title, item.ViewsFmt)
 	}
+
+	fmt.Println("\n=== Top comments ===")
+	top, err := client.TopComments(ctx, videoID, 3)
+	if err != nil {
+		return err
+	}
+	for _, thread := range top {
+		comment := thread.TopLevelComment
+		fmt.Printf("- %s: %s (%d likes, %d replies)\n", comment.AuthorName, comment.Text, comment.LikeCount, thread.TotalReplyCount)
+	}
+
+	for _, thread := range top {
+		if thread.TotalReplyCount == 0 || thread.TotalReplyCount > 10 {
+			continue
+		}
+		fmt.Println("\n=== Comment replies ===")
+		replies, err := client.CommentReplies(ctx, thread.TopLevelComment.ID, "plainText")
+		if err != nil {
+			return err
+		}
+		shown := replies
+		if len(shown) > 2 {
+			shown = shown[:2]
+		}
+		for _, reply := range shown {
+			fmt.Printf("- %s: %s\n", reply.AuthorName, reply.Text)
+		}
+		break
+	}
+	if len(top) > 0 {
+		skipped := true
+		for _, thread := range top {
+			if thread.TotalReplyCount > 0 && thread.TotalReplyCount <= 10 {
+				skipped = false
+				break
+			}
+		}
+		if skipped {
+			fmt.Println("\n=== Comment replies ===")
+			fmt.Printf("Skipped. The first threads have %d replies, and fetching every page would spend a large quota.\n", top[0].TotalReplyCount)
+		}
+	}
+
+	fmt.Println("\n=== Comment query ===")
+	comments, err := client.CommentQuery(videoID).
+		Search("never").
+		Limit(3).
+		Execute(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Results: %d\n", comments.TotalResults)
+	for _, thread := range comments.Threads {
+		comment := thread.TopLevelComment
+		fmt.Printf("- %s: %s (%d likes)\n", comment.AuthorName, comment.Text, comment.LikeCount)
+	}
 	return nil
 }
 
