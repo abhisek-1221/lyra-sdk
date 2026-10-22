@@ -1,0 +1,82 @@
+---
+title: Errors and retries
+description: Match API failures and control retry behavior
+icon: ShieldAlert
+---
+
+API failures are `*lyra.Error`. Match them with `errors.Is` and the sentinels. Do not compare error strings.
+
+```go
+video, err := client.Video(ctx, id)
+if err != nil {
+	switch {
+	case errors.Is(err, lyra.ErrNotFound):
+		// Unknown video, channel, playlist, or comment.
+	case errors.Is(err, lyra.ErrQuota):
+		// Daily quota is exhausted. Retrying immediately will not help.
+	case errors.Is(err, lyra.ErrAuth):
+		// The API key is missing, invalid, or not allowed to call the Data API.
+	default:
+		return err
+	}
+}
+```
+
+| Sentinel | When |
+| --- | --- |
+| `ErrNotFound` | The resource does not exist, or YouTube returned HTTP 404. |
+| `ErrAuth` | HTTP 401, or HTTP 403 whose body says the API key was rejected. |
+| `ErrQuota` | Other HTTP 403 responses, including an exhausted quota. |
+
+`VideoTitle` and `VideoTitles` are the exception. A missing video returns the placeholder `"Video {id}"` and a nil error.
+
+## Inspect the error
+
+```go
+var apiErr *lyra.Error
+if errors.As(err, &apiErr) {
+	fmt.Println(apiErr.Kind, apiErr.Status, apiErr.Resource, apiErr.ID)
+	fmt.Println(apiErr.Error())
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `Kind` | `KindNotFound`, `KindQuota`, `KindAuth`, or `KindAPI` |
+| `Status` | HTTP status. `0` when the failure happened before a response |
+| `Message` | Text returned by `Error()` |
+| `Resource` | `"Video"`, `"Channel"`, `"Playlist"`, `"Comment"`, and similar |
+| `ID` | The id sent for that resource, when there is one |
+
+`KindAPI` is a YouTube response that is not auth, quota, or not-found, or a transport failure after retries are exhausted. `errors.Is(err, lyra.ErrNotFound)` is false for `KindAPI`. Use `errors.As` when you need the status code.
+
+`Unwrap` returns the transport or read error preserved after retries. Context cancellation and deadline errors are returned as-is and are not wrapped.
+
+## Retries
+
+`New` retries a `429`, a `5xx`, a transport error, and a failed body read. The default is two extra attempts. Auth, quota, and not-found responses return immediately.
+
+The wait before each extra attempt is `300ms * 2^attempt`: 300ms, then 600ms. The wait stops when the context is canceled.
+
+```go
+client, err := lyra.New(apiKey, lyra.WithMaxRetries(4))
+```
+
+`WithMaxRetries(0)` disables retries. A negative value is treated as `0`.
+
+Set the deadline on the context. Retries honor it, and a timeout is not classified as `ErrQuota` or `ErrAuth`.
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+defer cancel()
+
+if _, err := client.Playlist(ctx, playlistID); errors.Is(err, context.DeadlineExceeded) {
+	// The playlist was too large for this deadline, or YouTube was slow.
+}
+```
+
+## Context
+
+Pass a request-scoped context from `http.Request.Context` or `signal.NotifyContext` so a canceled caller stops in-flight Data API calls. Batch methods use an errgroup derived from that context: one failed chunk cancels the others.
+
+Canceled calls can still have spent quota. The YouTube request may have succeeded after the client stopped reading the response.

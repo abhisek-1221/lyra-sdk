@@ -1,0 +1,70 @@
+---
+title: Channels
+description: Resolve a channel and list its recent uploads
+icon: Users
+---
+
+`Channel` accepts a channel id (`UC` plus 22 characters), an `@handle`, or a channel URL.
+
+```go
+channel, err := client.Channel(ctx, "@MrBeast")
+if err != nil {
+	return err
+}
+fmt.Println(channel.Name, channel.SubscribersFmt, channel.VideoCount)
+```
+
+## How the id is resolved
+
+1. A bare `UC…` id is used as-is.
+2. A `/channel/UC…` URL uses the id in the path.
+3. An `@handle` or `/@handle` URL calls `channels.list` with `forHandle`.
+4. If that returns nothing, the client calls `search.list` with `type=channel` and takes the first hit.
+
+`search.list` costs 100 quota units. Pass a channel id, or a handle that `forHandle` can resolve, when you call this in a loop.
+
+A handle or custom URL that resolves to nothing returns `lyra.ErrNotFound`.
+
+## `Channel`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ID` | `string` | Channel id |
+| `Name` | `string` | Channel title |
+| `Username` | `string` | Handle, including `@`. Falls back to a slug of the title when YouTube has no custom URL |
+| `Subscribers`, `SubscribersFmt` | `int64`, `string` | Subscriber count |
+| `TotalViews`, `TotalViewsFmt` | `int64`, `string` | Lifetime view count |
+| `VideoCount` | `int64` | Public video count |
+| `Country` | `string` | Country code, empty when unset |
+| `Thumbnails` | `Thumbnails` | Image set |
+| `UploadsPlaylistID` | `string` | Uploads playlist. Pass it to playlist methods when you need more than the recent page |
+
+Subscriber and view counts are `0` when YouTube hides them.
+
+## Recent uploads
+
+`ChannelVideos` returns the newest uploads. `limit` defaults to 5 when it is `0` or negative, and it is capped at 50.
+
+```go
+recent, err := client.ChannelVideos(ctx, "@MrBeast", 5)
+for _, item := range recent {
+	fmt.Printf("%s — %s — %s\n", item.Title, item.DurationFmt, item.UploadAge)
+}
+```
+
+The call does three things in order: resolve the channel, read one page of the uploads playlist, then load statistics and duration for those video ids. An empty uploads playlist returns an empty slice and a nil error.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ID` | `string` | Video id |
+| `Title` | `string` | Title |
+| `Views`, `ViewsFmt` | `int64`, `string` | View count |
+| `Likes`, `LikesFmt` | `int64`, `string` | Like count |
+| `Duration`, `DurationFmt` | `int`, `string` | Length in seconds and clock form |
+| `Thumbnail` | `string` | High thumbnail URL, or the default URL |
+| `UploadAge` | `string` | Relative time, such as `"3 days ago"` |
+| `PublishedAt` | `time.Time` | Publish time |
+
+`UploadAge` is computed from `time.Since` at the moment of the call. Store `PublishedAt` if you need a stable timestamp.
+
+For the full upload history, page `PlaylistVideoIDs` or `Playlist` with `channel.UploadsPlaylistID`. That walks every page, so bound it with a timeout and watch quota.

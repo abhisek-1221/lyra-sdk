@@ -1,0 +1,69 @@
+---
+title: URLs and formatting
+description: Extract ids and format numbers, dates, and durations without a client
+icon: Wrench
+---
+
+These functions do not use the network or an API key. Call them on any value, including data you did not load through the client.
+
+## URLs
+
+| Function | Returns |
+| --- | --- |
+| `ExtractVideoID` | Video id from a watch, short, embed, or `youtu.be` URL. `""` when the string is not one of those URLs |
+| `ExtractChannelID` | Id from a `/channel/UC…` URL. `""` otherwise |
+| `ExtractUsername` | Handle from a `/@name` URL, without `@`. `""` otherwise |
+| `ExtractPlaylistID` | Value of `list=` in a URL. `""` when `list` is absent |
+
+```go
+lyra.ExtractVideoID("https://youtu.be/dQw4w9WgXcQ")
+// dQw4w9WgXcQ
+
+lyra.ExtractVideoID("https://www.youtube.com/shorts/dQw4w9WgXcQ")
+// dQw4w9WgXcQ
+
+lyra.ExtractChannelID("https://www.youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA")
+// UCX6OQ3DkcsbYNE6H8uQQuVA
+
+lyra.ExtractUsername("https://www.youtube.com/@MrBeast")
+// MrBeast
+
+lyra.ExtractPlaylistID("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf")
+// PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
+```
+
+`ExtractVideoID("dQw4w9WgXcQ")` returns `""` because a bare id is not a URL. Client methods still accept that bare id. `ExtractUsername` does not accept a bare `@MrBeast` string. `Channel` does.
+
+Use the extractors to validate a URL before you spend quota. A client method that receives a non-URL string sends that string as the id.
+
+## Numbers and dates
+
+`FormatNumber` prints an `int64` in English compact form: `1500` is `"1.5K"`, `1500000` is `"1.5M"`, `1800000000` is `"1.8B"`. Values under 1000 stay decimal. Negatives keep the minus sign.
+
+```go
+lyra.FormatNumber(1_763_613_349) // "1.8B"
+```
+
+`FormatDate` renders an RFC3339 timestamp as a long UTC date. An unparseable string returns `"Invalid Date"`.
+
+```go
+lyra.FormatDate("2009-10-25T06:57:33Z") // "October 25, 2009"
+```
+
+`RelativeTime` labels the distance from `time.Now`: `"1 minute ago"`, `"2 hours ago"`, `"3 days ago"`. A future time is labeled the same way, by absolute distance. Hours and days are used once the duration reaches that unit. Sub-minute values report `0` minutes.
+
+## Durations
+
+`ParseDuration` converts a YouTube ISO-8601 duration to seconds. `"PT1H2M3S"` is `3723`. `"P1DT2H"` is `93600`. Unrecognized input is `0`.
+
+`FormatDuration` prints a total for playlists and omits zero parts: `9332` is `"2h 35m 32s"`. `0` is `"0s"`. Negative input is treated as `0`.
+
+`FormatDurationClock` prints a clock value for a single video: `214` is `"3:34"`, `5025` is `"1:23:45"`. Hours appear only when the length reaches one hour. Minutes and seconds are zero-padded after the first field.
+
+```go
+seconds := lyra.ParseDuration("PT3M34S")
+fmt.Println(lyra.FormatDurationClock(seconds)) // 3:34
+fmt.Println(lyra.FormatDuration(seconds))      // 3m 34s
+```
+
+The client already fills `Duration`, `DurationFmt`, `ViewsFmt`, and `Published` on the structs it returns. Use these functions for values you parsed yourself.

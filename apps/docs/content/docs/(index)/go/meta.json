@@ -1,0 +1,6 @@
+{
+  "title": "Go SDK",
+  "description": "Usage guidelines for the Lyra Go client",
+  "icon": "Code",
+  "pages": ["index", "video", "channel", "playlist", "comments", "errors", "utilities"]
+}
