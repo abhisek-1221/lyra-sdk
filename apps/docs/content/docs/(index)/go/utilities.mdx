@@ -66,4 +66,4 @@ fmt.Println(lyra.FormatDurationClock(seconds)) // 3:34
 fmt.Println(lyra.FormatDuration(seconds))      // 3m 34s
 ```
 
-The client already fills `Duration`, `DurationFmt`, `ViewsFmt`, and `Published` on the structs it returns. Use these functions for values you parsed yourself.
+The client fills `Duration`, `DurationFmt`, `ViewsFmt`, and `Published` on `Video`. `PlaylistVideo` and `RecentVideo` have `PublishedAt` instead of `Published`; use `lyra.FormatDate(item.PublishedAt.Format(time.RFC3339))` for a formatted date. Use these functions for values you parsed yourself.
