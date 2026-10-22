@@ -1,0 +1,140 @@
+---
+title: Comments
+description: List threads, replies, search results, and comment stats
+icon: MessageSquare
+---
+
+Comment methods take a video id or a video URL, except `ChannelComments` and `CommentReplies`, which take a channel id and a parent comment id.
+
+Thread pages are 100 items and run one after another. YouTube attaches only a sample of replies on each thread. `TotalReplyCount` is the full reply count. `Replies` is what was loaded.
+
+```go
+threads, err := client.TopComments(ctx, "dQw4w9WgXcQ", 5)
+for _, thread := range threads {
+	comment := thread.TopLevelComment
+	fmt.Printf("%s: %s (%d likes, %d replies)\n",
+		comment.AuthorName, comment.Text, comment.LikeCount, thread.TotalReplyCount)
+}
+```
+
+## Threads
+
+`Comments` lists threads until YouTube runs out of pages, or until `MaxResults` is reached. `MaxResults` of `0` means no cap. A negative `MaxResults` returns an empty slice without calling the API.
+
+```go
+threads, err := client.Comments(ctx, videoID, lyra.CommentOptions{
+	Order:      "time",
+	MaxResults: 50,
+	TextFormat: "plainText",
+})
+```
+
+| `CommentOptions` field | Default | Values |
+| --- | --- | --- |
+| `Order` | YouTube's default | `"time"`, `"relevance"` |
+| `MaxResults` | `0` (no cap) | Maximum threads to return |
+| `SearchTerms` | empty | Keyword filter sent as `searchTerms` |
+| `TextFormat` | `"plainText"` | `"plainText"` or `"html"` |
+
+`plainText` uses the original comment text. `html` keeps YouTube's display HTML, including mention links.
+
+`TopComments` is `Comments` with `Order: "relevance"`. The limit defaults to 20 and is capped at 100.
+
+```go
+top, err := client.TopComments(ctx, videoID, 10)
+```
+
+`SearchComments` sets `SearchTerms` and lists matching threads. Pass extra options for order, limit, and text format.
+
+```go
+found, err := client.SearchComments(ctx, videoID, "never", lyra.CommentOptions{
+	MaxResults: 20,
+})
+```
+
+`ChannelComments` lists threads related to a channel id. This is the channel's comment inbox, not the comments on one video.
+
+```go
+threads, err := client.ChannelComments(ctx, channelID, lyra.CommentOptions{MaxResults: 20})
+```
+
+## Replies
+
+`CommentReplies` pages every reply of one comment. The parent id is `thread.TopLevelComment.ID`, not the thread id. The text format is `"plainText"` or `"html"`.
+
+```go
+replies, err := client.CommentReplies(ctx, thread.TopLevelComment.ID, "plainText")
+```
+
+<Callout type="warn" title="Reply volume">
+  A popular comment can be many pages. Check `TotalReplyCount` before calling `CommentReplies` or `WithAllReplies`.
+</Callout>
+
+`CommentsWithReplies` lists threads, then fills any thread whose loaded replies are short of `TotalReplyCount`. Those reply fetches run with at most five in flight.
+
+```go
+threads, err := client.CommentsWithReplies(ctx, videoID, lyra.CommentOptions{MaxResults: 10})
+```
+
+`FlattenComments` returns each top-level comment followed by the replies already loaded on that thread. It does not fetch anything.
+
+## Comment query
+
+`CommentQuery` is the chainable form of the listing calls. It also returns `CommentStats` for the threads it loaded. The builder is not safe to share across goroutines.
+
+```go
+result, err := client.CommentQuery(videoID).
+	Order("relevance").
+	Search("never").
+	Limit(20).
+	TextFormat("plainText").
+	Execute(ctx)
+
+fmt.Println(result.TotalResults, result.Stats.UniqueAuthors, result.Stats.AvgLikes)
+```
+
+`Limit(0)` removes the cap. `WithAllReplies()` hydrates missing replies before the stats are computed.
+
+```go
+result, err := client.CommentQuery(videoID).
+	Limit(10).
+	WithAllReplies().
+	Execute(ctx)
+```
+
+`TotalResults` is `len(result.Threads)`, the threads returned after the limit, not the number of comments on the video.
+
+## Stats
+
+`CommentStats` summarizes threads you already have. It does not call the API. `CommentQuery.Execute` fills the same struct for you.
+
+```go
+stats := client.CommentStats(videoID, threads)
+```
+
+| Field | Meaning |
+| --- | --- |
+| `TotalComments` | Number of threads |
+| `TotalReplies` | Loaded replies, plus any `TotalReplyCount` not yet loaded |
+| `UniqueAuthors` | Distinct `AuthorChannelID` values across loaded comments |
+| `MostLikedComment` | Highest `LikeCount` among loaded comments. `nil` when there are none |
+| `AvgLikes` | Mean likes across loaded comments, rounded to two decimals |
+| `ReplyRatio` | `TotalReplies / TotalComments`, rounded to two decimals |
+
+Unloaded replies are counted in `TotalReplies` and `ReplyRatio`. They are not included in `AvgLikes`, `UniqueAuthors`, or `MostLikedComment`. Call `WithAllReplies` or `CommentsWithReplies` first when those fields must cover every reply.
+
+## Comment fields
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ID` | `string` | Comment id |
+| `AuthorName` | `string` | Display name |
+| `AuthorProfileImage` | `string` | Avatar URL |
+| `AuthorChannelURL` | `string` | Channel URL |
+| `AuthorChannelID` | `string` | Channel id. Empty for some deleted authors |
+| `Text` | `string` | Plain text or HTML, depending on `TextFormat` |
+| `LikeCount` | `int64` | Likes |
+| `PublishedAt`, `UpdatedAt` | `time.Time` | Publish and update time |
+| `ParentID` | `string` | Parent comment id on a reply. Empty on a top-level comment |
+
+A `CommentThread` also has `VideoID`, `ChannelID`, `TopLevelComment`, `TotalReplyCount`, `CanReply`, `IsPublic`, and `Replies`.

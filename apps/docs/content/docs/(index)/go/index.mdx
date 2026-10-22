@@ -1,0 +1,122 @@
+---
+title: Getting started
+description: Install the Go client, configure it, and make the first request
+icon: Play
+---
+
+The Go SDK is a YouTube Data API client for videos, channels, playlists, and comments. Import path:
+
+```
+github.com/abhisek-1221/lyra-sdk/packages/go-sdk
+```
+
+The package name is `lyra`. It requires Go 1.26 or later and a [YouTube Data API v3 key](https://console.cloud.google.com/apis/credentials).
+
+Transcripts, video categories, regions, languages, and the context layer (`ingest`, `query`, `ask`) are TypeScript-only.
+
+## Install
+
+```bash
+go get github.com/abhisek-1221/lyra-sdk/packages/go-sdk@v0.3.0
+```
+
+## Create a client
+
+`lyra.New` rejects an empty API key. Pass the key from the environment, and give every call a `context.Context` so timeouts and cancellation reach the HTTP client.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/abhisek-1221/lyra-sdk/packages/go-sdk"
+)
+
+func main() {
+	client, err := lyra.New(os.Getenv("YOUTUBE_API_KEY"))
+	if err != nil {
+		panic(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	video, err := client.Video(ctx, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(video.Title, video.ViewsFmt)
+}
+```
+
+<Callout type="warn" title="API key">
+  Read the key from the environment or a secret store. Do not commit it.
+</Callout>
+
+One client is safe to share across goroutines. Build it once and pass it into the handlers or jobs that need YouTube data.
+
+## What you can call
+
+| Area | Methods |
+| --- | --- |
+| Videos | `Video`, `Videos`, `VideoTitle`, `VideoTitles` |
+| Channels | `Channel`, `ChannelVideos` |
+| Playlists | `PlaylistInfo`, `PlaylistVideoIDs`, `Playlist`, `PlaylistQuery` |
+| Comments | `Comments`, `TopComments`, `CommentReplies`, `CommentsWithReplies`, `SearchComments`, `ChannelComments`, `CommentQuery`, `CommentStats`, `FlattenComments` |
+| No network | `ExtractVideoID`, `ExtractChannelID`, `ExtractUsername`, `ExtractPlaylistID`, `FormatNumber`, `FormatDate`, `RelativeTime`, `ParseDuration`, `FormatDuration`, `FormatDurationClock` |
+
+The repository example at `packages/go-sdk-examples` calls these methods with a real API key. Use it as a working tour of the client.
+
+Methods that take a video, channel, or playlist accept a bare id or a YouTube URL.
+
+## Options
+
+```go
+client, err := lyra.New(apiKey,
+	lyra.WithMaxRetries(2),
+	lyra.WithHTTPClient(http.DefaultClient),
+)
+```
+
+| Option | Default | Use it when |
+| --- | --- | --- |
+| `WithMaxRetries(n)` | `2` extra attempts | A `429`, `5xx`, or transport error should be retried. `0` disables retries. |
+| `WithHTTPClient(client)` | `http.DefaultClient` | You need a custom timeout, proxy, or transport. Prefer a timeout on the `context.Context` for a single call. |
+| `WithBaseURL(url)` | `https://www.googleapis.com/youtube/v3` | Tests point the client at `httptest`. |
+
+Retries wait `300ms`, then `600ms`, before the extra attempts (`300ms * 2^attempt`). Auth failures, quota errors, and not-found responses are not retried. See [Errors and retries](/docs/go/errors).
+
+## Identifiers
+
+Pass the form you already have. The client extracts the id before it calls the API.
+
+```go
+video, err := client.Video(ctx, "dQw4w9WgXcQ")
+video, err = client.Video(ctx, "https://youtu.be/dQw4w9WgXcQ")
+video, err = client.Video(ctx, "https://www.youtube.com/shorts/dQw4w9WgXcQ")
+
+channel, err := client.Channel(ctx, "@MrBeast")
+channel, err = client.Channel(ctx, "https://www.youtube.com/@MrBeast")
+channel, err = client.Channel(ctx, "UCX6OQ3DkcsbYNE6H8uQQuVA")
+
+playlist, err := client.Playlist(ctx, "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf")
+playlist, err = client.Playlist(ctx, "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf")
+```
+
+A channel handle that is not a channel id may resolve through `channels.list` and, if that misses, through `search.list`. Search costs 100 quota units, so prefer a channel id or `@handle` that `forHandle` can resolve.
+
+## Formatted fields
+
+Counts, dates, and durations are returned both raw and formatted. Use the raw field for sorting and storage, and the `Fmt` field for display.
+
+```go
+fmt.Println(video.Views, video.ViewsFmt)             // 1763613349 1.8B
+fmt.Println(video.Duration, video.DurationFmt)       // 214 3:34
+fmt.Println(video.Published, video.PublishedAt.UTC()) // October 25, 2009 2009-10-25 06:57:33 +0000 UTC
+```
+
+`Published` and `*Fmt` strings are English. `PublishedAt` is a `time.Time`.

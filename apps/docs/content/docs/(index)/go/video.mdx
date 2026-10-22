@@ -1,0 +1,75 @@
+---
+title: Videos
+description: Fetch one video, a batch, or titles only
+icon: Play
+---
+
+Video methods accept a video id or any YouTube watch, short, embed, or `youtu.be` URL.
+
+```go
+video, err := client.Video(ctx, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+if err != nil {
+	return err
+}
+fmt.Println(video.Title, video.Channel, video.ViewsFmt, video.DurationFmt)
+```
+
+A missing video returns an error that matches `lyra.ErrNotFound`.
+
+## `Video`
+
+`Video` requests `snippet`, `statistics`, and `contentDetails` for one id.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ID` | `string` | Video id |
+| `Title` | `string` | Title |
+| `Description` | `string` | Description |
+| `Channel` | `string` | Channel name |
+| `ChannelID` | `string` | Channel id |
+| `Views`, `ViewsFmt` | `int64`, `string` | View count and compact form, such as `"1.8B"` |
+| `Likes`, `LikesFmt` | `int64`, `string` | Like count |
+| `Comments`, `CommentsFmt` | `int64`, `string` | Comment count |
+| `Duration` | `int` | Length in seconds |
+| `DurationFmt` | `string` | Clock form, such as `"3:34"` |
+| `Published` | `string` | Long date in UTC, such as `"October 25, 2009"` |
+| `PublishedAt` | `time.Time` | Publish time |
+| `Thumbnails` | `Thumbnails` | `Default`, `Medium`, `High`, and optional `Standard` and `Maxres` |
+
+`Standard` and `Maxres` are pointers. Check them before use:
+
+```go
+if video.Thumbnails.Maxres != nil {
+	fmt.Println(video.Thumbnails.Maxres.URL)
+}
+```
+
+## `Videos`
+
+`Videos` accepts ids and URLs together. It splits the list into groups of 50 and runs at most four requests at a time. Results follow YouTube's response order, which can differ from the input order when some ids are missing. Missing ids are omitted. An API error fails the whole call.
+
+```go
+videos, err := client.Videos(ctx, []string{
+	"dQw4w9WgXcQ",
+	"https://youtu.be/jNQXAC9IVRw",
+})
+```
+
+Each item has the same shape as `Video`.
+
+## Titles
+
+`VideoTitle` requests only `snippet`, so it is the call to use when the title is all you need.
+
+```go
+title, err := client.VideoTitle(ctx, "dQw4w9WgXcQ")
+```
+
+A missing video does not fail this call. The title is `"Video "` plus the id, for example `"Video dQw4w9WgXcQ"`.
+
+`VideoTitles` does the same for many ids and returns a map keyed by video id. Missing ids use the same `"Video {id}"` placeholder. Requests are chunked by 50 with at most four in flight.
+
+```go
+titles, err := client.VideoTitles(ctx, []string{"dQw4w9WgXcQ", "jNQXAC9IVRw"})
+fmt.Println(titles["dQw4w9WgXcQ"])
+```

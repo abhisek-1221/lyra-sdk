@@ -1,0 +1,103 @@
+---
+title: Playlists
+description: Load playlist metadata, video ids, full videos, and filtered slices
+icon: ListVideo
+---
+
+Playlist methods accept a playlist id or a URL that contains `list=`.
+
+```go
+const playlistURL = "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"
+```
+
+Pick the smallest method that answers the question. `Playlist` and `PlaylistQuery` download every video id, then the details for each video.
+
+| Goal | Method |
+| --- | --- |
+| Title and description | `PlaylistInfo` |
+| Ids only, in playlist order | `PlaylistVideoIDs` |
+| Every video, plus the summed duration | `Playlist` |
+| A filtered, sorted, or sliced subset | `PlaylistQuery` |
+
+## Metadata
+
+```go
+info, err := client.PlaylistInfo(ctx, playlistURL)
+fmt.Println(info.ID, info.Title, info.Description)
+```
+
+`PlaylistInfo` is `ID`, `Title`, `Description`, and `Thumbnails`. A missing playlist returns `lyra.ErrNotFound`.
+
+## Video ids
+
+`PlaylistVideoIDs` pages `playlistItems` in order, 50 ids per page, and returns every id. Pages are sequential. A playlist with no items returns an empty slice.
+
+```go
+ids, err := client.PlaylistVideoIDs(ctx, playlistURL)
+fmt.Println(len(ids), ids[0])
+```
+
+## Full playlist
+
+`Playlist` loads metadata and ids together, then fetches video details in chunks of 50 with at most four requests in flight. Private or deleted items that no longer resolve are dropped, so `VideoCount` can be lower than the id list.
+
+```go
+playlist, err := client.Playlist(ctx, playlistURL)
+fmt.Println(playlist.Title, playlist.VideoCount, playlist.TotalDurationFmt)
+for _, item := range playlist.Videos {
+	fmt.Println(item.Title, item.ViewsFmt, item.DurationFmt)
+}
+```
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ID`, `Title`, `Description`, `Thumbnails` | | Playlist metadata |
+| `VideoCount` | `int` | Videos that resolved |
+| `TotalDuration` | `int` | Sum of those videos, in seconds |
+| `TotalDurationFmt` | `string` | Sum as `"2h 5m 32s"` |
+| `Videos` | `[]PlaylistVideo` | Playlist order |
+
+Each `PlaylistVideo` has `ID`, `Title`, `Description`, `ChannelTitle`, `PublishedAt`, `Duration`, `DurationFmt`, `Views`, `ViewsFmt`, `Likes`, `LikesFmt`, and `Thumbnails`.
+
+<Callout type="warn" title="Quota">
+  A long playlist is one `playlists.list` call, one `playlistItems.list` call per 50 ids, and one `videos.list` call per 50 videos. Set a context timeout before calling `Playlist` on a large list.
+</Callout>
+
+## Query
+
+`PlaylistQuery` loads the same data as `Playlist`, then filters, sorts, and slices in memory. Build the query, then call `Execute`. The builder is not safe to share across goroutines.
+
+```go
+result, err := client.PlaylistQuery(playlistURL).
+	FilterByDuration(300, 0).
+	FilterByViews(1000, 0).
+	SortBy("views", "desc").
+	Between(1, 10).
+	Execute(ctx)
+if err != nil {
+	return err
+}
+fmt.Printf("%d of %d videos, %s total\n", result.VideoCount, result.OriginalCount, result.TotalDurationFmt)
+```
+
+`OriginalCount` is the number of ids in the playlist. `VideoCount` and `TotalDuration` describe the slice after the query.
+
+### Filters
+
+A bound of `0` means that side is unset. Filters combine with AND.
+
+| Method | Keeps videos where |
+| --- | --- |
+| `FilterByDuration(min, max int)` | duration in seconds is inside `[min, max]` |
+| `FilterByViews(min, max int64)` | view count is inside `[min, max]` |
+| `FilterByLikes(min, max int64)` | like count is inside `[min, max]` |
+
+`FilterByDuration(300, 0)` means at least 300 seconds and no maximum. Calling a filter again replaces that filter's previous bounds.
+
+### Sort and slice
+
+`SortBy(field, order)` accepts `"duration"`, `"views"`, or `"likes"`. Any other field sorts by views. `order` is `"asc"` or `"desc"`. Any value other than `"asc"` sorts descending. The sort is stable.
+
+`Between(start, end)` keeps a 1-based inclusive range after filtering and sorting. `Between(1, 10)` is the first ten matches. A start below 1 is treated as 1. A range past the end is truncated. An inverted range returns no videos.
+
+There is no server-side page size on the query. Filtering still downloads the playlist first, then throws rows away locally. Use `PlaylistInfo` or `PlaylistVideoIDs` when you do not need video statistics.
