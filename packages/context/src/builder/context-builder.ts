@@ -20,7 +20,7 @@ export interface ContextBuildOptions {
    * Tokens for one rendered chunk, including its citation marker
    * and header. The default counts `text` only.
    */
-  readonly countChunkTokens?: (chunk: ContextChunk, counter: TokenCounter) => number;
+  readonly countChunkTokens?: (chunk: ContextChunk, counter: TokenCounter, index: number) => number;
   /**
    * Separator inserted between rendered chunks. Counted with the
    * builder's own `TokenCounter`.
@@ -28,8 +28,8 @@ export interface ContextBuildOptions {
   readonly joinWith?: string;
   /**
    * Extra tokens that depend on the selected set, such as a
-   * source footer. Applied after selection and may drop the
-   * lowest-scoring chunk until the set fits.
+   * source footer. Applied after selection. An oversized chunk
+   * is shortened so the excerpt and the footer both fit.
    */
   readonly countExtras?: (chunks: readonly ContextChunk[], counter: TokenCounter) => number;
 }

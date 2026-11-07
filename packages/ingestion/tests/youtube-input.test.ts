@@ -34,6 +34,10 @@ describe("isYouTubeInput", () => {
     expect(isYouTubeInput({ url: "" })).toBe(false);
     expect(isYouTubeInput(null)).toBe(false);
   });
+
+  it("rejects a non-YouTube { url } so other parsers still receive it", () => {
+    expect(isYouTubeInput({ url: "https://example.com/article" })).toBe(false);
+  });
 });
 
 describe("toYouTubeInput", () => {

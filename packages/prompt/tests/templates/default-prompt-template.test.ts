@@ -72,6 +72,26 @@ describe("DefaultPromptTemplate", () => {
     expect(out).toContain("Sources:\n[1] Talk @ 01:15 — https://www.youtube.com/watch?v=abc");
   });
 
+  it("numbers the footer with the same citation format as the body", () => {
+    const t = new DefaultPromptTemplate();
+    const chunk = {
+      chunkId: "c" as never,
+      documentId: "d" as never,
+      text: "x",
+      score: 1,
+      span: { start: 0, end: 1, sourceId: "d" as never },
+      citation: { key: "d:c" },
+    };
+    const out = t.formatUser({
+      query: "Q?",
+      rendered: ["(1) x", "(2) y"],
+      truncated: false,
+      chunks: [chunk, { ...chunk, citation: { key: "d:c2" } }],
+      cite: (index) => `(${index + 1})`,
+    });
+    expect(out).toContain("Sources:\n(1) d:c\n(2) d:c2");
+  });
+
   it("formatUser notes truncation when truncated=true", () => {
     const t = new DefaultPromptTemplate();
     const out = t.formatUser({ query: "Q?", rendered: ["[1] hello"], truncated: true });

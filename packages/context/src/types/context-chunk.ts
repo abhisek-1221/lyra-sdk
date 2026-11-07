@@ -51,6 +51,13 @@ export interface ContextChunk {
   readonly text: string;
   readonly score: number;
   readonly span: TextSpan;
+  /**
+   * The source range that must survive truncation. A built chunk
+   * anchors on its own span. A merged chunk anchors on the
+   * highest-scoring member, so shortening keeps the retrieved
+   * passage instead of an earlier neighbor.
+   */
+  readonly anchor?: TextSpan;
   /** When the source document is a transcript. */
   readonly timestamp?: number;
   /** When the source document is a transcript. */

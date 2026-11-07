@@ -93,7 +93,7 @@ export class TranscriptExpander implements Expander {
         const timestamp = neighbor.metadata["timestamp"];
         if (typeof timestamp !== "number") continue;
         if (Math.abs(timestamp - seedTimestamp) > this.windowSeconds) continue;
-        const built = await toContextChunk(neighbor, seed.score * 0.5);
+        const built = await toContextChunk(neighbor, discountNeighborScore(seed.score));
         if (built === undefined) continue;
         if (
           this.maxAddedChars !== undefined &&
@@ -108,6 +108,11 @@ export class TranscriptExpander implements Expander {
     }
     return out;
   }
+}
+
+/** Lower a neighbor's score without ever raising a negative seed score. */
+function discountNeighborScore(score: number): number {
+  return score - Math.abs(score) * 0.5;
 }
 
 function chunkKey(documentId: { toString(): string }, chunkId: { toString(): string }): string {

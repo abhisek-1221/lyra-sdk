@@ -37,7 +37,7 @@ export interface PromptBuildArgs {
 export interface PromptBuilder {
   build(args: PromptBuildArgs): Prompt;
   /** Tokens for one rendered chunk, excluding the joiner between chunks. */
-  estimateChunkTokens?(chunk: ContextChunk, counter: TokenCounter): number;
+  estimateChunkTokens?(chunk: ContextChunk, counter: TokenCounter, index?: number): number;
   /** Tokens for the source footer appended after the user message. */
   estimateSourceTokens?(chunks: readonly ContextChunk[], counter: TokenCounter): number;
   /**

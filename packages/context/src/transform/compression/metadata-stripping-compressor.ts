@@ -16,6 +16,7 @@ export class MetadataStrippingCompressor implements Compressor {
       text: c.text,
       score: c.score,
       span: c.span,
+      ...(c.anchor !== undefined ? { anchor: c.anchor } : {}),
       citation: c.citation,
       ...(c.timestamp !== undefined ? { timestamp: c.timestamp } : {}),
       ...(c.speaker !== undefined ? { speaker: c.speaker } : {}),

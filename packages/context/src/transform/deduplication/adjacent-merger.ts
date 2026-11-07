@@ -72,13 +72,12 @@ async function mergeGroup(
     }
   }
   const span: TextSpan = { sourceId: head.span.sourceId, start, end };
-  if (resolveSpan === undefined) {
-    throw new Error("AdjacentMerger: resolveSpan is required to merge overlapping chunks");
-  }
-  const text = await resolveSpan(head.documentId, span);
-  const mergedCitations: ContextCitation[] = group
-    .slice(1)
-    .flatMap((chunk) => [chunk.citation, ...(chunk.mergedCitations ?? [])]);
+  const text = resolveSpan !== undefined ? await resolveSpan(head.documentId, span) : stitchTexts(group);
+  const mergedCitations: ContextCitation[] = [
+    ...(head.mergedCitations ?? []),
+    ...group.slice(1).flatMap((chunk) => [chunk.citation, ...(chunk.mergedCitations ?? [])]),
+  ];
+  const anchor = highestScoreAnchor(group);
   const speaker = mergedSpeaker(group);
   let merged: ContextChunk = {
     chunkId: head.chunkId,
@@ -86,12 +85,35 @@ async function mergeGroup(
     text,
     score,
     span,
+    anchor,
     citation: head.citation,
-    mergedCitations,
+    ...(mergedCitations.length > 0 ? { mergedCitations } : {}),
   };
   if (timestamp !== undefined) merged = { ...merged, timestamp };
   if (speaker !== undefined) merged = { ...merged, speaker };
   return merged;
+}
+
+function highestScoreAnchor(group: readonly ContextChunk[]): TextSpan {
+  let best = group[0]!;
+  for (const chunk of group) {
+    if (chunk.score > best.score) best = chunk;
+  }
+  return best.anchor ?? best.span;
+}
+
+function stitchTexts(group: readonly ContextChunk[]): string {
+  const sorted = [...group].sort((a, b) => a.span.start - b.span.start || a.span.end - b.span.end);
+  let text = sorted[0]!.text;
+  let end = sorted[0]!.span.end;
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i]!;
+    const overlap = end - next.span.start;
+    if (overlap >= next.text.length) continue;
+    text += overlap > 0 ? next.text.slice(overlap) : next.text;
+    if (next.span.end > end) end = next.span.end;
+  }
+  return text;
 }
 
 function mergedSpeaker(group: readonly ContextChunk[]): string | undefined {

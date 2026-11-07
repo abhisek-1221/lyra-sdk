@@ -1,6 +1,7 @@
 export {
   DEFAULT_SYSTEM_INSTRUCTIONS,
   DefaultPromptTemplate,
+  TRUNCATION_NOTE,
   estimateRenderedChunkTokens,
   estimateSourcesTokens,
   renderSources,

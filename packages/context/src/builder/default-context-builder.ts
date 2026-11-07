@@ -1,4 +1,4 @@
-import { createChunkId, type DocumentId, type TextSpan } from "@lyra-sdk/kernel";
+import type { DocumentId } from "@lyra-sdk/kernel";
 import { SpanChunkContentResolver, type ChunkContentResolver } from "@lyra-sdk/ingestion";
 import type { ScoredChunk } from "@lyra-sdk/retrieval";
 import type { Chunk, ChunkRepository, DocumentRepository, SourceDocument } from "@lyra-sdk/storage";
@@ -7,7 +7,7 @@ import { dedupeCitations, makeCitation } from "../citations/index.js";
 import { InMemoryChunkContentResolver } from "./in-memory-chunk-content-resolver.js";
 import type { ContextBuildOptions, ContextBuilder } from "./context-builder.js";
 import type { Compressor, ContextOrdering, Deduplicator, Expander } from "../transform/strategies.js";
-import { BudgetAllocator, CharHeuristicTokenCounter, makeTokenBudget } from "../transform/budgeting/index.js";
+import { BudgetAllocator, CharHeuristicTokenCounter, makeTokenBudget, windowOverAnchor, textAnchor } from "../transform/budgeting/index.js";
 import type { TokenCounter } from "../transform/budgeting/index.js";
 import { IdentityExpander } from "../transform/expansion/index.js";
 import { DefaultDeduplicator } from "../transform/deduplication/index.js";
@@ -56,8 +56,8 @@ export interface ContextBuilderOptions {
   readonly ordering?: ContextOrdering;
   /** Compressor slot. Default: `MetadataStrippingCompressor`. */
   readonly compression?: Compressor;
-  /** Default per-chunk token count. A build() option overrides this. */
-  readonly countChunkTokens?: (chunk: ContextChunk, counter: TokenCounter) => number;
+  /** Default per-chunk token count. A build() option overrides this. `index` is the display position. */
+  readonly countChunkTokens?: (chunk: ContextChunk, counter: TokenCounter, index: number) => number;
   /** Default extra-token count for the selected set. A build() option overrides this. */
   readonly countExtras?: (chunks: readonly ContextChunk[], counter: TokenCounter) => number;
 }
@@ -179,37 +179,32 @@ export class DefaultContextBuilder implements ContextBuilder {
         return this.makeChunk(chunk, text, score, undefined, cache);
       },
     });
-    const deduped = await this.deduplication.deduplicate(expanded, {
-      resolveSpan: (documentId, span) => this.resolveSpan(documentId, span),
-    });
+    const resolveSpan = this.resolver.resolveSpan?.bind(this.resolver);
+    const deduped = await this.deduplication.deduplicate(
+      expanded,
+      resolveSpan !== undefined ? { resolveSpan } : {},
+    );
 
     const countChunk = options.countChunkTokens ?? this.countChunkTokens ?? ((chunk, counter) => counter.count(chunk.text));
-    const count = (chunk: ContextChunk) => countChunk(chunk, this.counter);
+    const countAt = (chunk: ContextChunk, index: number) => countChunk(chunk, this.counter, index);
     const extraFn = options.countExtras ?? this.countExtras;
     const extras = (selected: readonly ContextChunk[]) =>
       extraFn !== undefined ? extraFn(selected, this.counter) : 0;
     const joinTokens = options.joinWith !== undefined ? this.counter.count(options.joinWith) : 0;
+    const noteTokens = this.counter.count(TRUNCATION_NOTE);
 
-    const allocated = this.allocator.allocate(deduped, { cap: effective, countChunkTokens: count, joinTokens });
-    let selected = this.compression.compress(this.ordering.order(allocated.included));
-    let truncated = allocated.truncated;
-    let usedTokens = this.measure(selected, count, joinTokens, extras);
-    while (selected.length > 0 && usedTokens > effective) {
-      let dropAt = 0;
-      for (let i = 1; i < selected.length; i++) {
-        const candidate = selected[i];
-        const lowest = selected[dropAt];
-        if (candidate !== undefined && lowest !== undefined && candidate.score < lowest.score) dropAt = i;
-      }
-      const next = selected.filter((_, i) => i !== dropAt);
-      selected = this.compression.compress(this.ordering.order(next));
-      usedTokens = this.measure(selected, count, joinTokens, extras);
-      truncated = true;
-    }
+    const allocated = this.allocator.allocate(deduped, {
+      cap: effective,
+      countChunkTokens: (chunk) => countAt(chunk, 0),
+      joinTokens,
+    });
+    const ordered = this.compression.compress(this.ordering.order(allocated.included));
+    const fitted = fitSelection(ordered, effective, countAt, joinTokens, extras, noteTokens, allocated.truncated);
     const chainMs = Date.now() - tChain;
 
-    const marked = assignMarkers(selected);
-    usedTokens = this.measure(marked.chunks, count, joinTokens, extras);
+    const marked = assignMarkers(fitted.chunks);
+    const usedTokens = this.measure(marked.chunks, countAt, joinTokens, extras, fitted.truncated ? noteTokens : 0);
+    const truncated = fitted.truncated;
     return {
       chunks: marked.chunks,
       citations: marked.citations,
@@ -252,27 +247,19 @@ export class DefaultContextBuilder implements ContextBuilder {
 
   private measure(
     chunks: readonly ContextChunk[],
-    count: (chunk: ContextChunk) => number,
+    countAt: (chunk: ContextChunk, index: number) => number,
     joinTokens: number,
     extras: (chunks: readonly ContextChunk[]) => number,
+    noteTokens: number,
   ): number {
     let used = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       if (chunk === undefined) continue;
-      used += count(chunk);
+      used += countAt(chunk, i);
       if (i > 0) used += joinTokens;
     }
-    return used + extras(chunks);
-  }
-
-  private async resolveSpan(documentId: DocumentId, span: TextSpan): Promise<string> {
-    return this.resolver.resolve({
-      id: createChunkId("span-union"),
-      documentId,
-      span,
-      metadata: {},
-    });
+    return used + extras(chunks) + (chunks.length > 0 ? noteTokens : 0);
   }
 
   private async makeChunk(
@@ -285,8 +272,12 @@ export class DefaultContextBuilder implements ContextBuilder {
     const doc = await this.readDocument(String(chunk.documentId), cache);
     const timestamp = typeof chunk.metadata["timestamp"] === "number" ? chunk.metadata["timestamp"] : undefined;
     const speaker = typeof chunk.metadata["speaker"] === "string" ? chunk.metadata["speaker"] : undefined;
-    const label = doc !== undefined && typeof doc.metadata["title"] === "string" ? doc.metadata["title"] : undefined;
-    const rawUrl = doc !== undefined && typeof doc.metadata["url"] === "string" ? doc.metadata["url"] : undefined;
+    const docLabel = doc !== undefined && typeof doc.metadata["title"] === "string" ? doc.metadata["title"] : undefined;
+    const chunkLabel = typeof chunk.metadata["title"] === "string" ? chunk.metadata["title"] : undefined;
+    const label = docLabel ?? chunkLabel;
+    const docUrl = doc !== undefined && typeof doc.metadata["url"] === "string" ? doc.metadata["url"] : undefined;
+    const chunkUrl = typeof chunk.metadata["url"] === "string" ? chunk.metadata["url"] : undefined;
+    const rawUrl = docUrl ?? chunkUrl;
     const url =
       rawUrl !== undefined && timestamp !== undefined && rawUrl.includes("youtube.com/watch")
         ? withWatchTimestamp(rawUrl, timestamp)
@@ -297,6 +288,7 @@ export class DefaultContextBuilder implements ContextBuilder {
       text,
       score,
       span: chunk.span,
+      anchor: chunk.span,
       citation: makeCitation({
         documentId: chunk.documentId,
         chunkId: chunk.id,
@@ -338,6 +330,81 @@ function makeDefaultResolver(documents: DocumentSource | undefined): ChunkConten
   }
   if (isDocumentRepository(documents)) return new SpanChunkContentResolver(documents);
   return new InMemoryChunkContentResolver(documents);
+}
+
+const TRUNCATION_NOTE = "\n\nNote: some context was truncated to fit the budget.";
+
+function fitSelection(
+  chunks: readonly ContextChunk[],
+  effective: number,
+  countAt: (chunk: ContextChunk, index: number) => number,
+  joinTokens: number,
+  extras: (chunks: readonly ContextChunk[]) => number,
+  noteTokens: number,
+  alreadyTruncated: boolean,
+): { readonly chunks: ContextChunk[]; readonly truncated: boolean; readonly usedTokens: number } {
+  let selected = [...chunks];
+  let truncated = alreadyTruncated;
+  const total = (items: readonly ContextChunk[], note: boolean) => {
+    let used = 0;
+    for (let i = 0; i < items.length; i++) {
+      used += countAt(items[i]!, i);
+      if (i > 0) used += joinTokens;
+    }
+    used += extras(items);
+    if (note && items.length > 0) used += noteTokens;
+    return used;
+  };
+  let used = total(selected, truncated);
+  let guard = 0;
+  while (selected.length > 0 && used > effective && guard < selected.length + 8) {
+    guard += 1;
+    truncated = true;
+    const index = lowestScoreIndex(selected);
+    const chunk = selected[index]!;
+    const anchor = textAnchor(chunk);
+    let best: ContextChunk | undefined;
+    let lo = 1;
+    let hi = chunk.text.length;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const text = windowOverAnchor(chunk.text, anchor.start, anchor.end, mid);
+      if (text.length === 0) {
+        hi = mid - 1;
+        continue;
+      }
+      const candidate: ContextChunk = text === chunk.text ? chunk : { ...chunk, text };
+      const trial = selected.map((item, i) => (i === index ? candidate : item));
+      if (total(trial, true) <= effective) {
+        best = candidate;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    if (best !== undefined && best.text.length < chunk.text.length) {
+      selected = selected.map((item, i) => (i === index ? best! : item));
+      used = total(selected, true);
+      continue;
+    }
+    if (best !== undefined && total(selected, true) <= effective) {
+      used = total(selected, true);
+      break;
+    }
+    selected = selected.filter((_, i) => i !== index);
+    used = total(selected, true);
+  }
+  return { chunks: selected, truncated, usedTokens: used };
+}
+
+function lowestScoreIndex(chunks: readonly ContextChunk[]): number {
+  let index = 0;
+  for (let i = 1; i < chunks.length; i++) {
+    const candidate = chunks[i];
+    const lowest = chunks[index];
+    if (candidate !== undefined && lowest !== undefined && candidate.score < lowest.score) index = i;
+  }
+  return index;
 }
 
 function isDocumentRepository(value: DocumentSource): value is DocumentRepository {

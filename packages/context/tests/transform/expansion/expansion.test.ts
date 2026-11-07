@@ -103,6 +103,21 @@ describe("TranscriptExpander", () => {
     expect(neighbor?.score).toBe(0.25);
   });
 
+  it("does not raise a negative seed score when discounting neighbors", async () => {
+    const corpus = [stored("a", 0), stored("b", 1)];
+    const r = new TranscriptExpander({ windowSeconds: 30 });
+    const out = await r.expand([{ ...contextChunk("a", 0), score: -0.8 }], {
+      chunkRepository: repo(corpus),
+      toContextChunk: async (chunk, score) => ({
+        ...contextChunk("n", 1),
+        chunkId: chunk.id,
+        score,
+      }),
+    });
+    const neighbor = out.find((c) => String(c.chunkId) === String(createChunkId("b")));
+    expect(neighbor?.score).toBeLessThan(-0.8);
+  });
+
   it("pulls in neighbors in both directions", async () => {
     const corpus = [stored("a", 0), stored("b", 1)];
     const r = new TranscriptExpander({ windowSeconds: 30 });

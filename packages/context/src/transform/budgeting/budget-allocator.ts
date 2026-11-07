@@ -8,7 +8,7 @@ import type { TokenBudget } from "./token-budget.js";
  * Walks in score order. A chunk that fits is kept. A chunk that
  * does not fit is skipped when a later chunk still fits in the
  * leftover budget. Otherwise it is the marginal chunk: its text
- * is shortened from the head to the leftover tokens, it is
+ * is shortened around `anchor` to the leftover tokens, it is
  * included, and selection stops. The source `span` is unchanged.
  *
  * The highest-scoring chunk is shortened to the whole cap when
@@ -102,16 +102,38 @@ function fitChunk(
   count: (chunk: ContextChunk) => number,
 ): { readonly chunk: ContextChunk; readonly cost: number } | undefined {
   if (remaining <= joinTokens) return undefined;
-  const textBudget = remaining - joinTokens;
+  const shortened = shortenToCost(chunk, remaining - joinTokens, count);
+  if (shortened === undefined) return undefined;
+  return { chunk: shortened.chunk, cost: shortened.cost + joinTokens };
+}
+
+/**
+ * Shorten `chunk.text` until `count` fits in `maxCost`, keeping
+ * the anchor passage inside the window.
+ */
+export function shortenToCost(
+  chunk: ContextChunk,
+  maxCost: number,
+  count: (chunk: ContextChunk) => number,
+): { readonly chunk: ContextChunk; readonly cost: number } | undefined {
+  if (maxCost <= 0) return undefined;
+  const whole = count(chunk);
+  if (chunk.text.length > 0 && whole <= maxCost) return { chunk, cost: whole };
+  const anchor = textAnchor(chunk);
   let best: ContextChunk | undefined;
   let bestCost = 0;
   let lo = 1;
   let hi = chunk.text.length;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    const candidate: ContextChunk = { ...chunk, text: chunk.text.slice(0, mid) };
+    const text = windowOverAnchor(chunk.text, anchor.start, anchor.end, mid);
+    if (text.length === 0) {
+      hi = mid - 1;
+      continue;
+    }
+    const candidate: ContextChunk = text === chunk.text ? chunk : { ...chunk, text };
     const cost = count(candidate);
-    if (candidate.text.length > 0 && cost <= textBudget) {
+    if (cost <= maxCost) {
       best = candidate;
       bestCost = cost;
       lo = mid + 1;
@@ -120,5 +142,44 @@ function fitChunk(
     }
   }
   if (best === undefined) return undefined;
-  return { chunk: best, cost: bestCost + joinTokens };
+  return { chunk: best, cost: bestCost };
+}
+
+/** Character offsets of `anchor` inside `chunk.text`. */
+export function textAnchor(chunk: ContextChunk): { readonly start: number; readonly end: number } {
+  const anchor = chunk.anchor ?? chunk.span;
+  const length = chunk.text.length;
+  const spanLength = chunk.span.end - chunk.span.start;
+  if (spanLength <= 0 || length !== spanLength) return { start: 0, end: length };
+  const start = clamp(anchor.start - chunk.span.start, 0, length);
+  const end = clamp(anchor.end - chunk.span.start, start, length);
+  return { start, end };
+}
+
+/**
+ * A window of `maxChars` that covers the anchor. When the anchor
+ * is longer than the window, the window starts at the anchor.
+ */
+export function windowOverAnchor(
+  text: string,
+  anchorStart: number,
+  anchorEnd: number,
+  maxChars: number,
+): string {
+  if (maxChars <= 0) return "";
+  if (text.length <= maxChars) return text;
+  const startBound = clamp(anchorStart, 0, text.length);
+  const endBound = clamp(anchorEnd, startBound, text.length);
+  if (endBound - startBound >= maxChars) return text.slice(startBound, startBound + maxChars);
+  const extra = maxChars - (endBound - startBound);
+  let start = startBound - Math.floor(extra / 2);
+  if (start < 0) start = 0;
+  if (start + maxChars > text.length) start = Math.max(0, text.length - maxChars);
+  if (start > startBound) start = startBound;
+  if (start + maxChars < endBound) start = Math.max(0, endBound - maxChars);
+  return text.slice(start, start + maxChars);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

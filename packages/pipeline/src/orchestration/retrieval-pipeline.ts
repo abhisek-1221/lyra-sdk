@@ -268,7 +268,8 @@ export class RetrievalPipeline {
       ...(overhead !== undefined ? { promptOverheadTokens: overhead } : {}),
       ...(estimateChunk !== undefined
         ? {
-            countChunkTokens: (chunk: ContextChunk, counter: TokenCounter) => estimateChunk(chunk, counter),
+            countChunkTokens: (chunk: ContextChunk, counter: TokenCounter, index: number) =>
+              estimateChunk(chunk, counter, index),
             joinWith: "\n\n",
           }
         : {}),

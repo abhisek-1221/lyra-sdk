@@ -45,7 +45,7 @@ export function isYouTubeInput(value: unknown): value is YouTubeInput | string {
   if (isYouTubeUrlString(value)) return true;
   if (value === null || typeof value !== "object") return false;
   const obj = value as Record<string, unknown>;
-  if ("url" in obj && typeof obj["url"] === "string" && obj["url"].trim().length > 0) {
+  if ("url" in obj && typeof obj["url"] === "string" && isYouTubeUrlString(obj["url"])) {
     return !("videoId" in obj);
   }
   if ("videoId" in obj && typeof obj["videoId"] === "string" && obj["videoId"].trim().length > 0) {

@@ -85,6 +85,25 @@ describe("BudgetAllocator", () => {
     expect(out.usedTokens).toBe(14);
   });
 
+  it("keeps the anchor passage when shortening a merged chunk", () => {
+    const r = new BudgetAllocator({
+      counter: new CharHeuristicTokenCounter(),
+      budget: makeTokenBudget(5),
+    });
+    const docId = createDocumentId("doc-1");
+    const text = `${"a".repeat(80)}${"b".repeat(40)}`;
+    const merged: ContextChunk = {
+      ...chunk("x"),
+      text,
+      span: { start: 0, end: text.length, sourceId: docId },
+      anchor: { start: 80, end: text.length, sourceId: docId },
+    };
+    const out = r.allocate([merged]);
+    expect(out.included[0]?.text).toBe("b".repeat(20));
+    expect(out.included[0]?.span.start).toBe(0);
+    expect(out.truncated).toBe(true);
+  });
+
   it("shortens a single chunk that is larger than the budget", () => {
     const r = new BudgetAllocator({
       counter: new CharHeuristicTokenCounter(),

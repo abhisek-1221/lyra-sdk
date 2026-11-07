@@ -40,6 +40,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
       rendered,
       truncated: args.context.truncated,
       chunks: args.context.chunks,
+      cite,
     });
 
     const messages = buildMessages(args.conversation, system, userText);
@@ -56,12 +57,12 @@ export class DefaultPromptBuilder implements PromptBuilder {
    * Matches {@link DefaultPromptTemplate}. A custom `template`
    * that formats chunks differently will not match this count.
    */
-  public estimateChunkTokens(chunk: ContextChunk, counter: TokenCounter): number {
-    return estimateRenderedChunkTokens(chunk, counter);
+  public estimateChunkTokens(chunk: ContextChunk, counter: TokenCounter, index = 0): number {
+    return estimateRenderedChunkTokens(chunk, counter, index, this.defaultCitationFormat);
   }
 
   public estimateSourceTokens(chunks: readonly ContextChunk[], counter: TokenCounter): number {
-    return estimateSourcesTokens(chunks, counter);
+    return estimateSourcesTokens(chunks, counter, this.defaultCitationFormat);
   }
 
   public estimatePromptOverhead(args: {

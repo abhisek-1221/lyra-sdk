@@ -1,4 +1,4 @@
-import { KernelError } from "@lyra-sdk/kernel";
+import { KernelError, type DocumentId, type TextSpan } from "@lyra-sdk/kernel";
 import type { Chunk, DocumentRepository } from "@lyra-sdk/storage";
 import type { ChunkContentResolver } from "../chunk-content-resolver.js";
 
@@ -25,6 +25,14 @@ export class SpanChunkContentResolver implements ChunkContentResolver {
       throw new KernelError("not_found", `SourceDocument not found for chunk ${chunk.id}`);
     }
     return doc.content.slice(chunk.span.start, chunk.span.end);
+  }
+
+  public async resolveSpan(documentId: DocumentId, span: TextSpan): Promise<string> {
+    const doc = await this.documents.get(documentId);
+    if (doc === null) {
+      throw new KernelError("not_found", `SourceDocument not found for document ${documentId}`);
+    }
+    return doc.content.slice(span.start, span.end);
   }
 
   public async resolveMany(chunks: readonly Chunk[]): Promise<readonly string[]> {

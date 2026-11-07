@@ -136,6 +136,31 @@ describe("AdjacentMerger", () => {
     expect(out[0]?.mergedCitations?.map((x) => x.key)).toEqual(["doc-1:b", "doc-1:c"]);
   });
 
+  it("stitches already-resolved text when no span resolver is available", async () => {
+    const r = new AdjacentMerger();
+    const out = await r.deduplicate([sameDocChunk("a", 0, 15), sameDocChunk("b", 10, 20)]);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.text).toBe(DOC.slice(0, 20));
+  });
+
+  it("keeps citations already merged into the first chunk", async () => {
+    const r = new AdjacentMerger();
+    const head = {
+      ...sameDocChunk("a", 0, 10),
+      mergedCitations: [makeCitation({ documentId: createDocumentId("doc-1"), chunkId: createChunkId("prior") })],
+    };
+    const out = await r.deduplicate([head, sameDocChunk("b", 10, 20)]);
+    expect(out[0]?.mergedCitations?.map((c) => c.key)).toEqual(["doc-1:prior", "doc-1:b"]);
+  });
+
+  it("anchors the merge on the highest-scoring span", async () => {
+    const r = new AdjacentMerger();
+    const early = { ...sameDocChunk("a", 0, 10), score: 0.2 };
+    const hit = { ...sameDocChunk("b", 10, 20), score: 0.9 };
+    const out = await r.deduplicate([early, hit], { resolveSpan });
+    expect(out[0]?.anchor).toMatchObject({ start: 10, end: 20 });
+  });
+
   it("leaves mergedCitations unset when nothing is merged", async () => {
     const r = new AdjacentMerger();
     const out = await r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 15, 25)]);

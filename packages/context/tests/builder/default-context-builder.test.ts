@@ -4,6 +4,7 @@ import type { ScoredChunk } from "@lyra-sdk/retrieval";
 import { describe, expect, it } from "vitest";
 import { InMemoryChunkRepository } from "@lyra-sdk/storage";
 import { DefaultContextBuilder } from "../../src/builder/default-context-builder.js";
+import { CharHeuristicTokenCounter } from "../../src/transform/budgeting/token-counter.js";
 import { ScoreOrdering } from "../../src/transform/ordering/score-ordering.js";
 import { TranscriptExpander } from "../../src/transform/expansion/transcript-expander.js";
 
@@ -103,24 +104,24 @@ describe("DefaultContextBuilder", () => {
     ]);
   });
 
-  it("respects tokenBudget: drops overflow, sets truncated: true", async () => {
-    // Use a doc long enough for non-adjacent 8-char chunks.
-    const longText = "01234567 89abcdef ghijklmn opqrstuv";
+  it("respects tokenBudget: shortens overflow and keeps the truncation note inside the budget", async () => {
+    const longText = `${"a".repeat(40)} ${"b".repeat(40)} ${"c".repeat(40)}`;
     const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", longText)]]);
-    // Each chunk's text is 8 chars -> 2 tokens. Budget 5 keeps the
-    // first two whole and shortens the third to the remaining token.
-    const b = new DefaultContextBuilder({ tokenBudget: 5, documents });
+    const noteTokens = new CharHeuristicTokenCounter().count(
+      "\n\nNote: some context was truncated to fit the budget.",
+    );
+    const budget = noteTokens + 12;
+    const b = new DefaultContextBuilder({ tokenBudget: budget, documents });
     const out = await b.build([
-      scored("c-1", "doc-1", "01234567", 0.9, 0, 8),
-      scored("c-2", "doc-1", "89abcdef", 0.8, 9, 17),
-      scored("c-3", "doc-1", "ghijklmn", 0.7, 18, 26),
+      scored("c-1", "doc-1", "a", 0.9, 0, 40),
+      scored("c-2", "doc-1", "b", 0.8, 41, 81),
+      scored("c-3", "doc-1", "c", 0.7, 82, 122),
     ]);
-    expect(out.chunks).toHaveLength(3);
-    expect(out.chunks[2]?.text).toBe("ghij");
-    expect(out.chunks[2]?.span).toMatchObject({ start: 18, end: 26 });
+    expect(out.chunks.length).toBeGreaterThan(0);
+    expect(out.chunks[0]?.chunkId).toBe(createChunkId("c-1"));
     expect(out.truncated).toBe(true);
-    expect(out.usedTokens).toBe(5);
-    expect(out.effectiveBudget).toBe(5);
+    expect(out.usedTokens).toBeLessThanOrEqual(budget);
+    expect(out.effectiveBudget).toBe(budget);
   });
 
   it("dedupes identical chunks (same chunkId, same span)", async () => {
@@ -246,6 +247,42 @@ describe("DefaultContextBuilder", () => {
     expect(out.chunks.map((c) => c.chunkId)).toEqual([createChunkId("c-1"), createChunkId("c-2")]);
     expect(out.chunks[0]?.timestamp).toBe(0);
     expect(out.chunks[1]?.timestamp).toBe(5);
+  });
+
+  it("uses chunk metadata title and url when the document has neither", async () => {
+    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "hello")]]);
+    const b = new DefaultContextBuilder({ tokenBudget: 1000, documents });
+    const base = scored("c-1", "doc-1", "hello", 0.9, 0, 5);
+    const out = await b.build([
+      {
+        ...base,
+        chunk: {
+          ...base.chunk,
+          metadata: { title: "Chunk Title", url: "https://example.com/a" },
+        },
+      },
+    ]);
+    expect(out.citations[0]?.label).toBe("Chunk Title");
+    expect(out.citations[0]?.url).toBe("https://example.com/a");
+  });
+
+  it("shortens the only chunk so the source footer still fits", async () => {
+    const text = "a".repeat(200);
+    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", text)]]);
+    const counter = new CharHeuristicTokenCounter();
+    const noteTokens = counter.count("\n\nNote: some context was truncated to fit the budget.");
+    const footer = 8;
+    const budget = noteTokens + footer + 4;
+    const b = new DefaultContextBuilder({
+      tokenBudget: budget,
+      documents,
+      countExtras: () => footer,
+    });
+    const out = await b.build([scored("c-1", "doc-1", text, 0.9, 0, text.length)]);
+    expect(out.chunks).toHaveLength(1);
+    expect(out.chunks[0]?.text.length).toBeLessThan(text.length);
+    expect(out.truncated).toBe(true);
+    expect(out.usedTokens).toBeLessThanOrEqual(budget);
   });
 
   it("context is deeply readonly (no mutation possible)", async () => {
