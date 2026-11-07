@@ -60,6 +60,13 @@ class StubChunkRepository implements ChunkRepository {
   async getMany(ids: readonly import("@lyra-sdk/kernel").ChunkId[]): Promise<readonly (Chunk | null)[]> {
     return ids.map((id) => this.byId.get(id) ?? null);
   }
+  async listByDocument(documentId: import("@lyra-sdk/kernel").DocumentId): Promise<readonly Chunk[]> {
+    const out: Chunk[] = [];
+    for (const chunk of this.byId.values()) {
+      if (chunk.documentId === documentId) out.push(chunk);
+    }
+    return out;
+  }
   async delete(): Promise<void> {
     /* no-op */
   }
