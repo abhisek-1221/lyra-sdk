@@ -2,7 +2,13 @@ import { KernelError } from "@lyra-sdk/kernel";
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { ContextBuilder } from "@lyra-sdk/context";
 import type { Generator, GenerationOptions } from "@lyra-sdk/generation";
-import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
+import type {
+  ChunkContentResolver,
+  ChunkStrategy,
+  SourceParser,
+  YouTubeTranscriptLoader,
+  YouTubeTranscriptLoadOptions,
+} from "@lyra-sdk/ingestion";
 import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
 import { DefaultPromptBuilder, type Prompt, type PromptBuilder } from "@lyra-sdk/prompt";
 import type { Reranker } from "@lyra-sdk/reranking";
@@ -28,6 +34,18 @@ export interface RetrievalPipelineDeps {
   readonly index: VectorIndex;
   readonly contentResolver: ChunkContentResolver;
   readonly retriever: Retriever;
+  /**
+   * Optional YouTube transcript loader. When `ingest` receives a
+   * YouTube URL string or `{ url }` / `{ videoId }`, the pipeline
+   * loads the transcript through this loader before parsing.
+   * Default: `CoreYouTubeTranscriptLoader` (requires peer `lyra-sdk`).
+   */
+  readonly youtubeLoader?: YouTubeTranscriptLoader;
+  /**
+   * Default options passed to `youtubeLoader.load` when the caller
+   * does not supply per-call options on `ingest`.
+   */
+  readonly youtubeLoadOptions?: YouTubeTranscriptLoadOptions;
   /**
    * Optional lexical index. When provided, the pipeline
    * populates it with each chunk's text during ingest so that a
@@ -94,30 +112,43 @@ export class RetrievalPipeline {
   /**
    * Ingest a single source through the full chain.
    *
+   * When `input` is a YouTube URL string or `{ url }` / `{ videoId }`,
+   * the pipeline first loads the transcript via `youtubeLoader`
+   * (default `CoreYouTubeTranscriptLoader`), then continues:
+   *
    * Steps:
-   *   1. `sourceParser.parse(input)` → `SourceDocument`
-   *   2. Save the document via `documents.save`.
-   *   3. `segmenter.chunk(document)` → `Chunk[]`
-   *   4. Save the chunks via `chunks.save`.
-   *   5. Resolve each chunk's text via `contentResolver.resolveMany`.
-   *   6. `embedder.embedMany(texts)` → `Embedding[]`
-   *   7. Build `IndexedVector[]` from the embeddings.
-   *   8. `index.upsert(vectors)`.
+   *   1. (YouTube only) `youtubeLoader.load(input)` → transcript
+   *   2. `sourceParser.parse(...)` → `SourceDocument`
+   *   3. Save the document via `documents.save`.
+   *   4. `segmenter.chunk(document)` → `Chunk[]`
+   *   5. Save the chunks via `chunks.save`.
+   *   6. Resolve each chunk's text via `contentResolver.resolveMany`.
+   *   7. `embedder.embedMany(texts)` → `Embedding[]`
+   *   8. Build `IndexedVector[]` from the embeddings.
+   *   9. `index.upsert(vectors)`.
+   *
+   * Transcript objects (`meta` + `lines`) skip the load step and
+   * go straight to the parser.
    */
-  public async ingest(input: unknown): Promise<void> {
+  public async ingest(input: unknown, options?: YouTubeTranscriptLoadOptions): Promise<void> {
     this.assertNotDisposed();
-    await this.runtime.ingest(input);
+    await this.runtime.ingest(input, options);
   }
 
   /**
    * Ingest many sources sequentially. Concurrency control is the
    * caller's responsibility in Phase 1; Phase 2 may add a
    * concurrency limit option.
+   *
+   * `options` apply to every YouTube input in the batch.
    */
-  public async ingestMany(inputs: readonly unknown[]): Promise<void> {
+  public async ingestMany(
+    inputs: readonly unknown[],
+    options?: YouTubeTranscriptLoadOptions,
+  ): Promise<void> {
     this.assertNotDisposed();
     for (const input of inputs) {
-      await this.ingest(input);
+      await this.ingest(input, options);
     }
   }
 

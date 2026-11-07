@@ -214,17 +214,11 @@ Composable packages for turning YouTube transcripts into searchable, citeable co
 
 ### Context Layer usage
 
-**YouTube URL → transcript → `SourceDocument`**
+**YouTube URL → ingest → semantic search (`query`)**
 
-```typescript
-import { CoreYouTubeTranscriptLoader, TranscriptParser } from '@lyra-sdk/ingestion'
-
-const loader = new CoreYouTubeTranscriptLoader()
-const transcript = await loader.load({ url: 'https://youtu.be/dQw4w9WgXcQ' })
-const document = new TranscriptParser().parse(transcript)
-```
-
-**Semantic search (`query`)**
+Pass a YouTube URL (or `{ videoId }`) to `pipeline.ingest`. The pipeline
+loads the transcript via `lyra-sdk` / `CoreYouTubeTranscriptLoader`, then
+parses, chunks, embeds, and indexes it.
 
 ```typescript
 import { RetrievalPipeline } from '@lyra-sdk/pipeline'
@@ -252,7 +246,7 @@ const pipeline = new RetrievalPipeline({
   retriever,
 })
 
-await pipeline.ingest(transcript)
+await pipeline.ingest('https://youtu.be/dQw4w9WgXcQ')
 const result = await pipeline.query('What did they say about love?', 5)
 console.log(result.retrieval.results.map((r) => r.score))
 pipeline.dispose()

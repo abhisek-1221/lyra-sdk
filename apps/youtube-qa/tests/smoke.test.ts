@@ -54,8 +54,12 @@ describe("apps/youtube-qa", () => {
       bodyText: sse([{ data: '{"choices":[{"delta":{"content":"the answer"}}]}' }, { data: "[DONE]" }]),
     });
     const generator = new OpenAIGenerator({ apiKey: "sk-test", transport });
-    const pipeline = buildYoutubeQaPipeline({ embedder: new StubEmbedder(), generator });
-    await pipeline.ingest(await loader.load({ url: "https://youtu.be/vid-1" }));
+    const pipeline = buildYoutubeQaPipeline({
+      embedder: new StubEmbedder(),
+      generator,
+      youtubeLoader: loader,
+    });
+    await pipeline.ingest("https://youtu.be/vid-1");
     const result = await pipeline.ask({ query: "What is the rain?" });
     expect(result.generation.text).toBe("the answer");
     expect(result.generation.provider).toBe("openai");

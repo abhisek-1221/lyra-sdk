@@ -1,7 +1,13 @@
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { ContextBuilder } from "@lyra-sdk/context";
 import type { Generator } from "@lyra-sdk/generation";
-import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
+import type {
+  ChunkContentResolver,
+  ChunkStrategy,
+  SourceParser,
+  YouTubeTranscriptLoader,
+  YouTubeTranscriptLoadOptions,
+} from "@lyra-sdk/ingestion";
 import type { BM25Index, VectorIndex } from "@lyra-sdk/index";
 import type { PromptBuilder } from "@lyra-sdk/prompt";
 import type { Reranker } from "@lyra-sdk/reranking";
@@ -36,6 +42,10 @@ import type { RetrievalPipeline } from "../orchestration/retrieval-pipeline.js";
  *     context construction.
  *   - `withContextBuilder` (Phase 3) to assemble the final
  *     prompt context.
+ *   - `withYouTubeLoader` to replace the default
+ *     `CoreYouTubeTranscriptLoader` used when `ingest` receives
+ *     a YouTube URL / videoId.
+ *   - `withYouTubeLoadOptions` for default transcript fetch options.
  */
 export class RetrievalPipelineBuilder {
   // Internal state. Marked with the `_internal` prefix and exposed
@@ -54,6 +64,8 @@ export class RetrievalPipelineBuilder {
   public _contextBuilder?: ContextBuilder;
   public _promptBuilder?: PromptBuilder;
   public _generator?: Generator;
+  public _youtubeLoader?: YouTubeTranscriptLoader;
+  public _youtubeLoadOptions?: YouTubeTranscriptLoadOptions;
 
   public withParser<P>(parser: SourceParser<P>): this {
     this._sourceParser = parser as SourceParser<unknown>;
@@ -142,6 +154,25 @@ export class RetrievalPipelineBuilder {
    */
   public withGenerator(generator: Generator): this {
     this._generator = generator;
+    return this;
+  }
+
+  /**
+   * Provide a `YouTubeTranscriptLoader` used when `ingest` receives
+   * a YouTube URL string or `{ url }` / `{ videoId }`. Default:
+   * `CoreYouTubeTranscriptLoader` (requires peer `lyra-sdk`).
+   */
+  public withYouTubeLoader(loader: YouTubeTranscriptLoader): this {
+    this._youtubeLoader = loader;
+    return this;
+  }
+
+  /**
+   * Default options for YouTube transcript loads. Per-call options
+   * on `ingest(input, options)` override these.
+   */
+  public withYouTubeLoadOptions(options: YouTubeTranscriptLoadOptions): this {
+    this._youtubeLoadOptions = options;
     return this;
   }
 

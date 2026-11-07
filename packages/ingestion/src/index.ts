@@ -28,6 +28,12 @@ export type {
 } from "./parser/transcript-mirror.js";
 export { TranscriptParser } from "./parser/transcript-parser.js";
 export type { YouTubeInput } from "./parser/youtube/youtube-input.js";
+export {
+  isYouTubeInput,
+  isYouTubeUrlString,
+  normalizeYouTubeInput,
+  toYouTubeInput,
+} from "./parser/youtube/youtube-input.js";
 export { YouTubeTranscriptSourceParser } from "./parser/youtube/youtube-transcript-source-parser.js";
 export type {
   YouTubeTranscriptLoader,

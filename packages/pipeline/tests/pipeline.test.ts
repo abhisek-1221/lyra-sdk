@@ -1,7 +1,14 @@
 import { createChunkId, createDocumentId } from "@lyra-sdk/kernel";
 import type { Embedding, Embedder } from "@lyra-sdk/embedding";
 import { InMemoryChunkRepository, InMemoryDocumentRepository, type Chunk, type SourceDocument } from "@lyra-sdk/storage";
-import type { ChunkContentResolver, ChunkStrategy, SourceParser, TranscriptWithMetaMirror } from "@lyra-sdk/ingestion";
+import type {
+  ChunkContentResolver,
+  ChunkStrategy,
+  SourceParser,
+  TranscriptWithMetaMirror,
+  YouTubeTranscriptLoader,
+  YouTubeTranscriptLoadOptions,
+} from "@lyra-sdk/ingestion";
 import { BruteForceIndex, CosineSimilarity, type IndexedVector, type SearchHit, type VectorIndex, type IndexStats } from "@lyra-sdk/index";
 import { describe, expect, it } from "vitest";
 import { RetrievalPipeline } from "../src/orchestration/retrieval-pipeline.js";
@@ -192,6 +199,133 @@ describe("RetrievalPipeline", () => {
     expect(chunks.size()).toBe(0);
     expect(index.upserted.length).toBe(0);
   });
+
+  it("loads a YouTube URL through youtubeLoader before parsing", async () => {
+    const loader = stubYouTubeLoader();
+    const documents = new InMemoryDocumentRepository();
+    const chunks = new InMemoryChunkRepository();
+    const index = new CapturingIndex();
+    const pipeline = new RetrievalPipeline({
+      sourceParser: parser(),
+      segmenter: new IdentityStrategy(),
+      embedder: new StubEmbedder(),
+      chunks,
+      documents,
+      index,
+      contentResolver: new PassthroughResolver(),
+      retriever: stubRetriever(),
+      youtubeLoader: loader,
+    });
+
+    await pipeline.ingest("https://youtu.be/vid-1");
+
+    expect(loader.calls).toHaveLength(1);
+    expect(loader.calls[0]?.input).toEqual({ url: "https://youtu.be/vid-1" });
+    expect(documents.size()).toBe(1);
+    expect(chunks.size()).toBe(1);
+  });
+
+  it("loads { videoId } through youtubeLoader before parsing", async () => {
+    const loader = stubYouTubeLoader();
+    const documents = new InMemoryDocumentRepository();
+    const chunks = new InMemoryChunkRepository();
+    const pipeline = new RetrievalPipeline({
+      sourceParser: parser(),
+      segmenter: new IdentityStrategy(),
+      embedder: new StubEmbedder(),
+      chunks,
+      documents,
+      index: new CapturingIndex(),
+      contentResolver: new PassthroughResolver(),
+      retriever: stubRetriever(),
+      youtubeLoader: loader,
+    });
+
+    await pipeline.ingest({ videoId: "vid-1" });
+
+    expect(loader.calls).toHaveLength(1);
+    expect(loader.calls[0]?.input).toEqual({ videoId: "vid-1" });
+    expect(documents.size()).toBe(1);
+  });
+
+  it("does not call youtubeLoader for transcript objects", async () => {
+    const loader = stubYouTubeLoader();
+    const pipeline = new RetrievalPipeline({
+      sourceParser: parser(),
+      segmenter: new IdentityStrategy(),
+      embedder: new StubEmbedder(),
+      chunks: new InMemoryChunkRepository(),
+      documents: new InMemoryDocumentRepository(),
+      index: new CapturingIndex(),
+      contentResolver: new PassthroughResolver(),
+      retriever: stubRetriever(),
+      youtubeLoader: loader,
+    });
+
+    await pipeline.ingest(makeTranscript("vid-1", ["hello"]));
+    expect(loader.calls).toHaveLength(0);
+  });
+
+  it("does not call youtubeLoader for non-YouTube strings", async () => {
+    const loader = stubYouTubeLoader();
+    const pipeline = new RetrievalPipeline({
+      sourceParser: parser(),
+      segmenter: new IdentityStrategy(),
+      embedder: new StubEmbedder(),
+      chunks: new InMemoryChunkRepository(),
+      documents: new InMemoryDocumentRepository(),
+      index: new CapturingIndex(),
+      contentResolver: new PassthroughResolver(),
+      retriever: stubRetriever(),
+      youtubeLoader: loader,
+    });
+
+    await expect(pipeline.ingest("what is RAG?")).rejects.toThrow();
+    expect(loader.calls).toHaveLength(0);
+  });
+
+  it("forwards per-call load options to youtubeLoader", async () => {
+    const loader = stubYouTubeLoader();
+    const pipeline = new RetrievalPipeline({
+      sourceParser: parser(),
+      segmenter: new IdentityStrategy(),
+      embedder: new StubEmbedder(),
+      chunks: new InMemoryChunkRepository(),
+      documents: new InMemoryDocumentRepository(),
+      index: new CapturingIndex(),
+      contentResolver: new PassthroughResolver(),
+      retriever: stubRetriever(),
+      youtubeLoader: loader,
+      youtubeLoadOptions: { transcriptOptions: { lang: "en" } },
+    });
+
+    await pipeline.ingest("https://youtu.be/vid-1", {
+      transcriptOptions: { lang: "es", customFetch: true },
+    });
+
+    expect(loader.calls[0]?.options).toEqual({
+      transcriptOptions: { lang: "es", customFetch: true },
+    });
+  });
+
+  it("uses pipeline-level youtubeLoadOptions when per-call options are omitted", async () => {
+    const loader = stubYouTubeLoader();
+    const pipeline = new RetrievalPipeline({
+      sourceParser: parser(),
+      segmenter: new IdentityStrategy(),
+      embedder: new StubEmbedder(),
+      chunks: new InMemoryChunkRepository(),
+      documents: new InMemoryDocumentRepository(),
+      index: new CapturingIndex(),
+      contentResolver: new PassthroughResolver(),
+      retriever: stubRetriever(),
+      youtubeLoader: loader,
+      youtubeLoadOptions: { transcriptOptions: { lang: "fr" } },
+    });
+
+    await pipeline.ingest({ url: "https://www.youtube.com/watch?v=vid-1" });
+    expect(loader.calls[0]?.options).toEqual({ transcriptOptions: { lang: "fr" } });
+  });
 });
 
 describe("RetrievalPipelineBuilder", () => {
@@ -234,6 +368,25 @@ describe("RetrievalPipelineBuilder", () => {
     const out = await pipeline.query("alpha");
     expect(out.retrieval.results.length).toBeGreaterThanOrEqual(0);
   });
+
+  it("wires withYouTubeLoader into ingest", async () => {
+    const loader = stubYouTubeLoader();
+    const documents = new InMemoryDocumentRepository();
+    const pipeline = new RetrievalPipelineBuilder()
+      .withParser(parser())
+      .withChunkStrategy(new IdentityStrategy())
+      .withEmbedder(new StubEmbedder())
+      .withChunkRepository(new InMemoryChunkRepository())
+      .withDocumentRepository(documents)
+      .withIndex(new CapturingIndex())
+      .withContentResolver(new PassthroughResolver())
+      .withYouTubeLoader(loader)
+      .build();
+
+    await pipeline.ingest("https://youtu.be/vid-1");
+    expect(loader.calls).toHaveLength(1);
+    expect(documents.size()).toBe(1);
+  });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -262,6 +415,19 @@ function stubRetriever(overrides: Partial<{ query: string; results: never[]; dur
         results: overrides.results ?? [],
         durationMs: overrides.durationMs ?? 0,
       };
+    },
+  };
+}
+
+function stubYouTubeLoader(): YouTubeTranscriptLoader & {
+  readonly calls: Array<{ input: unknown; options?: YouTubeTranscriptLoadOptions }>;
+} {
+  const calls: Array<{ input: unknown; options?: YouTubeTranscriptLoadOptions }> = [];
+  return {
+    calls,
+    async load(input, options) {
+      calls.push(options !== undefined ? { input, options } : { input });
+      return makeTranscript("vid-1", ["loaded"]) as never;
     },
   };
 }

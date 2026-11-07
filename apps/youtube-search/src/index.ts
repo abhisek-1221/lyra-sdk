@@ -13,7 +13,6 @@ import { OpenAIEmbedder } from "@lyra-sdk/embedding";
 import { DenseRetriever } from "@lyra-sdk/retrieval";
 import { RetrievalPipeline } from "@lyra-sdk/pipeline";
 import {
-  CoreYouTubeTranscriptLoader,
   RecursiveChunkStrategy,
   SpanChunkContentResolver,
   TranscriptParser,
@@ -45,9 +44,8 @@ export async function main(youtubeUrl: string, query: string) {
     retriever,
   });
 
-  const loader = new CoreYouTubeTranscriptLoader();
-  const transcript = await loader.load({ url: youtubeUrl });
-  await pipeline.ingest(transcript);
+  // URL → transcript load happens inside the pipeline.
+  await pipeline.ingest(youtubeUrl);
   const result = await pipeline.query(query, 5);
   for (const r of result.reranked) {
     console.log(`[${r.score.toFixed(3)}] ${r.chunk.documentId}`);

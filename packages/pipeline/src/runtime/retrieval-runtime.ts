@@ -1,6 +1,15 @@
 import { KernelError } from "@lyra-sdk/kernel";
 import type { Embedding } from "@lyra-sdk/embedding";
-import type { ChunkContentResolver, ChunkStrategy, SourceParser } from "@lyra-sdk/ingestion";
+import {
+  CoreYouTubeTranscriptLoader,
+  isYouTubeInput,
+  toYouTubeInput,
+  type ChunkContentResolver,
+  type ChunkStrategy,
+  type SourceParser,
+  type YouTubeTranscriptLoader,
+  type YouTubeTranscriptLoadOptions,
+} from "@lyra-sdk/ingestion";
 import type { BM25Index, IndexedVector, VectorIndex } from "@lyra-sdk/index";
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { Chunk, ChunkRepository, DocumentRepository } from "@lyra-sdk/storage";
@@ -8,9 +17,9 @@ import type { RetrievalPipelineDeps } from "../orchestration/retrieval-pipeline.
 
 /**
  * The retrieval runtime. Owns the ingest chain's data flow:
- * parser → chunker → resolver → embedder → index. The runtime
- * itself is stateless across calls; the state lives in the
- * repositories and the index.
+ * (YouTube load) → parser → chunker → resolver → embedder → index.
+ * The runtime itself is stateless across calls; the state lives in
+ * the repositories and the index.
  */
 export class RetrievalRuntime {
   private readonly sourceParser: SourceParser<unknown>;
@@ -21,6 +30,8 @@ export class RetrievalRuntime {
   private readonly index: VectorIndex;
   private readonly contentResolver: ChunkContentResolver;
   private readonly lexicalIndex: BM25Index | undefined;
+  private readonly youtubeLoader: YouTubeTranscriptLoader;
+  private readonly youtubeLoadOptions: YouTubeTranscriptLoadOptions | undefined;
 
   constructor(deps: RetrievalPipelineDeps) {
     this.sourceParser = deps.sourceParser;
@@ -31,14 +42,29 @@ export class RetrievalRuntime {
     this.index = deps.index;
     this.contentResolver = deps.contentResolver;
     this.lexicalIndex = deps.lexicalIndex;
+    this.youtubeLoader = deps.youtubeLoader ?? new CoreYouTubeTranscriptLoader();
+    this.youtubeLoadOptions = deps.youtubeLoadOptions;
   }
 
   /**
    * Run the full ingest chain for one source.
+   *
+   * YouTube URL / `{ url }` / `{ videoId }` inputs are loaded into a
+   * transcript before the sync `sourceParser` runs.
    */
-  public async ingest(input: unknown): Promise<void> {
+  public async ingest(input: unknown, options?: YouTubeTranscriptLoadOptions): Promise<void> {
+    let parsedInput = input;
+    if (isYouTubeInput(input)) {
+      const loadOptions = options ?? this.youtubeLoadOptions;
+      const ytInput = toYouTubeInput(input);
+      parsedInput =
+        loadOptions !== undefined
+          ? await this.youtubeLoader.load(ytInput, loadOptions)
+          : await this.youtubeLoader.load(ytInput);
+    }
+
     // 1. Parse.
-    const document = this.sourceParser.parse(input);
+    const document = this.sourceParser.parse(parsedInput);
 
     // 2. Save the document so the resolver can find it later.
     await this.documents.save([document]);

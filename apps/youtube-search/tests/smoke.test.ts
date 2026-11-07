@@ -20,7 +20,7 @@ class StubEmbedder implements Embedder {
   }
 }
 
-function buildPipeline() {
+function buildPipeline(youtubeLoader: YouTubeTranscriptLoader) {
   const documents = new InMemoryDocumentRepository();
   const chunks = new InMemoryChunkRepository();
   const index = new BruteForceIndex(new CosineSimilarity());
@@ -37,11 +37,12 @@ function buildPipeline() {
     index,
     contentResolver: new SpanChunkContentResolver(documents),
     retriever,
+    youtubeLoader,
   });
 }
 
 describe("apps/youtube-search", () => {
-  it("ingests a transcript and runs a query", async () => {
+  it("ingests a YouTube URL and runs a query", async () => {
     const loader: YouTubeTranscriptLoader = {
       async load() {
         return {
@@ -65,8 +66,8 @@ describe("apps/youtube-search", () => {
       },
     };
 
-    const pipeline = buildPipeline();
-    await pipeline.ingest(await loader.load({ url: "https://youtu.be/vid-1" }));
+    const pipeline = buildPipeline(loader);
+    await pipeline.ingest("https://youtu.be/vid-1");
     const result = await pipeline.query("Where does the rain fall?", 5);
     expect(result.retrieval.query).toBe("Where does the rain fall?");
     pipeline.dispose();
