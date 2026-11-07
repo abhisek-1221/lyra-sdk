@@ -2,14 +2,13 @@ import type { ContextChunk } from "../../types/index.js";
 import type { Compressor } from "../strategies.js";
 
 /**
- * Truncates the head of the last chunk to fit a fixed character
- * budget. Keeps the chunk's metadata and citation; only the
- * text is shortened. The `span.end` is updated to reflect the
- * truncated text length.
+ * Keeps the head of each chunk that exceeds `maxChars` and
+ * appends `...`. The source `span` stays the original range;
+ * `text` is the display string.
  *
- * Use this for hard caps (e.g. "no more than 8000 chars in the
- * last chunk"). For a token-aware version, use the budget
- * allocator before the compressor.
+ * Use this for a hard character cap. Token-budget truncation
+ * lives in `BudgetAllocator`, which shortens only the marginal
+ * chunk and does not append an ellipsis.
  */
 export class HeadTruncatingCompressor implements Compressor {
   public readonly name = "head-truncating";
@@ -24,9 +23,7 @@ export class HeadTruncatingCompressor implements Compressor {
     return chunks.map((c) => {
       if (c.text.length <= this.maxChars) return c;
       const truncated = `${c.text.slice(0, this.maxChars)}...`;
-      const start = c.span.start;
-      const newEnd = Math.min(c.span.end, start + truncated.length);
-      return { ...c, text: truncated, span: { start, end: newEnd, sourceId: c.span.sourceId } };
+      return { ...c, text: truncated };
     });
   }
 }

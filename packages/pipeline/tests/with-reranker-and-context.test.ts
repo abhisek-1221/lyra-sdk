@@ -221,6 +221,7 @@ describe("RetrievalPipeline with reranker and context builder", () => {
     expect(out.context.chunks).toEqual([]);
     expect(out.context.usedTokens).toBe(0);
     expect(out.context.tokenBudget).toBe(0);
+    expect(out.context.effectiveBudget).toBe(0);
     expect(out.context.truncated).toBe(false);
   });
 
@@ -278,6 +279,7 @@ describe("RetrievalPipeline with reranker and context builder", () => {
           citations: [],
           usedTokens: 0,
           tokenBudget: 0,
+          effectiveBudget: 0,
           truncated: false,
           diagnostics: {},
         };

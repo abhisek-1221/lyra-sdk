@@ -21,6 +21,7 @@ function makeContext(chunks: readonly ContextChunk[], overrides: Partial<Context
     citations: chunks.map((c) => c.citation),
     usedTokens: 0,
     tokenBudget: 0,
+    effectiveBudget: 0,
     truncated: false,
     diagnostics: {},
     ...overrides,

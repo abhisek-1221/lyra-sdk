@@ -2,7 +2,10 @@ import { createChunkId, createDocumentId } from "@lyra-sdk/kernel";
 import type { SourceDocument } from "@lyra-sdk/storage";
 import type { ScoredChunk } from "@lyra-sdk/retrieval";
 import { describe, expect, it } from "vitest";
+import { InMemoryChunkRepository } from "@lyra-sdk/storage";
 import { DefaultContextBuilder } from "../../src/builder/default-context-builder.js";
+import { ScoreOrdering } from "../../src/transform/ordering/score-ordering.js";
+import { TranscriptExpander } from "../../src/transform/expansion/transcript-expander.js";
 
 function doc(id: string, content: string): SourceDocument {
   return {
@@ -65,6 +68,7 @@ describe("DefaultContextBuilder", () => {
     expect(out.citations).toEqual([]);
     expect(out.usedTokens).toBe(0);
     expect(out.tokenBudget).toBe(100);
+    expect(out.effectiveBudget).toBe(100);
     expect(out.truncated).toBe(false);
   });
 
@@ -83,12 +87,12 @@ describe("DefaultContextBuilder", () => {
   });
 
   it("uses TranscriptOrdering by default: timestamps first, others by score", async () => {
-    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abc")]]);
+    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abcdef")]]);
     const b = new DefaultContextBuilder({ tokenBudget: 1000, documents });
     const out = await b.build([
       scored("c-1", "doc-1", "no-ts-high", 0.9, 0, 1),
-      scored("c-2", "doc-1", "ts-low", 0.3, 0, 1, { timestamp: 1000 }),
-      scored("c-3", "doc-1", "ts-high", 0.5, 0, 1, { timestamp: 2000 }),
+      scored("c-2", "doc-1", "ts-low", 0.3, 2, 3, { timestamp: 1000 }),
+      scored("c-3", "doc-1", "ts-high", 0.5, 4, 5, { timestamp: 2000 }),
     ]);
     // Transcripts first: ts-low (ts=1000), ts-high (ts=2000).
     // Non-transcripts by score desc: no-ts-high (0.9).
@@ -103,17 +107,20 @@ describe("DefaultContextBuilder", () => {
     // Use a doc long enough for non-adjacent 8-char chunks.
     const longText = "01234567 89abcdef ghijklmn opqrstuv";
     const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", longText)]]);
-    // Each chunk's text is 8 chars -> 2 tokens. With budget 5, only
-    // 2 chunks fit; the third is dropped.
+    // Each chunk's text is 8 chars -> 2 tokens. Budget 5 keeps the
+    // first two whole and shortens the third to the remaining token.
     const b = new DefaultContextBuilder({ tokenBudget: 5, documents });
     const out = await b.build([
       scored("c-1", "doc-1", "01234567", 0.9, 0, 8),
       scored("c-2", "doc-1", "89abcdef", 0.8, 9, 17),
       scored("c-3", "doc-1", "ghijklmn", 0.7, 18, 26),
     ]);
-    expect(out.chunks).toHaveLength(2);
+    expect(out.chunks).toHaveLength(3);
+    expect(out.chunks[2]?.text).toBe("ghij");
+    expect(out.chunks[2]?.span).toMatchObject({ start: 18, end: 26 });
     expect(out.truncated).toBe(true);
-    expect(out.usedTokens).toBe(4);
+    expect(out.usedTokens).toBe(5);
+    expect(out.effectiveBudget).toBe(5);
   });
 
   it("dedupes identical chunks (same chunkId, same span)", async () => {
@@ -134,7 +141,7 @@ describe("DefaultContextBuilder", () => {
       scored("c-2", "doc-1", " world", 0.8, 5, 11),
     ]);
     expect(out.chunks).toHaveLength(1);
-    expect(out.chunks[0]?.text).toBe("hello  world");
+    expect(out.chunks[0]?.text).toBe("hello world");
   });
 
   it("cites both sources of a merged chunk", async () => {
@@ -146,14 +153,17 @@ describe("DefaultContextBuilder", () => {
     ]);
     expect(out.chunks).toHaveLength(1);
     expect(out.citations.map((c) => c.key)).toEqual(["doc-1:c-1", "doc-1:c-2"]);
+    expect(out.citations.map((c) => c.marker)).toEqual([1, 1]);
   });
 
-  it("strips metadata by default (MetadataStrippingCompressor is the default)", async () => {
+  it("keeps timestamp and speaker and drops the metadata bag by default", async () => {
     const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abc")]]);
     const b = new DefaultContextBuilder({ tokenBudget: 1000, documents });
-    const out = await b.build([scored("c-1", "doc-1", "x", 0.9, 0, 1)]);
-    // The compressor keeps timestamp, speaker; strips the chunk's
-    // own metadata. Verify the chunk-level metadata field is absent.
+    const out = await b.build([
+      scored("c-1", "doc-1", "x", 0.9, 0, 1, { timestamp: 4, speaker: "Ada" }),
+    ]);
+    expect(out.chunks[0]?.timestamp).toBe(4);
+    expect(out.chunks[0]?.speaker).toBe("Ada");
     expect(out.chunks[0]?.metadata).toBeUndefined();
   });
 
@@ -171,13 +181,7 @@ describe("DefaultContextBuilder", () => {
 
   it("carries the timestamp from chunk metadata into ContextChunk.timestamp", async () => {
     const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abc")]]);
-    // Override the compressor with a no-op (the default
-    // MetadataStrippingCompressor strips timestamp).
-    const b = new DefaultContextBuilder({
-      tokenBudget: 1000,
-      documents,
-      compression: { name: "noop", compress: (xs) => xs },
-    });
+    const b = new DefaultContextBuilder({ tokenBudget: 1000, documents });
     const out = await b.build([scored("c-1", "doc-1", "x", 0.9, 0, 1, { timestamp: 1234 })]);
     expect(out.chunks[0]?.timestamp).toBe(1234);
   });
@@ -211,36 +215,37 @@ describe("DefaultContextBuilder", () => {
     expect(out.chunks[0]?.embedding).toBe(embedding);
   });
 
-  it("custom ordering: ScoreOrdering with a non-transcript list", async () => {
-    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abc")]]);
+  it("uses a caller-supplied ScoreOrdering instead of transcript order", async () => {
+    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abcdef")]]);
     const b = new DefaultContextBuilder({
       tokenBudget: 1000,
       documents,
-      // Force ScoreOrdering by passing a custom one... but the type is
-      // 'transcript-first' by default and we need to override. The
-      // class is configurable; we just construct it inline.
-    });
-    // Skip: the default is TranscriptOrdering; for pure text, the
-    // app passes ScoreOrdering explicitly. This test verifies that
-    // the default is transcript-first.
-    const out = await b.build([scored("c-1", "doc-1", "x", 0.5, 0, 1)]);
-    expect(out.chunks).toHaveLength(1);
-  });
-
-  it("custom expander: TranscriptExpander pulls in neighbors", async () => {
-    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abc")]]);
-    const b = new DefaultContextBuilder({
-      tokenBudget: 1000,
-      documents,
-      // Use TranscriptExpander to pull in adjacent chunks.
+      ordering: new ScoreOrdering(),
     });
     const out = await b.build([
-      scored("c-1", "doc-1", "x", 0.9, 0, 1, { timestamp: 1000 }),
-      scored("c-2", "doc-1", "y", 0.8, 0, 1, { timestamp: 5000 }),
+      scored("c-1", "doc-1", "early", 0.2, 0, 1, { timestamp: 1 }),
+      scored("c-2", "doc-1", "late", 0.9, 2, 3, { timestamp: 50 }),
     ]);
-    // Both chunks have timestamps; expander pulls in both within the
-    // 30s default window.
-    expect(out.chunks).toHaveLength(2);
+    expect(out.chunks.map((c) => c.chunkId)).toEqual([createChunkId("c-2"), createChunkId("c-1")]);
+  });
+
+  it("TranscriptExpander pulls neighbors from the chunk repository", async () => {
+    const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", "abcdefghij")]]);
+    const chunks = new InMemoryChunkRepository();
+    const first = scored("c-1", "doc-1", "abcd", 0.9, 0, 4, { timestamp: 0 });
+    const second = scored("c-2", "doc-1", "ghij", 0.2, 6, 10, { timestamp: 5 });
+    await chunks.save([first.chunk, second.chunk]);
+    const b = new DefaultContextBuilder({
+      tokenBudget: 1000,
+      documents,
+      chunkRepository: chunks,
+      expander: new TranscriptExpander({ windowSeconds: 30 }),
+    });
+    const out = await b.build([first]);
+    expect(out.diagnostics.expandedCount).toBe(2);
+    expect(out.chunks.map((c) => c.chunkId)).toEqual([createChunkId("c-1"), createChunkId("c-2")]);
+    expect(out.chunks[0]?.timestamp).toBe(0);
+    expect(out.chunks[1]?.timestamp).toBe(5);
   });
 
   it("context is deeply readonly (no mutation possible)", async () => {

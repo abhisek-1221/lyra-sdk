@@ -51,6 +51,27 @@ describe("DefaultPromptTemplate", () => {
     expect(out).toBe("Question:\nQ?");
   });
 
+  it("formatUser appends one source line per chunk using the chunk marker", () => {
+    const t = new DefaultPromptTemplate();
+    const out = t.formatUser({
+      query: "Q?",
+      rendered: ["[1] hello"],
+      truncated: false,
+      chunks: [
+        {
+          chunkId: "c" as never,
+          documentId: "d" as never,
+          text: "hello",
+          score: 1,
+          span: { start: 0, end: 5, sourceId: "d" as never },
+          timestamp: 75,
+          citation: { key: "d:c", label: "Talk", url: "https://www.youtube.com/watch?v=abc", marker: 1 },
+        },
+      ],
+    });
+    expect(out).toContain("Sources:\n[1] Talk @ 01:15 — https://www.youtube.com/watch?v=abc");
+  });
+
   it("formatUser notes truncation when truncated=true", () => {
     const t = new DefaultPromptTemplate();
     const out = t.formatUser({ query: "Q?", rendered: ["[1] hello"], truncated: true });

@@ -1,125 +1,161 @@
-import { createChunkId, createDocumentId } from "@lyra-sdk/kernel";
+import { createChunkId, createDocumentId, type DocumentId } from "@lyra-sdk/kernel";
+import type { Chunk, ChunkRepository } from "@lyra-sdk/storage";
 import type { ContextChunk } from "../../../src/types/index.js";
 import { makeCitation } from "../../../src/citations/index.js";
 import { IdentityExpander } from "../../../src/transform/expansion/identity-expander.js";
 import { TranscriptExpander } from "../../../src/transform/expansion/transcript-expander.js";
 import { describe, expect, it } from "vitest";
 
-function chunk(
-  id: string,
-  ts: number | undefined,
-  doc = "doc-1",
-): ContextChunk {
+function contextChunk(id: string, ts: number | undefined, doc = "doc-1", text = `text-${id}`): ContextChunk {
   const docId = createDocumentId(doc);
   return {
     chunkId: createChunkId(id),
     documentId: docId,
-    text: `text-${id}`,
+    text,
     score: 0.5,
-    span: { start: 0, end: 10, sourceId: docId },
+    span: { start: 0, end: text.length, sourceId: docId },
     citation: makeCitation({ documentId: docId, chunkId: createChunkId(id) }),
     ...(ts !== undefined ? { timestamp: ts } : {}),
   };
 }
 
+function stored(id: string, ts: number | undefined, doc = "doc-1", text = `text-${id}`): Chunk {
+  const docId = createDocumentId(doc);
+  return {
+    id: createChunkId(id),
+    documentId: docId,
+    span: { start: 0, end: text.length, sourceId: docId },
+    metadata: ts === undefined ? {} : { timestamp: ts },
+  };
+}
+
+function repo(chunks: readonly Chunk[]): ChunkRepository {
+  return {
+    async save() {},
+    async get() {
+      return null;
+    },
+    async getMany() {
+      return [];
+    },
+    async listByDocument(documentId: DocumentId) {
+      return chunks.filter((chunk) => chunk.documentId === documentId);
+    },
+    async delete() {},
+    size() {
+      return chunks.length;
+    },
+    dispose() {},
+  };
+}
+
 describe("IdentityExpander", () => {
-  it("returns the input unchanged", () => {
+  it("returns the input unchanged", async () => {
     const r = new IdentityExpander();
-    const input = [chunk("a", 1000), chunk("b", 2000)];
-    const out = r.expand(input);
+    const input = [contextChunk("a", 1), contextChunk("b", 2)];
+    const out = await r.expand(input);
     expect(out).toBe(input);
   });
 });
 
 describe("TranscriptExpander", () => {
-  it("rejects negative windowMs", () => {
-    expect(() => new TranscriptExpander({ windowMs: -1 })).toThrow();
+  it("rejects a negative window", () => {
+    expect(() => new TranscriptExpander({ windowSeconds: -1 })).toThrow();
   });
 
   it("rejects negative maxAddedChars", () => {
     expect(() => new TranscriptExpander({ maxAddedChars: -1 })).toThrow();
   });
 
-  it("returns the input unchanged when no chunks have timestamps", () => {
+  it("returns the input unchanged when no chunk repository is configured", async () => {
     const r = new TranscriptExpander();
-    const input = [chunk("a", undefined), chunk("b", undefined)];
-    const out = r.expand(input);
+    const input = [contextChunk("a", 0), contextChunk("b", 5)];
+    const out = await r.expand(input);
     expect(out).toEqual(input);
   });
 
-  it("pulls in adjacent chunks within the time window", () => {
-    // The user "selected" a; the corpus has a, b, c, d.
+  it("pulls in stored neighbors within the window and discounts their score", async () => {
     const corpus = [
-      chunk("a", 1000),
-      chunk("b", 5000),
-      chunk("c", 10_000),
-      chunk("d", 100_000), // 99s after a; outside window
+      stored("a", 0),
+      stored("b", 5),
+      stored("c", 10),
+      stored("d", 100),
     ];
-    const r = new TranscriptExpander({ windowMs: 30_000, corpus });
-    const out = r.expand([chunk("a", 1000)]);
-    const ids = out.map((c) => c.chunkId);
-    expect(ids).toContain(createChunkId("a"));
-    expect(ids).toContain(createChunkId("b"));
-    expect(ids).toContain(createChunkId("c"));
-    expect(ids).not.toContain(createChunkId("d"));
+    const r = new TranscriptExpander({ windowSeconds: 30 });
+    const out = await r.expand([contextChunk("a", 0)], {
+      chunkRepository: repo(corpus),
+      toContextChunk: async (chunk, score) => {
+        const timestamp = chunk.metadata["timestamp"];
+        const id = String(chunk.id);
+        return {
+          ...contextChunk(id, typeof timestamp === "number" ? timestamp : undefined),
+          chunkId: chunk.id,
+          score,
+        };
+      },
+    });
+    const ids = out.map((c) => String(c.chunkId));
+    expect(ids).toContain(String(createChunkId("a")));
+    expect(ids).toContain(String(createChunkId("b")));
+    expect(ids).toContain(String(createChunkId("c")));
+    expect(ids).not.toContain(String(createChunkId("d")));
+    const neighbor = out.find((c) => String(c.chunkId) === String(createChunkId("b")));
+    expect(neighbor?.score).toBe(0.25);
   });
 
-  it("pulls in adjacent chunks in both directions", () => {
-    const corpus = [chunk("a", 0), chunk("b", 1000)];
-    const r = new TranscriptExpander({ windowMs: 30_000, corpus });
-    const out = r.expand([chunk("a", 0)]);
-    // a is selected, b is within 30s of a in the corpus.
+  it("pulls in neighbors in both directions", async () => {
+    const corpus = [stored("a", 0), stored("b", 1)];
+    const r = new TranscriptExpander({ windowSeconds: 30 });
+    const out = await r.expand([contextChunk("a", 0)], {
+      chunkRepository: repo(corpus),
+      toContextChunk: async (chunk, score) => ({
+        ...contextChunk("x", 0),
+        chunkId: chunk.id,
+        score,
+      }),
+    });
     expect(out).toHaveLength(2);
   });
 
-  it("dedupes when multiple selected chunks ask for the same neighbor", () => {
-    const corpus = [chunk("a", 0), chunk("b", 1000), chunk("c", 2000)];
-    const r = new TranscriptExpander({ windowMs: 30_000, corpus });
-    // Both a and b are selected; both pull in c.
-    const out = r.expand([chunk("a", 0), chunk("b", 1000)]);
+  it("dedupes when multiple selected chunks ask for the same neighbor", async () => {
+    const corpus = [stored("a", 0), stored("b", 1), stored("c", 2)];
+    const r = new TranscriptExpander({ windowSeconds: 30 });
+    const out = await r.expand([contextChunk("a", 0), contextChunk("b", 1)], {
+      chunkRepository: repo(corpus),
+      toContextChunk: async (chunk) => ({ ...contextChunk("n", 0), chunkId: chunk.id }),
+    });
     const ids = out.map((c) => String(c.chunkId));
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("respects maxAddedChars", () => {
-    const corpus = [chunk("a", 0), chunk("b", 1000), chunk("c", 2000)];
-    const r = new TranscriptExpander({ windowMs: 30_000, maxAddedChars: 8, corpus });
-    // text-? is 6 chars; b adds 6 (total 6), c would add 6 (total 12 > 8).
-    const out = r.expand([chunk("a", 0)]);
-    const ids = out.map((c) => c.chunkId);
-    expect(ids).toContain(createChunkId("a"));
-    expect(ids).toContain(createChunkId("b"));
-    expect(ids).not.toContain(createChunkId("c"));
+  it("respects maxAddedChars and keeps scanning", async () => {
+    const big = stored("big", 1, "doc-1", "x".repeat(50));
+    const corpus = [stored("a", 0), big, stored("c", 2, "doc-1", "short")];
+    const r = new TranscriptExpander({ windowSeconds: 30, maxAddedChars: 10 });
+    const out = await r.expand([contextChunk("a", 0, "doc-1", "seed")], {
+      chunkRepository: repo(corpus),
+      toContextChunk: async (chunk, score) => {
+        const text = chunk.id === big.id ? "x".repeat(50) : "short";
+        return { ...contextChunk("n", 1, "doc-1", text), chunkId: chunk.id, text, score };
+      },
+    });
+    const ids = out.map((c) => String(c.chunkId));
+    expect(ids).not.toContain(String(big.id));
+    expect(ids).toContain(String(createChunkId("c")));
   });
 
-  it("skips an oversized candidate but keeps scanning for smaller ones", () => {
-    const big: ContextChunk = { ...chunk("big", 1000), text: "x".repeat(50) };
-    const corpus = [chunk("a", 0), big, chunk("c", 2000)];
-    const r = new TranscriptExpander({ windowMs: 30_000, maxAddedChars: 10, corpus });
-    const out = r.expand([chunk("a", 0)]);
-    const ids = out.map((c) => c.chunkId);
-    // `big` (50 chars) does not fit, but `text-c` (6 chars) still does.
-    expect(ids).not.toContain(createChunkId("big"));
-    expect(ids).toContain(createChunkId("c"));
-  });
-
-  it("does not abandon later seeds when an earlier one has an oversized neighbor", () => {
-    const big: ContextChunk = { ...chunk("big", 1000, "doc-1"), text: "x".repeat(50) };
-    const corpus = [chunk("a", 0, "doc-1"), big, chunk("d", 0, "doc-2"), chunk("e", 1000, "doc-2")];
-    const r = new TranscriptExpander({ windowMs: 30_000, maxAddedChars: 10, corpus });
-    const out = r.expand([chunk("a", 0, "doc-1"), chunk("d", 0, "doc-2")]);
-    expect(out.map((c) => c.chunkId)).toContain(createChunkId("e"));
-  });
-
-  it("does not pull in chunks from other documents", () => {
-    const corpus = [
-      chunk("a", 0, "doc-1"),
-      chunk("b", 1000, "doc-1"),
-      chunk("c", 2000, "doc-2"),
-    ];
-    const r = new TranscriptExpander({ windowMs: 30_000, corpus });
-    const out = r.expand([chunk("a", 0, "doc-1")]);
-    const docs = out.map((c) => c.documentId);
-    expect(docs).not.toContain(createDocumentId("doc-2"));
+  it("does not pull in chunks from other documents", async () => {
+    const corpus = [stored("a", 0, "doc-1"), stored("b", 1, "doc-1"), stored("c", 1, "doc-2")];
+    const r = new TranscriptExpander({ windowSeconds: 30 });
+    const out = await r.expand([contextChunk("a", 0, "doc-1")], {
+      chunkRepository: repo(corpus),
+      toContextChunk: async (chunk, score) => ({
+        ...contextChunk("n", 0, String(chunk.documentId)),
+        chunkId: chunk.id,
+        documentId: chunk.documentId,
+        score,
+      }),
+    });
+    expect(out.map((c) => c.documentId)).not.toContain(createDocumentId("doc-2"));
   });
 });

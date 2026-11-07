@@ -18,6 +18,12 @@ export interface ContextCitation {
   readonly label?: string;
   /** Optional URL when the source is web-indexed. */
   readonly url?: string;
+  /**
+   * 1-based index of the rendered context chunk this source belongs
+   * to. Merged sources share the marker of the chunk that absorbed
+   * them, so `[n]` in the prompt lines up with the source footer.
+   */
+  readonly marker?: number;
 }
 
 /**

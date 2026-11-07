@@ -32,6 +32,7 @@ export function emptyContext(): Context {
     citations: [],
     usedTokens: 0,
     tokenBudget: 0,
+    effectiveBudget: 0,
     truncated: false,
     diagnostics: {},
   };

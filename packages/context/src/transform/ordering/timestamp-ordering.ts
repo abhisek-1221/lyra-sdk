@@ -4,7 +4,9 @@ import type { ContextOrdering } from "../strategies.js";
 /**
  * Order chunks by `timestamp` ascending. Transcripts and
  * meetings: chunks read chronologically. Chunks without a
- * timestamp fall to the end, in input order.
+ * timestamp sort after timestamped chunks. Equal timestamps,
+ * and chunks that both lack one, break ties by `chunkId`
+ * ascending.
  */
 export class TimestampOrdering implements ContextOrdering {
   public readonly name = "timestamp";

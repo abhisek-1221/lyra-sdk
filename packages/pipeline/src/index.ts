@@ -24,7 +24,7 @@
  */
 
 export { RetrievalPipelineBuilder } from "./builder/retrieval-pipeline-builder.js";
-export { RetrievalPipeline, type RetrievalPipelineDeps, type Chunk } from "./orchestration/retrieval-pipeline.js";
+export { RetrievalPipeline, type RetrievalPipelineDeps, type QueryOptions, type Chunk } from "./orchestration/retrieval-pipeline.js";
 export { type PipelineResult } from "./orchestration/pipeline-result.js";
 export { type AskRequest } from "./orchestration/ask-request.js";
 export { type AskResult } from "./orchestration/ask-result.js";

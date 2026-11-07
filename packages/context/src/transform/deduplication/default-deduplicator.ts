@@ -1,14 +1,15 @@
 import type { ContextChunk } from "../../types/index.js";
-import type { Deduplicator } from "../strategies.js";
+import type { DeduplicateContext, Deduplicator } from "../strategies.js";
 import { ExactDeduplicator } from "./exact-deduplicator.js";
 import { AdjacentMerger } from "./adjacent-merger.js";
 import { NearDeduplicator } from "./near-deduplicator.js";
 
 /**
- * The composite default. Runs cheap first, expensive last:
- *   1. `ExactDeduplicator` — O(n) by id+span.
- *   2. `AdjacentMerger` — O(n log n) sort + linear scan.
- *   3. `NearDeduplicator` — O(n²) cosine; only the survivors.
+ * The composite default. Cheap and vector-faithful passes run
+ * before span merging:
+ *   1. `ExactDeduplicator` — O(n) by document, id, and span.
+ *   2. `NearDeduplicator` — O(n²) cosine on the original embeddings.
+ *   3. `AdjacentMerger` — overlap and touching spans, re-sliced.
  *
  * The application can supply any single strategy or its own
  * chain. `DefaultDeduplicator` is what `DefaultContextBuilder`
@@ -21,15 +22,19 @@ export class DefaultDeduplicator implements Deduplicator {
   private readonly near: NearDeduplicator;
 
   constructor(options: { nearThreshold?: number } = {}) {
-    this.near = options.nearThreshold === undefined
-      ? new NearDeduplicator()
-      : new NearDeduplicator({ threshold: options.nearThreshold });
+    this.near =
+      options.nearThreshold === undefined
+        ? new NearDeduplicator()
+        : new NearDeduplicator({ threshold: options.nearThreshold });
   }
 
-  public deduplicate(chunks: readonly ContextChunk[]): readonly ContextChunk[] {
-    let xs: readonly ContextChunk[] = this.exact.deduplicate(chunks);
-    xs = this.adjacent.deduplicate(xs);
-    xs = this.near.deduplicate(xs);
+  public async deduplicate(
+    chunks: readonly ContextChunk[],
+    ctx?: DeduplicateContext,
+  ): Promise<readonly ContextChunk[]> {
+    let xs = await this.exact.deduplicate(chunks);
+    xs = await this.near.deduplicate(xs);
+    xs = await this.adjacent.deduplicate(xs, ctx);
     return xs;
   }
 }

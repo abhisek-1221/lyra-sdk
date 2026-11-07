@@ -1,3 +1,4 @@
+import type { ContextChunk, TokenCounter } from "@lyra-sdk/context";
 import { formatTimestamp } from "../formatter/index.js";
 import type { PromptTemplate } from "./prompt-template.js";
 
@@ -32,17 +33,65 @@ export class DefaultPromptTemplate implements PromptTemplate {
     return header.length > 0 ? `${citeMarker} ${header}\n${chunk.text}` : `${citeMarker} ${chunk.text}`;
   };
 
-  public readonly formatUser = ({ query, rendered, truncated }: { query: string; rendered: readonly string[]; truncated: boolean }): string => {
+  public readonly formatUser = ({
+    query,
+    rendered,
+    truncated,
+    chunks,
+  }: {
+    query: string;
+    rendered: readonly string[];
+    truncated: boolean;
+    chunks?: readonly ContextChunk[];
+  }): string => {
     const body = rendered.length > 0
       ? `Context:\n\n${rendered.join("\n\n")}\n\nQuestion:\n${query}`
       : `Question:\n${query}`;
-    return truncated ? `${body}\n\nNote: some context was truncated to fit the budget.` : body;
+    const withNote = truncated ? `${body}\n\nNote: some context was truncated to fit the budget.` : body;
+    if (chunks === undefined || chunks.length === 0) return withNote;
+    return `${withNote}\n\nSources:\n${renderSources(chunks)}`;
   };
+}
+
+/**
+ * Token count for one chunk rendered the way
+ * {@link DefaultPromptTemplate.formatChunk} renders it, using a
+ * `[1] ` marker. The real marker grows by one character at `[10]`.
+ */
+export function estimateRenderedChunkTokens(chunk: ContextChunk, counter: TokenCounter): number {
+  const header = buildHeader(chunk.speaker, chunk.timestamp);
+  const rendered = header.length > 0 ? `[1] ${header}\n${chunk.text}` : `[1] ${chunk.text}`;
+  return counter.count(rendered);
+}
+
+/** Token count of the `Sources:` footer, including the blank line before it. */
+export function estimateSourcesTokens(chunks: readonly ContextChunk[], counter: TokenCounter): number {
+  if (chunks.length === 0) return 0;
+  return counter.count(`\n\nSources:\n${renderSources(chunks)}`);
+}
+
+export function renderSources(chunks: readonly ContextChunk[]): string {
+  return chunks.map((chunk) => formatSourceLine(chunk)).join("\n");
 }
 
 export interface DefaultPromptTemplateOptions {
   /** Override the default system instructions. */
   readonly system?: string;
+}
+
+function formatSourceLine(chunk: ContextChunk): string {
+  const marker = chunk.citation.marker ?? 1;
+  const cites = [chunk.citation, ...(chunk.mergedCitations ?? [])];
+  const labels: string[] = [];
+  const urls: string[] = [];
+  for (const cite of cites) {
+    if (cite.label !== undefined && cite.label.length > 0 && !labels.includes(cite.label)) labels.push(cite.label);
+    if (cite.url !== undefined && cite.url.length > 0 && !urls.includes(cite.url)) urls.push(cite.url);
+  }
+  const name = labels.length > 0 ? labels.join(", ") : (cites[0]?.key ?? "");
+  const timestamp = chunk.timestamp !== undefined ? ` @ ${formatTimestamp(chunk.timestamp)}` : "";
+  const url = urls.length > 0 ? ` — ${urls.join(", ")}` : "";
+  return `[${marker}] ${name}${timestamp}${url}`;
 }
 
 function buildHeader(speaker: string | undefined, timestamp: number | undefined): string {

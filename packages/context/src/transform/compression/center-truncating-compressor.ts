@@ -4,8 +4,8 @@ import type { Compressor } from "../strategies.js";
 /**
  * Truncates the center of each chunk that exceeds the budget:
  * keeps the head and the tail, drops the middle. The dropped
- * middle is replaced with a single `...` separator. The
- * `span.end` is updated to reflect the new text length.
+ * middle is replaced with a single `...` separator. The source
+ * `span` stays the original range; `text` is the display string.
  *
  * Useful for very long single chunks that the LLM cannot
  * consume end-to-end.
@@ -35,9 +35,7 @@ export class CenterTruncatingCompressor implements Compressor {
       const head = c.text.slice(0, this.headChars);
       const tail = c.text.slice(c.text.length - this.tailChars);
       const truncated = `${head}...${tail}`;
-      const start = c.span.start;
-      const newEnd = Math.min(c.span.end, start + truncated.length);
-      return { ...c, text: truncated, span: { start, end: newEnd, sourceId: c.span.sourceId } };
+      return { ...c, text: truncated };
     });
   }
 }

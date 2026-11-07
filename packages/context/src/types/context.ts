@@ -14,11 +14,17 @@ export interface Context {
    * its own citation plus every citation in `mergedCitations`.
    */
   readonly citations: readonly ContextCitation[];
-  /** Tokens consumed by `chunks` (per the supplied `TokenCounter`). */
+  /** Tokens consumed by the rendered chunks (per the supplied `TokenCounter`). */
   readonly usedTokens: number;
-  /** Effective token budget. */
+  /** Configured token budget before response and prompt reserves. */
   readonly tokenBudget: number;
-  /** True if any candidate was dropped or truncated. */
+  /**
+   * Tokens available for the rendered context after
+   * `reservedForResponse` and prompt overhead. `usedTokens` is
+   * counted against this cap.
+   */
+  readonly effectiveBudget: number;
+  /** True when a candidate was dropped or its text was shortened to fit the budget. */
   readonly truncated: boolean;
   /** Per-stage timings for benchmarking. */
   readonly diagnostics: Readonly<Record<string, number>>;

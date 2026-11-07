@@ -1,6 +1,6 @@
 import { KernelError } from "@lyra-sdk/kernel";
 import type { Embedder } from "@lyra-sdk/embedding";
-import type { ContextBuilder } from "@lyra-sdk/context";
+import type { ContextBuildOptions, ContextBuilder, ContextChunk, TokenCounter } from "@lyra-sdk/context";
 import type { Generator, GenerationOptions } from "@lyra-sdk/generation";
 import type {
   ChunkContentResolver,
@@ -159,7 +159,7 @@ export class RetrievalPipeline {
    * the original `RetrievalResult`, the reranked candidates,
    * and the assembled `Context`.
    */
-  public async query(text: string, k = 5): Promise<PipelineResult> {
+  public async query(text: string, k = 5, options?: QueryOptions): Promise<PipelineResult> {
     this.assertNotDisposed();
     const retrieval = await this.deps.retriever.retrieve(text, k);
     let reranked = retrieval.results;
@@ -169,7 +169,7 @@ export class RetrievalPipeline {
     }
     const context =
       this.deps.contextBuilder !== undefined
-        ? await this.deps.contextBuilder.build(reranked)
+        ? await this.deps.contextBuilder.build(reranked, this.contextBuildOptions(text, options))
         : emptyContext();
     return { retrieval, reranked, context };
   }
@@ -202,13 +202,33 @@ export class RetrievalPipeline {
       );
     }
 
-    const pipelineResult = await this.query(request.query, request.k ?? 5);
+    const promptBuilder = request.prompt === undefined
+      ? (this.deps.promptBuilder ?? new DefaultPromptBuilder())
+      : undefined;
+    const pipelineResult = await this.query(request.query, request.k ?? 5, {
+      ...(promptBuilder?.estimatePromptOverhead !== undefined
+        ? {
+            promptOverheadTokens: promptBuilder.estimatePromptOverhead({
+              ...(request.system !== undefined ? { system: request.system } : {}),
+              query: request.query,
+              ...(request.conversation !== undefined ? { conversation: request.conversation } : {}),
+            }),
+          }
+        : {}),
+      ...(promptBuilder !== undefined ? { promptBuilder } : {}),
+    });
+    if (this.deps.contextBuilder === undefined && pipelineResult.reranked.length > 0) {
+      throw new KernelError(
+        "invalid_argument",
+        "RetrievalPipeline.ask requires a context builder when retrieval returns hits; configure one with withContextBuilder()",
+      );
+    }
 
     let prompt: Prompt;
     if (request.prompt !== undefined) {
       prompt = request.prompt;
     } else {
-      const builder: PromptBuilder = this.deps.promptBuilder ?? new DefaultPromptBuilder();
+      const builder: PromptBuilder = promptBuilder ?? new DefaultPromptBuilder();
       prompt = builder.build({
         query: request.query,
         context: pipelineResult.context,
@@ -238,6 +258,29 @@ export class RetrievalPipeline {
     this.disposed = true;
   }
 
+  private contextBuildOptions(query: string, options?: QueryOptions): ContextBuildOptions {
+    const promptBuilder = options?.promptBuilder ?? this.deps.promptBuilder;
+    const estimateChunk = promptBuilder?.estimateChunkTokens?.bind(promptBuilder);
+    const estimateSources = promptBuilder?.estimateSourceTokens?.bind(promptBuilder);
+    const overhead = options?.promptOverheadTokens;
+    return {
+      query,
+      ...(overhead !== undefined ? { promptOverheadTokens: overhead } : {}),
+      ...(estimateChunk !== undefined
+        ? {
+            countChunkTokens: (chunk: ContextChunk, counter: TokenCounter) => estimateChunk(chunk, counter),
+            joinWith: "\n\n",
+          }
+        : {}),
+      ...(estimateSources !== undefined
+        ? {
+            countExtras: (chunks: readonly ContextChunk[], counter: TokenCounter) =>
+              estimateSources(chunks, counter),
+          }
+        : {}),
+    };
+  }
+
   private assertNotDisposed(): void {
     if (this.disposed) {
       throw new KernelError("internal", "RetrievalPipeline has been disposed");
@@ -251,6 +294,17 @@ export class RetrievalPipeline {
   public static builder(): RetrievalPipelineBuilder {
     return new RetrievalPipelineBuilder();
   }
+}
+
+/**
+ * Per-call options for {@link RetrievalPipeline.query}.
+ * `ask` fills `promptOverheadTokens` from the prompt builder
+ * unless the caller already supplied a `prompt`.
+ */
+export interface QueryOptions {
+  readonly promptOverheadTokens?: number;
+  /** Overrides `RetrievalPipelineDeps.promptBuilder` for token estimates on this call. */
+  readonly promptBuilder?: PromptBuilder;
 }
 
 export type { Chunk };

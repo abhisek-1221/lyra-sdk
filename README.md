@@ -336,21 +336,26 @@ pipeline.dispose()
 **Grounded answers (`ask`)**
 
 ```typescript
-import { DefaultContextBuilder, TranscriptOrdering, TranscriptExpander } from '@lyra-sdk/context'
+import { CharHeuristicTokenCounter, DefaultContextBuilder, TranscriptOrdering, TranscriptExpander } from '@lyra-sdk/context'
 import { DefaultPromptBuilder } from '@lyra-sdk/prompt'
 import { OpenAIGenerator } from '@lyra-sdk/generation'
 
 const generator = new OpenAIGenerator({ apiKey: process.env.OPENAI_API_KEY! })
+const counter = new CharHeuristicTokenCounter()
+const promptBuilder = new DefaultPromptBuilder({ tokenCounter: counter })
 
 const pipeline = new RetrievalPipeline({
   // ...same wiring as above
   contextBuilder: new DefaultContextBuilder({
     tokenBudget: 4000,
     resolver,
+    documents,
+    chunkRepository: chunks,
     ordering: new TranscriptOrdering(),
-    expander: new TranscriptExpander(),
+    expander: new TranscriptExpander({ windowSeconds: 30 }),
+    tokenCounter: counter,
   }),
-  promptBuilder: new DefaultPromptBuilder(),
+  promptBuilder,
   generator,
 })
 
