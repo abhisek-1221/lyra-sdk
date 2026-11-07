@@ -266,6 +266,24 @@ describe("DefaultContextBuilder", () => {
     expect(out.citations[0]?.url).toBe("https://example.com/a");
   });
 
+  it("keeps dropping chunks until the footer fits in the budget", async () => {
+    const documents = new Map<string, SourceDocument>();
+    const hits = [];
+    for (let i = 0; i < 20; i++) {
+      const id = `doc-${i}`;
+      documents.set(id, doc(id, "abcd"));
+      hits.push(scored(`c-${i}`, id, "abcd", 1 - i / 100, 0, 4));
+    }
+    const b = new DefaultContextBuilder({
+      tokenBudget: 100,
+      documents,
+      countExtras: (chunks) => chunks.length * 30,
+    });
+    const out = await b.build(hits);
+    expect(out.usedTokens).toBeLessThanOrEqual(100);
+    expect(out.chunks.length).toBeLessThanOrEqual(2);
+  });
+
   it("shortens the only chunk so the source footer still fits", async () => {
     const text = "a".repeat(200);
     const documents = new Map<string, SourceDocument>([["doc-1", doc("doc-1", text)]]);

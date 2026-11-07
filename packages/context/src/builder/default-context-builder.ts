@@ -356,9 +356,7 @@ function fitSelection(
     return used;
   };
   let used = total(selected, truncated);
-  let guard = 0;
-  while (selected.length > 0 && used > effective && guard < selected.length + 8) {
-    guard += 1;
+  while (selected.length > 0 && used > effective) {
     truncated = true;
     const index = lowestScoreIndex(selected);
     const chunk = selected[index]!;
