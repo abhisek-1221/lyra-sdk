@@ -9,6 +9,10 @@
  * configure it via the fluent builder and call `ingest`, `query`,
  * or `ask` (Phase 4).
  *
+ * `ingest` accepts a YouTube URL / `{ videoId }` (loads the
+ * transcript internally) or a transcript object for tests and
+ * non-YouTube sources.
+ *
  * Contents:
  *   - `RetrievalPipelineBuilder` — fluent builder
  *   - `RetrievalPipeline` — runtime facade (ingest, query, ask, dispose)
@@ -20,7 +24,7 @@
  */
 
 export { RetrievalPipelineBuilder } from "./builder/retrieval-pipeline-builder.js";
-export { RetrievalPipeline, type RetrievalPipelineDeps, type Chunk } from "./orchestration/retrieval-pipeline.js";
+export { RetrievalPipeline, type RetrievalPipelineDeps, type QueryOptions, type Chunk } from "./orchestration/retrieval-pipeline.js";
 export { type PipelineResult } from "./orchestration/pipeline-result.js";
 export { type AskRequest } from "./orchestration/ask-request.js";
 export { type AskResult } from "./orchestration/ask-result.js";

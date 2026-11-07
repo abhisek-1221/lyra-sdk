@@ -1,5 +1,5 @@
 import { createChunkId, type ChunkId, type DocumentId, type TextSpan } from "@lyra-sdk/kernel";
-import type { Chunk } from "@lyra-sdk/storage";
+import type { Chunk, DocumentBlock, SourceDocument } from "@lyra-sdk/storage";
 
 /**
  * Options for {@link ChunkFactory}.
@@ -65,4 +65,69 @@ export class ChunkFactory {
       metadata: {},
     }));
   }
+}
+
+interface BlockRange {
+  readonly contentStart: number;
+  readonly contentEnd: number;
+  readonly offset?: number;
+  readonly speaker?: string;
+}
+
+/**
+ * Copy transcript timing onto chunks.
+ *
+ * A block contributes when its metadata has numeric `contentStart`
+ * and `contentEnd` (character offsets into `SourceDocument.content`,
+ * half-open). Each chunk receives the `offset` of the earliest
+ * overlapping block as `metadata.timestamp`, in seconds. A string
+ * `speaker` on that same block is copied through. Blocks without
+ * content offsets are ignored, and a document with none of them
+ * leaves the chunk list unchanged.
+ */
+export function projectChunkMetadata(
+  document: SourceDocument,
+  chunks: readonly Chunk[],
+): readonly Chunk[] {
+  const ranges = blockRanges(document.blocks);
+  if (ranges.length === 0) return chunks;
+  return chunks.map((chunk) => {
+    let earliest: BlockRange | undefined;
+    for (const range of ranges) {
+      const overlaps = range.contentStart < chunk.span.end && range.contentEnd > chunk.span.start;
+      if (!overlaps) continue;
+      if (earliest === undefined || range.contentStart < earliest.contentStart) earliest = range;
+    }
+    if (earliest === undefined) return chunk;
+    const metadata: Record<string, string | number | boolean> = { ...chunk.metadata };
+    let changed = false;
+    if (typeof earliest.offset === "number") {
+      metadata.timestamp = earliest.offset;
+      changed = true;
+    }
+    if (typeof earliest.speaker === "string") {
+      metadata.speaker = earliest.speaker;
+      changed = true;
+    }
+    if (!changed) return chunk;
+    return { ...chunk, metadata };
+  });
+}
+
+function blockRanges(blocks: readonly DocumentBlock[]): readonly BlockRange[] {
+  const out: BlockRange[] = [];
+  for (const block of blocks) {
+    const contentStart = block.metadata["contentStart"];
+    const contentEnd = block.metadata["contentEnd"];
+    if (typeof contentStart !== "number" || typeof contentEnd !== "number") continue;
+    const offset = block.metadata["offset"];
+    const speaker = block.metadata["speaker"];
+    out.push({
+      contentStart,
+      contentEnd,
+      ...(typeof offset === "number" ? { offset } : {}),
+      ...(typeof speaker === "string" ? { speaker } : {}),
+    });
+  }
+  return out;
 }

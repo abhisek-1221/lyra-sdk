@@ -1,3 +1,4 @@
+import type { DocumentId, TextSpan } from "@lyra-sdk/kernel";
 import type { Chunk } from "@lyra-sdk/storage";
 
 /**
@@ -16,4 +17,11 @@ import type { Chunk } from "@lyra-sdk/storage";
 export interface ChunkContentResolver {
   resolve(chunk: Chunk): Promise<string>;
   resolveMany(chunks: readonly Chunk[]): Promise<readonly string[]>;
+  /**
+   * Slice a source document by span, without a stored chunk id.
+   * Merging uses this so a resolver that looks chunks up by id is
+   * not asked to read an invented id. When omitted, the merger
+   * stitches the members' already-resolved text.
+   */
+  resolveSpan?(documentId: DocumentId, span: TextSpan): Promise<string>;
 }

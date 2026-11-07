@@ -1,4 +1,4 @@
-import type { ChunkId } from "@lyra-sdk/kernel";
+import type { ChunkId, DocumentId } from "@lyra-sdk/kernel";
 import type { Chunk } from "../chunks.js";
 
 /**
@@ -24,6 +24,11 @@ export interface ChunkRepository {
    * input; ids that are not found become `null` in the result.
    */
   getMany(ids: readonly ChunkId[]): Promise<readonly (Chunk | null)[]>;
+  /**
+   * Every chunk stored for `documentId`, in save order.
+   * An unknown document returns an empty list.
+   */
+  listByDocument(documentId: DocumentId): Promise<readonly Chunk[]>;
   /** Idempotent delete. */
   delete(id: ChunkId): Promise<void>;
   /** Total number of stored chunks. */

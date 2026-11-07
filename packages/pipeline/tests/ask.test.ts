@@ -193,6 +193,38 @@ describe("RetrievalPipeline.ask", () => {
     expect(body.messages[1].content).toBe("Q");
   });
 
+  it("throws when retrieval returns hits and no context builder is configured", async () => {
+    const transport = new StubTransport({
+      status: 200,
+      bodyText: sse([{ data: '{"choices":[{"delta":{"content":"x"}}]}' }, { data: "[DONE]" }]),
+    });
+    const generator = new OpenAIGenerator({ apiKey: "sk-test", transport });
+    const hit = {
+      chunk: {
+        id: createChunkId("c-1"),
+        documentId: createDocumentId("doc-1"),
+        span: { start: 0, end: 5, sourceId: createDocumentId("doc-1") },
+        metadata: {},
+      },
+      score: 0.9,
+    };
+    const pipeline = new RetrievalPipelineBuilder()
+      .withParser(parser())
+      .withChunkStrategy(new IdentityStrategy())
+      .withEmbedder(new StubEmbedder())
+      .withChunkRepository(new InMemoryChunkRepository())
+      .withDocumentRepository(new InMemoryDocumentRepository())
+      .withIndex(new StubIndex())
+      .withRetriever({
+        async retrieve(query: string) {
+          return { query, results: [hit], durationMs: 0 };
+        },
+      })
+      .withGenerator(generator)
+      .build();
+    await expect(pipeline.ask({ query: "x" })).rejects.toThrow(/context builder/);
+  });
+
   it("throws when no generator is configured", async () => {
     const pipeline = buildPipeline();
     await pipeline.ingest(makeTranscript("vid-1", ["alpha"]));

@@ -18,6 +18,12 @@ export interface ContextCitation {
   readonly label?: string;
   /** Optional URL when the source is web-indexed. */
   readonly url?: string;
+  /**
+   * 1-based index of the rendered context chunk this source belongs
+   * to. Merged sources share the marker of the chunk that absorbed
+   * them, so `[n]` in the prompt lines up with the source footer.
+   */
+  readonly marker?: number;
 }
 
 /**
@@ -45,6 +51,13 @@ export interface ContextChunk {
   readonly text: string;
   readonly score: number;
   readonly span: TextSpan;
+  /**
+   * The source range that must survive truncation. A built chunk
+   * anchors on its own span. A merged chunk anchors on the
+   * highest-scoring member, so shortening keeps the retrieved
+   * passage instead of an earlier neighbor.
+   */
+  readonly anchor?: TextSpan;
   /** When the source document is a transcript. */
   readonly timestamp?: number;
   /** When the source document is a transcript. */

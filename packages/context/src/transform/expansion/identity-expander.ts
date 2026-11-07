@@ -9,7 +9,7 @@ import type { Expander } from "../strategies.js";
 export class IdentityExpander implements Expander {
   public readonly name = "identity";
 
-  public expand(chunks: readonly ContextChunk[]): readonly ContextChunk[] {
+  public async expand(chunks: readonly ContextChunk[]): Promise<readonly ContextChunk[]> {
     return chunks;
   }
 }

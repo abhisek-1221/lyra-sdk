@@ -1,4 +1,10 @@
-import { SpanChunkContentResolver, type ChunkStrategy, type SourceParser } from "@lyra-sdk/ingestion";
+import {
+  SpanChunkContentResolver,
+  type ChunkStrategy,
+  type SourceParser,
+  type YouTubeTranscriptLoader,
+  type YouTubeTranscriptLoadOptions,
+} from "@lyra-sdk/ingestion";
 import { DenseRetriever } from "@lyra-sdk/retrieval";
 import type { Embedder } from "@lyra-sdk/embedding";
 import type { ContextBuilder } from "@lyra-sdk/context";
@@ -55,6 +61,12 @@ export function buildRetrievalPipeline(b: RetrievalPipelineBuilder): RetrievalPi
       ? { promptBuilder: b._promptBuilder as PromptBuilder }
       : {}),
     ...(b._generator !== undefined ? { generator: b._generator as Generator } : {}),
+    ...(b._youtubeLoader !== undefined
+      ? { youtubeLoader: b._youtubeLoader as YouTubeTranscriptLoader }
+      : {}),
+    ...(b._youtubeLoadOptions !== undefined
+      ? { youtubeLoadOptions: b._youtubeLoadOptions as YouTubeTranscriptLoadOptions }
+      : {}),
   });
 }
 

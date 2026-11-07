@@ -1,4 +1,4 @@
-import type { TextSpan } from "@lyra-sdk/kernel";
+import type { DocumentId, TextSpan } from "@lyra-sdk/kernel";
 import type { Chunk } from "@lyra-sdk/storage";
 import type { ChunkContentResolver } from "@lyra-sdk/ingestion";
 import type { SourceDocument } from "@lyra-sdk/storage";
@@ -28,6 +28,16 @@ export class InMemoryChunkContentResolver implements ChunkContentResolver {
       );
     }
     return sliceContent(doc.content, chunk.span);
+  }
+
+  async resolveSpan(documentId: DocumentId, span: TextSpan): Promise<string> {
+    const doc = this.docs.get(String(documentId));
+    if (doc === undefined) {
+      throw new Error(
+        `InMemoryChunkContentResolver: document ${String(documentId)} not found`,
+      );
+    }
+    return sliceContent(doc.content, span);
   }
 
   async resolveMany(chunks: readonly Chunk[]): Promise<readonly string[]> {

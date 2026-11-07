@@ -71,6 +71,39 @@ describe("InMemoryChunkRepository", () => {
     expect(repo.size()).toBe(0);
   });
 
+  it("lists chunks by document", async () => {
+    const repo = new InMemoryChunkRepository();
+    const docB = createDocumentId("doc-b");
+    const a = makeChunk("a", 0, 5);
+    const b = {
+      ...makeChunk("b", 0, 5),
+      documentId: docB,
+      span: { sourceId: docB, start: 0, end: 5 },
+    };
+    await repo.save([a, b]);
+    expect(await repo.listByDocument(docA)).toEqual([a]);
+    expect(await repo.listByDocument(docB)).toEqual([b]);
+    expect(await repo.listByDocument(createDocumentId("missing"))).toEqual([]);
+    await repo.delete(a.id);
+    expect(await repo.listByDocument(docA)).toEqual([]);
+    expect(repo.size()).toBe(1);
+  });
+
+  it("moves a chunk to the new document on upsert", async () => {
+    const repo = new InMemoryChunkRepository();
+    const docB = createDocumentId("doc-b");
+    const original = makeChunk("a", 0, 5);
+    await repo.save([original]);
+    const moved = {
+      ...original,
+      documentId: docB,
+      span: { sourceId: docB, start: 0, end: 5 },
+    };
+    await repo.save([moved]);
+    expect(await repo.listByDocument(docA)).toEqual([]);
+    expect(await repo.listByDocument(docB)).toEqual([moved]);
+  });
+
   it("dispose clears the store", async () => {
     const repo = new InMemoryChunkRepository();
     await repo.save([makeChunk("a", 0, 5)]);

@@ -2,22 +2,16 @@ import type { ContextChunk } from "../../types/index.js";
 import type { Deduplicator } from "../strategies.js";
 
 /**
- * Drops near-duplicate chunks. Cosine similarity above the
- * configured threshold (default 0.95) means the two chunks are
- * effectively the same; the first-encountered one is kept and
- * the later one is dropped. Callers that need score-based
- * selection should sort by score descending before calling.
+ * Drops near-duplicate chunks in the same document. Cosine
+ * similarity at or above the threshold (default 0.95) means the
+ * two chunks are effectively the same. The higher-scoring chunk
+ * is kept. Equal scores keep the earlier input chunk.
  *
- * The contract is text-based: this deduplicator requires the
- * caller to have supplied `embedding` on each chunk (e.g. via a
- * retriever that populated `ScoredChunk.embedding`, or via a
- * separate embedding pass over the resolved text). When
- * `embedding` is absent, the chunk is kept (the deduplicator
- * cannot judge similarity without a vector).
+ * Chunks without an embedding are kept. Chunks from different
+ * documents are never collapsed, so a second source survives.
  *
- * O(n²) per call. Run on small lists. The default
- * `DefaultDeduplicator` chain runs `Exact -> Adjacent -> Near`,
- * so the near pass sees a smaller input.
+ * O(n²) per call. Run on small lists, before span merging, so
+ * the vector still belongs to the original span.
  */
 export class NearDeduplicator implements Deduplicator {
   public readonly name = "near";
@@ -31,11 +25,16 @@ export class NearDeduplicator implements Deduplicator {
     this.threshold = t;
   }
 
-  public deduplicate(chunks: readonly ContextChunk[]): readonly ContextChunk[] {
+  public async deduplicate(chunks: readonly ContextChunk[]): Promise<readonly ContextChunk[]> {
     if (chunks.length === 0) return [];
+    const ranked = chunks
+      .map((c, i) => ({ c, i }))
+      .sort((a, b) => {
+        if (b.c.score !== a.c.score) return b.c.score - a.c.score;
+        return a.i - b.i;
+      });
     const out: ContextChunk[] = [];
-    for (const c of chunks) {
-      // Chunks without an embedding cannot be judged; keep them.
+    for (const { c } of ranked) {
       const emb = c.embedding;
       if (emb === undefined) {
         out.push(c);
@@ -43,6 +42,7 @@ export class NearDeduplicator implements Deduplicator {
       }
       let dominated = false;
       for (const existing of out) {
+        if (existing.documentId !== c.documentId) continue;
         if (existing.embedding === undefined) continue;
         if (cosineSim(emb, existing.embedding) >= this.threshold) {
           dominated = true;

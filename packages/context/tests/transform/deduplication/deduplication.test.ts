@@ -1,4 +1,4 @@
-import { createChunkId, createDocumentId } from "@lyra-sdk/kernel";
+import { createChunkId, createDocumentId, type TextSpan } from "@lyra-sdk/kernel";
 import type { ContextChunk } from "../../../src/types/index.js";
 import { makeCitation } from "../../../src/citations/index.js";
 import { ExactDeduplicator } from "../../../src/transform/deduplication/exact-deduplicator.js";
@@ -26,9 +26,9 @@ function chunk(
 }
 
 describe("ExactDeduplicator", () => {
-  it("drops duplicates with same chunkId and span", () => {
+  it("drops duplicates with same document, chunkId, and span", async () => {
     const r = new ExactDeduplicator();
-    const out = r.deduplicate([
+    const out = await r.deduplicate([
       chunk("a", 0, 10),
       chunk("a", 0, 10),
       chunk("b", 0, 10),
@@ -36,12 +36,23 @@ describe("ExactDeduplicator", () => {
     expect(out).toHaveLength(2);
   });
 
-  it("keeps the same chunkId with different spans", () => {
+  it("keeps the same chunkId with different spans", async () => {
     const r = new ExactDeduplicator();
-    const out = r.deduplicate([chunk("a", 0, 10), chunk("a", 10, 20)]);
+    const out = await r.deduplicate([chunk("a", 0, 10), chunk("a", 10, 20)]);
+    expect(out).toHaveLength(2);
+  });
+
+  it("keeps the same chunkId and span in different documents", async () => {
+    const r = new ExactDeduplicator();
+    const docB = createDocumentId("other");
+    const a = chunk("a", 0, 10);
+    const other: ContextChunk = { ...a, documentId: docB, span: { ...a.span, sourceId: docB } };
+    const out = await r.deduplicate([a, other]);
     expect(out).toHaveLength(2);
   });
 });
+
+const DOC = "0123456789abcdefghijKLMNOPQRSTUVWXYZ";
 
 function sameDocChunk(
   id: string,
@@ -54,7 +65,7 @@ function sameDocChunk(
   return {
     chunkId: createChunkId(id),
     documentId: docId,
-    text: text ?? `text-${id}`,
+    text: text ?? DOC.slice(start, end),
     score: 0.5,
     span: { start, end, sourceId: docId },
     citation: makeCitation({ documentId: docId, chunkId: createChunkId(id) }),
@@ -62,61 +73,97 @@ function sameDocChunk(
   };
 }
 
+function resolveSpan(_documentId: string, span: TextSpan): Promise<string> {
+  return Promise.resolve(DOC.slice(span.start, span.end));
+}
+
 describe("AdjacentMerger", () => {
-  it("merges consecutive spans in the same document", () => {
+  it("merges consecutive spans and re-slices the union", async () => {
     const r = new AdjacentMerger();
-    const out = r.deduplicate([
-      sameDocChunk("a", 0, 10),
-      sameDocChunk("b", 10, 20),
-      sameDocChunk("c", 20, 30),
-    ]);
+    const out = await r.deduplicate(
+      [sameDocChunk("a", 0, 10), sameDocChunk("b", 10, 20), sameDocChunk("c", 20, 30)],
+      { resolveSpan },
+    );
     expect(out).toHaveLength(1);
     expect(out[0]?.span.start).toBe(0);
     expect(out[0]?.span.end).toBe(30);
-    expect(out[0]?.text).toBe("text-a text-b text-c");
+    expect(out[0]?.text).toBe(DOC.slice(0, 30));
   });
 
-  it("does not merge across document boundaries", () => {
+  it("merges overlapping spans, keeps the max score and the earliest timestamp", async () => {
     const r = new AdjacentMerger();
-    const out = r.deduplicate([
-      sameDocChunk("a", 0, 10), // doc-1
-      sameDocChunk("b", 10, 20), // doc-1 (same as a)
-      chunk("c", 20, 30), // doc-c
-    ]);
-    // a+b merge (same doc); c is its own.
+    const first = { ...sameDocChunk("a", 0, 15, "ignored", [1, 0]), score: 0.2, timestamp: 5 };
+    const second = { ...sameDocChunk("b", 10, 20, "ignored"), score: 0.8, timestamp: 9 };
+    const out = await r.deduplicate([second, first], { resolveSpan });
+    expect(out).toHaveLength(1);
+    expect(out[0]?.span).toMatchObject({ start: 0, end: 20 });
+    expect(out[0]?.text).toBe(DOC.slice(0, 20));
+    expect(out[0]?.score).toBe(0.8);
+    expect(out[0]?.timestamp).toBe(5);
+    expect(out[0]?.embedding).toBeUndefined();
+    expect(out[0]?.chunkId).toBe(createChunkId("a"));
+  });
+
+  it("does not merge across document boundaries", async () => {
+    const r = new AdjacentMerger();
+    const out = await r.deduplicate(
+      [sameDocChunk("a", 0, 10), sameDocChunk("b", 10, 20), chunk("c", 20, 30)],
+      { resolveSpan },
+    );
     expect(out).toHaveLength(2);
   });
 
-  it("does not merge non-consecutive spans (gap)", () => {
+  it("does not merge across a gap", async () => {
     const r = new AdjacentMerger();
-    const out = r.deduplicate([
-      sameDocChunk("a", 0, 10),
-      sameDocChunk("b", 15, 25),
-    ]);
+    const out = await r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 15, 25)]);
     expect(out).toHaveLength(2);
   });
 
-  it("keeps the absorbed chunk's citation in mergedCitations", () => {
+  it("keeps the absorbed chunk's citation in mergedCitations", async () => {
     const r = new AdjacentMerger();
-    const out = r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 10, 20)]);
+    const out = await r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 10, 20)], { resolveSpan });
     expect(out).toHaveLength(1);
     expect(out[0]?.citation.key).toBe("doc-1:a");
     expect(out[0]?.mergedCitations?.map((c) => c.key)).toEqual(["doc-1:b"]);
   });
 
-  it("accumulates citations across a three-way merge", () => {
+  it("accumulates citations across a three-way merge", async () => {
     const r = new AdjacentMerger();
-    const out = r.deduplicate([
-      sameDocChunk("a", 0, 10),
-      sameDocChunk("b", 10, 20),
-      sameDocChunk("c", 20, 30),
-    ]);
+    const out = await r.deduplicate(
+      [sameDocChunk("a", 0, 10), sameDocChunk("b", 10, 20), sameDocChunk("c", 20, 30)],
+      { resolveSpan },
+    );
     expect(out[0]?.mergedCitations?.map((x) => x.key)).toEqual(["doc-1:b", "doc-1:c"]);
   });
 
-  it("leaves mergedCitations unset when nothing is merged", () => {
+  it("stitches already-resolved text when no span resolver is available", async () => {
     const r = new AdjacentMerger();
-    const out = r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 15, 25)]);
+    const out = await r.deduplicate([sameDocChunk("a", 0, 15), sameDocChunk("b", 10, 20)]);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.text).toBe(DOC.slice(0, 20));
+  });
+
+  it("keeps citations already merged into the first chunk", async () => {
+    const r = new AdjacentMerger();
+    const head = {
+      ...sameDocChunk("a", 0, 10),
+      mergedCitations: [makeCitation({ documentId: createDocumentId("doc-1"), chunkId: createChunkId("prior") })],
+    };
+    const out = await r.deduplicate([head, sameDocChunk("b", 10, 20)]);
+    expect(out[0]?.mergedCitations?.map((c) => c.key)).toEqual(["doc-1:prior", "doc-1:b"]);
+  });
+
+  it("anchors the merge on the highest-scoring span", async () => {
+    const r = new AdjacentMerger();
+    const early = { ...sameDocChunk("a", 0, 10), score: 0.2 };
+    const hit = { ...sameDocChunk("b", 10, 20), score: 0.9 };
+    const out = await r.deduplicate([early, hit], { resolveSpan });
+    expect(out[0]?.anchor).toMatchObject({ start: 10, end: 20 });
+  });
+
+  it("leaves mergedCitations unset when nothing is merged", async () => {
+    const r = new AdjacentMerger();
+    const out = await r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 15, 25)]);
     expect(out[0]?.mergedCitations).toBeUndefined();
     expect(out[1]?.mergedCitations).toBeUndefined();
   });
@@ -128,61 +175,63 @@ describe("NearDeduplicator", () => {
     expect(() => new NearDeduplicator({ threshold: 1.5 })).toThrow();
   });
 
-  it("drops the later near-duplicate (cosine above threshold)", () => {
-    // Two vectors with cosine 1.0 (identical). The second will be dropped.
+  it("drops the lower-scoring near-duplicate in the same document", async () => {
     const r = new NearDeduplicator({ threshold: 0.95 });
-    const a = chunk("a", 0, 10, [1, 0]);
-    const b = chunk("b", 0, 10, [1, 0]);
-    const out = r.deduplicate([a, b]);
+    const low = { ...sameDocChunk("a", 0, 10, undefined, [1, 0]), score: 0.2 };
+    const high = { ...sameDocChunk("b", 20, 30, undefined, [1, 0]), score: 0.9 };
+    const out = await r.deduplicate([low, high]);
     expect(out).toHaveLength(1);
+    expect(out[0]?.chunkId).toBe(createChunkId("b"));
   });
 
-  it("keeps the first-encountered chunk regardless of score", () => {
+  it("keeps near-duplicate embeddings from different documents", async () => {
     const r = new NearDeduplicator({ threshold: 0.95 });
-    const a: ContextChunk = { ...chunk("a", 0, 10, [1, 0]), score: 0.5 };
-    const b: ContextChunk = { ...chunk("b", 0, 10, [0.99, 0.01]), score: 0.9 }; // near 1.0
-    const out = r.deduplicate([a, b]);
-    // a is processed first; b is dropped even though it scores higher.
-    expect(out).toHaveLength(1);
-    expect(out[0]?.chunkId).toBe(createChunkId("a"));
-  });
-
-  it("compares direction, not magnitude (large vectors are not near-duplicates)", () => {
-    // Dot product is 20 -- far above any threshold -- but the cosine
-    // is 20 / 101 = 0.198, so neither chunk dominates the other.
-    const r = new NearDeduplicator({ threshold: 0.95 });
-    const out = r.deduplicate([chunk("a", 0, 10, [10, 1]), chunk("b", 0, 10, [1, 10])]);
+    const out = await r.deduplicate([chunk("a", 0, 10, [1, 0]), chunk("b", 0, 10, [1, 0])]);
     expect(out).toHaveLength(2);
   });
 
-  it("treats parallel vectors of different magnitude as duplicates", () => {
+  it("compares direction, not magnitude", async () => {
     const r = new NearDeduplicator({ threshold: 0.95 });
-    const out = r.deduplicate([chunk("a", 0, 10, [10, 0]), chunk("b", 0, 10, [3, 0])]);
-    expect(out).toHaveLength(1);
-  });
-
-  it("keeps chunks with a zero-magnitude embedding (similarity is 0, not NaN)", () => {
-    const r = new NearDeduplicator({ threshold: 0.95 });
-    const out = r.deduplicate([chunk("a", 0, 10, [0, 0]), chunk("b", 0, 10, [0, 0])]);
+    const out = await r.deduplicate([
+      sameDocChunk("a", 0, 10, undefined, [10, 1]),
+      sameDocChunk("b", 20, 30, undefined, [1, 10]),
+    ]);
     expect(out).toHaveLength(2);
   });
 
-  it("keeps chunks without embeddings (cannot judge similarity)", () => {
+  it("treats parallel vectors of different magnitude as duplicates", async () => {
+    const r = new NearDeduplicator({ threshold: 0.95 });
+    const out = await r.deduplicate([
+      sameDocChunk("a", 0, 10, undefined, [10, 0]),
+      sameDocChunk("b", 20, 30, undefined, [3, 0]),
+    ]);
+    expect(out).toHaveLength(1);
+  });
+
+  it("keeps chunks with a zero-magnitude embedding", async () => {
+    const r = new NearDeduplicator({ threshold: 0.95 });
+    const out = await r.deduplicate([
+      sameDocChunk("a", 0, 10, undefined, [0, 0]),
+      sameDocChunk("b", 20, 30, undefined, [0, 0]),
+    ]);
+    expect(out).toHaveLength(2);
+  });
+
+  it("keeps chunks without embeddings", async () => {
     const r = new NearDeduplicator();
-    const out = r.deduplicate([chunk("a", 0, 10), chunk("b", 0, 10)]);
+    const out = await r.deduplicate([sameDocChunk("a", 0, 10), sameDocChunk("b", 20, 30)]);
     expect(out).toHaveLength(2);
   });
 });
 
 describe("DefaultDeduplicator", () => {
-  it("runs exact, then adjacent, then near (cheap first)", () => {
+  it("runs exact, then near, then span merge", async () => {
     const r = new DefaultDeduplicator();
-    const a = chunk("a", 0, 10, [1, 0]);
-    const aDup = chunk("a", 0, 10, [1, 0]);
-    const b = chunk("b", 10, 20, [0.99, 0.01]); // near-dup of a
-    const out = r.deduplicate([a, aDup, b]);
-    // exact: drops aDup. adjacent: a and b are adjacent -> merge.
-    // near: only the merged chunk remains.
+    const a = sameDocChunk("a", 0, 10, undefined, [1, 0]);
+    const b = sameDocChunk("b", 10, 20);
+    const out = await r.deduplicate([a, a, b], { resolveSpan });
     expect(out).toHaveLength(1);
+    expect(out[0]?.text).toBe(DOC.slice(0, 20));
+    expect(out[0]?.mergedCitations?.map((c) => c.key)).toEqual(["doc-1:b"]);
   });
 });

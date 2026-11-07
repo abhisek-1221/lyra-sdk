@@ -1,4 +1,4 @@
-import type { Context } from "@lyra-sdk/context";
+import type { Context, ContextChunk, TokenCounter } from "@lyra-sdk/context";
 import type { Conversation } from "./conversation.js";
 import type { Prompt } from "./prompt.js";
 import type { CitationFormat } from "../templates/citation-format.js";
@@ -36,4 +36,17 @@ export interface PromptBuildArgs {
  */
 export interface PromptBuilder {
   build(args: PromptBuildArgs): Prompt;
+  /** Tokens for one rendered chunk, excluding the joiner between chunks. */
+  estimateChunkTokens?(chunk: ContextChunk, counter: TokenCounter, index?: number): number;
+  /** Tokens for the source footer appended after the user message. */
+  estimateSourceTokens?(chunks: readonly ContextChunk[], counter: TokenCounter): number;
+  /**
+   * Tokens for system text, history, the query, and the
+   * `Context:` / `Question:` wrapper. Excludes chunk text.
+   */
+  estimatePromptOverhead?(args: {
+    readonly system?: string;
+    readonly query: string;
+    readonly conversation?: Conversation;
+  }): number;
 }

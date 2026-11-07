@@ -33,7 +33,7 @@ export interface ContextBenchmarkReport {
   readonly meanCoverage: number;
   /** Mean dedup ratio: (input - output) / input. 0 if no input. */
   readonly meanDedupRatio: number;
-  /** Fraction of context chunks that have a non-empty citation key. */
+  /** Fraction of context chunks whose citation has a label or a url. */
   readonly citationCompleteness: number;
 }
 
@@ -66,14 +66,19 @@ export class ContextBenchmark {
     for (const example of options.dataset.examples) {
       const retrieved = await options.retrieve(example.query);
       const budget = options.tokenBudget ?? example.expectedTokenBudget;
-      // Build with the configured budget. The builder has its own
-      // budget field, so we rely on the caller to have set it
-      // appropriately. For the benchmark, we use the dataset's
-      // expected budget as a sanity check.
-      const context: Context = await options.builder.build(retrieved);
+      const context: Context = await options.builder.build(retrieved, {
+        query: example.query,
+        tokenBudget: budget,
+      });
       sumUsed += context.usedTokens;
       // Coverage.
-      const contextIds = new Set(context.chunks.map((c) => String(c.chunkId)));
+      const contextIds = new Set<string>();
+      for (const chunk of context.chunks) {
+        contextIds.add(String(chunk.chunkId));
+        for (const merged of chunk.mergedCitations ?? []) {
+          contextIds.add(chunkIdFromCitationKey(merged.key));
+        }
+      }
       const relevantIds = new Set(example.relevant.map((c) => String(c)));
       let hit = 0;
       for (const id of relevantIds) {
@@ -87,15 +92,13 @@ export class ContextBenchmark {
       const outputN = context.chunks.length;
       const dedup = inputN === 0 ? 0 : (inputN - outputN) / inputN;
       sumDedup += dedup;
-      // Citation completeness.
       for (const c of context.chunks) {
         totalCitationSlots++;
-        if (c.citation.key.length > 0) totalCitationFilled++;
+        const hasLabel = c.citation.label !== undefined && c.citation.label.length > 0;
+        const hasUrl = c.citation.url !== undefined && c.citation.url.length > 0;
+        if (hasLabel || hasUrl) totalCitationFilled++;
       }
       queries++;
-      // Suppress the unused `budget` warning; it's an assertion
-      // by the caller.
-      void budget;
     }
     return {
       builderLabel: options.builderLabel ?? options.builder.name,
@@ -109,4 +112,9 @@ export class ContextBenchmark {
         totalCitationSlots === 0 ? 0 : totalCitationFilled / totalCitationSlots,
     };
   }
+}
+
+function chunkIdFromCitationKey(key: string): string {
+  const splitAt = key.indexOf(":");
+  return splitAt === -1 ? key : key.slice(splitAt + 1);
 }

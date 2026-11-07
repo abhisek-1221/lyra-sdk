@@ -10,18 +10,34 @@ import { InMemoryChunkRepository, InMemoryDocumentRepository } from "@lyra-sdk/s
 import { DenseRetriever } from "@lyra-sdk/retrieval";
 import { OpenAIEmbedder } from "@lyra-sdk/embedding";
 import { OpenAIGenerator, type Generator } from "@lyra-sdk/generation";
-import { DefaultContextBuilder, TranscriptOrdering, TranscriptExpander } from "@lyra-sdk/context";
+import {
+  CharHeuristicTokenCounter,
+  DefaultContextBuilder,
+  TranscriptOrdering,
+  TranscriptExpander,
+} from "@lyra-sdk/context";
 import { DefaultPromptBuilder } from "@lyra-sdk/prompt";
 import { RetrievalPipeline } from "@lyra-sdk/pipeline";
-import { RecursiveChunkStrategy, SpanChunkContentResolver, TranscriptParser } from "@lyra-sdk/ingestion";
+import {
+  RecursiveChunkStrategy,
+  SpanChunkContentResolver,
+  TranscriptParser,
+  type YouTubeTranscriptLoader,
+} from "@lyra-sdk/ingestion";
 import type { Embedder } from "@lyra-sdk/embedding";
 
-export function buildYoutubeQaPipeline(opts: { embedder: Embedder; generator: Generator }) {
+export function buildYoutubeQaPipeline(opts: {
+  embedder: Embedder;
+  generator: Generator;
+  youtubeLoader?: YouTubeTranscriptLoader;
+}) {
   const documents = new InMemoryDocumentRepository();
   const chunks = new InMemoryChunkRepository();
   const index = new BruteForceIndex(new CosineSimilarity());
   const retriever = new DenseRetriever({ index, embedder: opts.embedder, chunks });
   const resolver = new SpanChunkContentResolver(documents);
+  const counter = new CharHeuristicTokenCounter();
+  const promptBuilder = new DefaultPromptBuilder({ tokenCounter: counter });
 
   return new RetrievalPipeline({
     sourceParser: new TranscriptParser(),
@@ -35,11 +51,15 @@ export function buildYoutubeQaPipeline(opts: { embedder: Embedder; generator: Ge
     contextBuilder: new DefaultContextBuilder({
       tokenBudget: 4000,
       resolver,
+      documents,
+      chunkRepository: chunks,
       ordering: new TranscriptOrdering(),
-      expander: new TranscriptExpander(),
+      expander: new TranscriptExpander({ windowSeconds: 30 }),
+      tokenCounter: counter,
     }),
-    promptBuilder: new DefaultPromptBuilder(),
+    promptBuilder,
     generator: opts.generator,
+    ...(opts.youtubeLoader !== undefined ? { youtubeLoader: opts.youtubeLoader } : {}),
   });
 }
 

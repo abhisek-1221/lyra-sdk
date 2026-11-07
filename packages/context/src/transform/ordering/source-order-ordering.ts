@@ -2,9 +2,9 @@ import type { ContextChunk } from "../../types/index.js";
 import type { ContextOrdering } from "../strategies.js";
 
 /**
- * Order chunks by `(documentId, span.start)`. Reads as a
- * document-as-narrative: each document's chunks appear in source
- * order, documents interleaved by first-chunk position.
+ * Order chunks by `(documentId, span.start)`. Documents are
+ * grouped by `documentId` lexicographically, and each
+ * document's chunks appear in span order.
  */
 export class SourceOrderOrdering implements ContextOrdering {
   public readonly name = "source";

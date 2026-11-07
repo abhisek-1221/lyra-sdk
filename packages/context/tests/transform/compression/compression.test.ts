@@ -32,12 +32,12 @@ describe("MetadataStrippingCompressor", () => {
     expect(out[0]?.documentId).toBeDefined();
   });
 
-  it("strips timestamp, speaker, and metadata", () => {
+  it("keeps timestamp and speaker and drops embedding and metadata", () => {
     const r = new MetadataStrippingCompressor();
-    const c = chunk("hello");
+    const c = { ...chunk("hello"), embedding: new Float32Array([1, 0]), metadata: { title: "T" } };
     const out = r.compress([c]);
-    expect(out[0]?.timestamp).toBeUndefined();
-    expect(out[0]?.speaker).toBeUndefined();
+    expect(out[0]?.timestamp).toBe(1000);
+    expect(out[0]?.speaker).toBe("alice");
     expect(out[0]?.metadata).toBeUndefined();
     expect(out[0]?.embedding).toBeUndefined();
   });
@@ -58,8 +58,10 @@ describe("HeadTruncatingCompressor", () => {
 
   it("truncates long chunks at the head, appends '...'", () => {
     const r = new HeadTruncatingCompressor(5);
-    const out = r.compress([chunk("a long chunk of text")]);
+    const c = chunk("a long chunk of text");
+    const out = r.compress([c]);
     expect(out[0]?.text).toBe("a lon...");
+    expect(out[0]?.span.end).toBe(c.span.end);
   });
 
   it("preserves citation, chunkId, documentId on truncation", () => {

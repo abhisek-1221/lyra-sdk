@@ -35,5 +35,9 @@ export interface PromptTemplate {
     readonly query: string;
     readonly rendered: readonly string[];
     readonly truncated: boolean;
+    /** Rendered chunks, in order. Used to append the source footer. */
+    readonly chunks?: readonly ContextChunk[];
+    /** Same marker function `formatChunk` used for this message. */
+    readonly cite?: CitationFormat;
   }) => string;
 }

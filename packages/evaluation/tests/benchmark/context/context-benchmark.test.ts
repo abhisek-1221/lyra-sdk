@@ -22,7 +22,7 @@ function doc(id: string, content: string): SourceDocument {
     sourceUri: `lyra://${id}`,
     content,
     blocks: [{ text: content, metadata: {} }],
-    metadata: {},
+    metadata: { title: "T" },
   };
 }
 

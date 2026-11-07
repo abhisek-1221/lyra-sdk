@@ -15,26 +15,37 @@ import type { TranscriptWithMetaMirror } from "./transcript-mirror.js";
  *     deterministic and matches the slice math in
  *     `SpanChunkContentResolver`.
  *   - `blocks` mirrors each transcript line, with the line index,
- *     offset, duration, and language carried in `metadata`. Downstream
- *     consumers (chunker, citation builder) can use these to respect
- *     caption boundaries without re-parsing the input.
+ *     offset (seconds), duration, language, and the line's
+ *     `contentStart` / `contentEnd` offsets into `content`.
+ *     Downstream chunking copies `offset` onto chunk timestamps.
  *   - `metadata` carries the video's own metadata for retrieval-time
- *     filtering and citation display.
+ *     filtering and citation display, including a watch `url`.
  */
 export class TranscriptParser implements SourceParser<TranscriptWithMetaMirror> {
   public parse(input: TranscriptWithMetaMirror): SourceDocument {
     const lines = input.lines;
     const content = lines.map((l) => l.text).join("\n");
 
-    const blocks: DocumentBlock[] = lines.map((line, i) => ({
-      text: line.text,
-      metadata: {
-        offset: line.offset,
-        duration: line.duration,
-        lang: line.lang,
-        lineIndex: i,
-      },
-    }));
+    const blocks: DocumentBlock[] = [];
+    let cursor = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      const contentStart = cursor;
+      const contentEnd = cursor + line.text.length;
+      blocks.push({
+        text: line.text,
+        metadata: {
+          offset: line.offset,
+          duration: line.duration,
+          lang: line.lang,
+          lineIndex: i,
+          contentStart,
+          contentEnd,
+        },
+      });
+      cursor = contentEnd;
+      if (i < lines.length - 1) cursor += 1;
+    }
 
     const m = input.meta;
     const metadata: Record<string, string | number | boolean> = {
@@ -45,6 +56,7 @@ export class TranscriptParser implements SourceParser<TranscriptWithMetaMirror> 
       lengthSeconds: m.lengthSeconds,
       viewCount: m.viewCount,
       isLiveContent: m.isLiveContent,
+      url: `https://www.youtube.com/watch?v=${m.videoId}`,
     };
 
     return {

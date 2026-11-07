@@ -2,10 +2,9 @@ import type { ContextChunk } from "../../types/index.js";
 import type { Compressor } from "../strategies.js";
 
 /**
- * Strips optional fields from each chunk, keeping only the
- * minimum the LLM prompt needs: `text`, `score`, `citation`,
- * `mergedCitations`, and the join keys. Always safe; runs in the
- * default chain.
+ * Drops fields the prompt does not render: the embedding and the
+ * raw metadata bag. Keeps `timestamp` and `speaker` so transcript
+ * headers survive. Always safe; runs in the default chain.
  */
 export class MetadataStrippingCompressor implements Compressor {
   public readonly name = "metadata-stripping";
@@ -17,7 +16,10 @@ export class MetadataStrippingCompressor implements Compressor {
       text: c.text,
       score: c.score,
       span: c.span,
+      ...(c.anchor !== undefined ? { anchor: c.anchor } : {}),
       citation: c.citation,
+      ...(c.timestamp !== undefined ? { timestamp: c.timestamp } : {}),
+      ...(c.speaker !== undefined ? { speaker: c.speaker } : {}),
       ...(c.mergedCitations !== undefined ? { mergedCitations: c.mergedCitations } : {}),
     }));
   }

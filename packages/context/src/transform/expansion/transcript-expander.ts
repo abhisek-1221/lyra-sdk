@@ -1,16 +1,19 @@
+import type { DocumentId } from "@lyra-sdk/kernel";
+import type { Chunk } from "@lyra-sdk/storage";
 import type { ContextChunk } from "../../types/index.js";
-import type { Expander } from "../strategies.js";
+import type { ExpandContext, Expander } from "../strategies.js";
 
 /**
  * Options for {@link TranscriptExpander}.
  */
 export interface TranscriptExpanderOptions {
   /**
-   * Adjacent-window size in milliseconds. The expander pulls in
-   * any chunk whose `timestamp` is within this window on either
-   * side of a selected chunk. Default 30 000 ms (30 seconds).
+   * Adjacent-window size in seconds. The expander pulls in any
+   * stored chunk whose `timestamp` is within this window on
+   * either side of a selected chunk. Default 30 seconds.
+   * Timestamps use the same unit as transcript `offset`.
    */
-  readonly windowMs?: number;
+  readonly windowSeconds?: number;
   /**
    * Optional cap on total text length (chars) added by expansion.
    * A candidate that would push the total past the cap is skipped;
@@ -18,51 +21,29 @@ export interface TranscriptExpanderOptions {
    * Default: no cap.
    */
   readonly maxAddedChars?: number;
-  /**
-   * The corpus to pull adjacent chunks from. The `expand` input
-   * is the **selected** set; this is the full corpus. When
-   * omitted, the expander uses the input as the corpus
-   * (self-pool), which is the typical case for fully-materialized
-   * context construction.
-   */
-  readonly corpus?: readonly ContextChunk[];
 }
 
 /**
- * Transcript-aware expander. For each selected chunk (the input
- * to `expand`), pulls in adjacent chunks in the same document
- * within a time window.
+ * Transcript-aware expander. For each selected chunk with a
+ * timestamp, loads same-document chunks from `ChunkRepository`
+ * whose timestamps fall inside the window.
  *
- * Behaviour:
- *   - For each selected chunk C with timestamp T, all chunks in
- *     the corpus (default = the input) in the same document with
- *     timestamp in [T - windowMs, T + windowMs] are added to the
- *     output.
- *   - The expander dedupes by `chunkId` (an expanded chunk can
- *     only appear once even if multiple selected chunks
- *     "asked" for it).
- *   - The expander does NOT mutate the input; it returns a new
- *     array.
- *
- * When the corpus is the same as the input (the default), the
- * expander preserves all input chunks and may add additional
- * adjacent ones from the same list. When a separate corpus is
- * supplied (e.g. all chunks in the document, not just the
- * selected hits), the expander can pull in chunks the
- * application did not select.
+ * Neighbors are scored at half the seed's score so budget
+ * selection keeps the retrieved hit ahead of its surroundings.
+ * With no chunk repository, the expander returns the input
+ * unchanged: the selected set is not a neighbor corpus.
  */
 export class TranscriptExpander implements Expander {
   public readonly name = "transcript";
-  private readonly windowMs: number;
+  private readonly windowSeconds: number;
   private readonly maxAddedChars: number | undefined;
-  private readonly corpus: readonly ContextChunk[] | undefined;
 
   constructor(options: TranscriptExpanderOptions = {}) {
-    const w = options.windowMs ?? 30_000;
+    const w = options.windowSeconds ?? 30;
     if (!Number.isFinite(w) || w < 0) {
-      throw new Error(`TranscriptExpander: windowMs must be a non-negative number, got ${w}`);
+      throw new Error(`TranscriptExpander: windowSeconds must be a non-negative number, got ${w}`);
     }
-    this.windowMs = w;
+    this.windowSeconds = w;
     if (options.maxAddedChars !== undefined) {
       if (!Number.isInteger(options.maxAddedChars) || options.maxAddedChars < 0) {
         throw new Error(
@@ -71,50 +52,69 @@ export class TranscriptExpander implements Expander {
       }
       this.maxAddedChars = options.maxAddedChars;
     }
-    this.corpus = options.corpus;
   }
 
-  public expand(chunks: readonly ContextChunk[]): readonly ContextChunk[] {
+  public async expand(
+    chunks: readonly ContextChunk[],
+    ctx: ExpandContext = {},
+  ): Promise<readonly ContextChunk[]> {
     if (chunks.length === 0) return [];
-    const corpus = this.corpus ?? chunks;
-    if (corpus.length === 0) return chunks;
-    // Index corpus by (documentId) -> chunks with timestamps.
-    const pool = new Map<string, ContextChunk[]>();
-    for (const c of corpus) {
-      if (c.timestamp === undefined) continue;
-      const key = String(c.documentId);
-      const arr = pool.get(key);
-      if (arr === undefined) pool.set(key, [c]);
-      else arr.push(c);
-    }
+    const repo = ctx.chunkRepository;
+    const toContextChunk = ctx.toContextChunk;
+    if (repo === undefined || toContextChunk === undefined) return chunks;
+
     const seen = new Set<string>();
     const out: ContextChunk[] = [];
-    let addedChars = 0;
-    // 1. Add all input chunks (the user's selected set).
-    for (const c of chunks) {
-      if (!seen.has(String(c.chunkId))) {
-        seen.add(String(c.chunkId));
-        out.push(c);
-      }
+    for (const chunk of chunks) {
+      const key = chunkKey(chunk.documentId, chunk.chunkId);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(chunk);
     }
-    // 2. Pull in adjacent chunks from the corpus.
+
+    const listed = new Map<string, readonly Chunk[]>();
+    const load = async (documentId: DocumentId): Promise<readonly Chunk[]> => {
+      const key = String(documentId);
+      const hit = listed.get(key);
+      if (hit !== undefined) return hit;
+      const rows = await repo.listByDocument(documentId);
+      listed.set(key, rows);
+      return rows;
+    };
+
+    let addedChars = 0;
     for (const seed of chunks) {
-      const t = seed.timestamp;
-      if (t === undefined) continue;
-      const candidates = pool.get(String(seed.documentId));
-      if (candidates === undefined) continue;
-      for (const cand of candidates) {
-        if (cand.timestamp === undefined) continue;
-        if (Math.abs(cand.timestamp - t) > this.windowMs) continue;
-        if (seen.has(String(cand.chunkId))) continue;
-        if (this.maxAddedChars !== undefined && addedChars + cand.text.length > this.maxAddedChars) {
+      const seedTimestamp = seed.timestamp;
+      if (seedTimestamp === undefined) continue;
+      const neighbors = await load(seed.documentId);
+      for (const neighbor of neighbors) {
+        const key = chunkKey(neighbor.documentId, neighbor.id);
+        if (seen.has(key)) continue;
+        const timestamp = neighbor.metadata["timestamp"];
+        if (typeof timestamp !== "number") continue;
+        if (Math.abs(timestamp - seedTimestamp) > this.windowSeconds) continue;
+        const built = await toContextChunk(neighbor, discountNeighborScore(seed.score));
+        if (built === undefined) continue;
+        if (
+          this.maxAddedChars !== undefined &&
+          addedChars + built.text.length > this.maxAddedChars
+        ) {
           continue;
         }
-        seen.add(String(cand.chunkId));
-        out.push(cand);
-        addedChars += cand.text.length;
+        seen.add(key);
+        out.push(built);
+        addedChars += built.text.length;
       }
     }
     return out;
   }
+}
+
+/** Lower a neighbor's score without ever raising a negative seed score. */
+function discountNeighborScore(score: number): number {
+  return score - Math.abs(score) * 0.5;
+}
+
+function chunkKey(documentId: { toString(): string }, chunkId: { toString(): string }): string {
+  return `${String(documentId)}:${String(chunkId)}`;
 }

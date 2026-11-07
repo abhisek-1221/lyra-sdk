@@ -32,8 +32,17 @@ describe("TranscriptParser", () => {
     const d = new TranscriptParser().parse(fixture);
     expect(d.blocks.length).toBe(3);
     expect(d.blocks[0]?.text).toBe("Hello");
-    expect(d.blocks[0]?.metadata).toMatchObject({ offset: 0, duration: 1, lang: "en", lineIndex: 0 });
-    expect(d.blocks[2]?.metadata).toMatchObject({ lineIndex: 2 });
+    expect(d.blocks[0]?.metadata).toMatchObject({
+      offset: 0,
+      duration: 1,
+      lang: "en",
+      lineIndex: 0,
+      contentStart: 0,
+      contentEnd: 5,
+    });
+    expect(d.blocks[1]?.metadata).toMatchObject({ contentStart: 6, contentEnd: 11 });
+    expect(d.blocks[2]?.metadata).toMatchObject({ lineIndex: 2, contentStart: 12, contentEnd: 17 });
+    expect(d.content.length).toBe(17);
   });
 
   it("uses the videoId as the documentId and sourceUri", () => {
@@ -44,7 +53,12 @@ describe("TranscriptParser", () => {
 
   it("carries the video metadata", () => {
     const d = new TranscriptParser().parse(fixture);
-    expect(d.metadata).toMatchObject({ videoId: "abc123XYZ_-", title: "T", author: "A" });
+    expect(d.metadata).toMatchObject({
+      videoId: "abc123XYZ_-",
+      title: "T",
+      author: "A",
+      url: "https://www.youtube.com/watch?v=abc123XYZ_-",
+    });
   });
 
   it("handles an empty transcript gracefully", () => {

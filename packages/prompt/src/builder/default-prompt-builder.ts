@@ -1,9 +1,13 @@
-import { CharHeuristicTokenCounter, type TokenCounter } from "@lyra-sdk/context";
+import { CharHeuristicTokenCounter, type ContextChunk, type TokenCounter } from "@lyra-sdk/context";
 import type { Prompt } from "./prompt.js";
 import type { Conversation } from "./conversation.js";
 import type { CitationFormat } from "../templates/citation-format.js";
 import type { PromptTemplate } from "../templates/prompt-template.js";
-import { DefaultPromptTemplate } from "../templates/default-prompt-template.js";
+import {
+  DefaultPromptTemplate,
+  estimateRenderedChunkTokens,
+  estimateSourcesTokens,
+} from "../templates/default-prompt-template.js";
 import type { PromptBuildArgs, PromptBuilder } from "./prompt-builder.js";
 
 /**
@@ -35,6 +39,8 @@ export class DefaultPromptBuilder implements PromptBuilder {
       query: args.query,
       rendered,
       truncated: args.context.truncated,
+      chunks: args.context.chunks,
+      cite,
     });
 
     const messages = buildMessages(args.conversation, system, userText);
@@ -45,6 +51,34 @@ export class DefaultPromptBuilder implements PromptBuilder {
       messages,
       estimatedInputTokens: this.counter.count(fullText),
     };
+  }
+
+  /**
+   * Matches {@link DefaultPromptTemplate}. A custom `template`
+   * that formats chunks differently will not match this count.
+   */
+  public estimateChunkTokens(chunk: ContextChunk, counter: TokenCounter, index = 0): number {
+    return estimateRenderedChunkTokens(chunk, counter, index, this.defaultCitationFormat);
+  }
+
+  public estimateSourceTokens(chunks: readonly ContextChunk[], counter: TokenCounter): number {
+    return estimateSourcesTokens(chunks, counter, this.defaultCitationFormat);
+  }
+
+  public estimatePromptOverhead(args: {
+    readonly system?: string;
+    readonly query: string;
+    readonly conversation?: Conversation;
+  }): number {
+    const system = args.system ?? this.template.system;
+    const history = args.conversation?.messages.map((message) => message.content).join("\n\n") ?? "";
+    return (
+      this.counter.count(system) +
+      this.counter.count(history) +
+      this.counter.count("Context:\n\n") +
+      this.counter.count("\n\nQuestion:\n") +
+      this.counter.count(args.query)
+    );
   }
 }
 

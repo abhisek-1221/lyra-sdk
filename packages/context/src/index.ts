@@ -14,8 +14,8 @@
  *   - `ContextTransform` is the unified base for every pure
  *     transformation: `ContextOrdering`, `Deduplicator`,
  *     `Compressor`, `Expander`.
- *   - `DefaultContextBuilder` chains them in a fixed order
- *     with sensible transcript-friendly defaults.
+ *   - `DefaultContextBuilder` chains them in a fixed order:
+ *     resolve, expand, dedupe, select by score, order, project.
  *
  * The application is responsible for choosing strategies.
  *
@@ -25,11 +25,12 @@
 export type { Context, ContextChunk, ContextCitation } from "./types/index.js";
 export { makeCitationKey } from "./types/index.js";
 
-export type { ContextBuilder } from "./builder/index.js";
+export type { ContextBuilder, ContextBuildOptions } from "./builder/index.js";
 export type { ContextBuilderOptions } from "./builder/index.js";
 export { DefaultContextBuilder, InMemoryChunkContentResolver } from "./builder/index.js";
 
 export type { ContextTransform } from "./transform/context-transform.js";
+export type { DeduplicateContext, ExpandContext } from "./transform/strategies.js";
 
 export type { ContextOrdering } from "./transform/strategies.js";
 export { ScoreOrdering, SourceOrderOrdering, ChronologicalOrdering, TimestampOrdering, TranscriptOrdering } from "./transform/ordering/index.js";
