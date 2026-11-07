@@ -44,6 +44,31 @@ describe("RecursiveChunkStrategy", () => {
     }
   });
 
+  it("copies block offset onto chunk timestamp", async () => {
+    const line = "a".repeat(30);
+    const content = `${line}\n${line}`;
+    const s = new RecursiveChunkStrategy({
+      splitter: { chunkSize: 20 },
+      merger: { chunkSize: 20 },
+      overlap: { overlap: 0 },
+    });
+    const out = await s.chunk({
+      id: createDocumentId("doc-1"),
+      sourceUri: "x",
+      content,
+      blocks: [
+        { text: line, metadata: { offset: 4, contentStart: 0, contentEnd: 30, speaker: "Ada" } },
+        { text: line, metadata: { offset: 9, contentStart: 31, contentEnd: 61 } },
+      ],
+      metadata: {},
+    });
+    expect(out.length).toBeGreaterThan(1);
+    expect(out[0]?.metadata.timestamp).toBe(4);
+    expect(out[0]?.metadata.speaker).toBe("Ada");
+    const later = out.find((c) => c.span.start >= 31);
+    expect(later?.metadata.timestamp).toBe(9);
+  });
+
   it("chunks have no `content` field", async () => {
     const s = new RecursiveChunkStrategy();
     const out = await s.chunk(makeDoc("hello world"));

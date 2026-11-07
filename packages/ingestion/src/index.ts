@@ -56,7 +56,7 @@ export type { TokenOverlapProcessorOptions } from "./overlap/token-overlap-proce
 export { TokenOverlapProcessor } from "./overlap/token-overlap-processor.js";
 
 export type { ChunkFactoryOptions } from "./factory/chunk-factory.js";
-export { ChunkFactory } from "./factory/chunk-factory.js";
+export { ChunkFactory, projectChunkMetadata } from "./factory/chunk-factory.js";
 
 export { SpanChunkContentResolver } from "./factory/span-chunk-content-resolver.js";
 

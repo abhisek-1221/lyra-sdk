@@ -1,5 +1,5 @@
 import type { Chunk } from "@lyra-sdk/storage";
-import { ChunkFactory, type ChunkFactoryOptions } from "../factory/chunk-factory.js";
+import { ChunkFactory, projectChunkMetadata, type ChunkFactoryOptions } from "../factory/chunk-factory.js";
 import { GreedySpanMerger, type GreedySpanMergerOptions } from "../merge/greedy-span-merger.js";
 import { TokenOverlapProcessor, type TokenOverlapProcessorOptions } from "../overlap/token-overlap-processor.js";
 import { RecursiveSplitter, type RecursiveSplitterOptions } from "../segmentation/recursive-splitter.js";
@@ -33,6 +33,9 @@ export interface RecursiveChunkStrategyOptions {
  *     │  ChunkFactory.create
  *     ▼
  *   Chunk[]                 // span-only, ids allocated
+ *     │  projectChunkMetadata
+ *     ▼
+ *   Chunk[]                 // timestamp / speaker copied from blocks
  *
  * The strategy is intentionally composable. The four stages can be
  * swapped individually (e.g. swap `RecursiveSplitter` for a future
@@ -59,6 +62,6 @@ export class RecursiveChunkStrategy implements ChunkStrategy {
       overlap: this.overlap,
       docLength: document.content.length,
     });
-    return this.factory.create(document.id, overlapped);
+    return projectChunkMetadata(document, this.factory.create(document.id, overlapped));
   }
 }
