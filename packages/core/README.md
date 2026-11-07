@@ -195,30 +195,32 @@ try {
 
 ### Context Layer (`@lyra-sdk/*`)
 
-Composable packages for turning YouTube transcripts into searchable, citeable context for LLM workflows.
+Separate packages from `lyra-sdk`. Composable pieces for turning YouTube transcripts into searchable, citeable context for LLM workflows. The Go SDK does not include this layer yet.
 
 | Package | Layer | Description |
 |---------|-------|-------------|
 | `@lyra-sdk/kernel` | Foundation | Branded ids, `TextSpan`, and the shared error hierarchy |
-| `@lyra-sdk/storage` | Persistence | Document and chunk repositories (in-memory in Phase 1) |
-| `@lyra-sdk/ingestion` | Ingestion | Source parsers, chunk strategies, and YouTube transcript loading |
+| `@lyra-sdk/storage` | Persistence | Document and chunk repositories, including `listByDocument` for neighbor expansion |
+| `@lyra-sdk/ingestion` | Ingestion | Parsers, chunking, YouTube loading, and caption timestamps copied onto chunks |
 | `@lyra-sdk/embedding` | Embedding | Provider-agnostic embedders (OpenAI, Ollama, Jina, Voyage, …) |
 | `@lyra-sdk/index` | Index | Vector index contracts, similarity metrics, and `BruteForceIndex` |
 | `@lyra-sdk/retrieval` | Retrieval | Dense, BM25, hybrid, parent-document, and multi-query retrievers |
 | `@lyra-sdk/reranking` | Reranking | MMR, cross-encoder, and cascade rerankers |
-| `@lyra-sdk/context` | Context | Token budgeting, ordering, expansion, deduplication, and citations |
-| `@lyra-sdk/prompt` | Prompt | Provider-independent prompt construction |
+| `@lyra-sdk/context` | Context | Score-based token budget, span merge, transcript expansion, and citation markers |
+| `@lyra-sdk/prompt` | Prompt | Provider-independent prompt construction, including the `Sources` footer |
 | `@lyra-sdk/generation` | Generation | LLM providers (OpenAI, Anthropic, Gemini, OpenRouter, Ollama) |
-| `@lyra-sdk/pipeline` | Orchestration | `RetrievalPipeline` — ingest, query, and `ask()` end-to-end |
+| `@lyra-sdk/pipeline` | Orchestration | `ingest` a URL or transcript, then `query` or `ask` |
 | `@lyra-sdk/evaluation` | Evaluation | Recall@K, MRR, NDCG, and benchmark runners |
 
 ### Context Layer usage
 
 **YouTube URL → ingest → semantic search (`query`)**
 
-Pass a YouTube URL (or `{ videoId }`) to `pipeline.ingest`. The pipeline
-loads the transcript via `lyra-sdk` / `CoreYouTubeTranscriptLoader`, then
-parses, chunks, embeds, and indexes it.
+`ingest` accepts a YouTube URL string, `{ url }`, `{ videoId }`, or a transcript object (`meta` + `lines`). URL and video-id inputs are loaded with `CoreYouTubeTranscriptLoader` before parsing, which needs the `lyra-sdk` peer. A transcript object skips that load.
+
+Parsing stores each caption's offset in seconds and a watch URL on the document. Chunking copies the earliest overlapping caption's offset onto `chunk.metadata.timestamp`.
+
+`query` returns the retriever's hits. With no context builder, `context` is empty even when retrieval found chunks. `ask` throws in that case.
 
 ```typescript
 import { RetrievalPipeline } from '@lyra-sdk/pipeline'
@@ -254,6 +256,12 @@ pipeline.dispose()
 
 **Grounded answers (`ask`)**
 
+`ask` retrieves, builds a prompt, and generates. `DefaultContextBuilder` resolves chunk text, pulls same-document neighbors inside `windowSeconds`, drops duplicates, and merges overlapping spans by slicing the source once. It keeps the highest-scoring chunks that fit `tokenBudget`, then orders those survivors (transcript time first). `ask` subtracts the system prompt, history, query, and wrapper from that budget. Share one `CharHeuristicTokenCounter` with the prompt builder so the estimate matches the rendered chunks.
+
+Pass the same `documents` and `chunks` stores the pipeline ingested into. The builder reads titles and watch URLs from the documents and loads neighbors from the chunk repository.
+
+The prompt prefixes each chunk with `[n]` and repeats those markers under `Sources`. A citation's label is the video title, and its URL is the watch link with `t=` set from the chunk timestamp. `generation.citations` is that list.
+
 ```typescript
 import { CharHeuristicTokenCounter, DefaultContextBuilder, TranscriptOrdering, TranscriptExpander } from '@lyra-sdk/context'
 import { DefaultPromptBuilder } from '@lyra-sdk/prompt'
@@ -280,7 +288,7 @@ const pipeline = new RetrievalPipeline({
 
 const out = await pipeline.ask({ query: 'Summarize the key points.' })
 console.log(out.generation.text)
-console.log(out.generation.citations)
+console.log(out.generation.citations[0]?.marker, out.generation.citations[0]?.label, out.generation.citations[0]?.url)
 ```
 
 ---
