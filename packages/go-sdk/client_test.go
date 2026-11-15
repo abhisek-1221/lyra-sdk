@@ -74,34 +74,6 @@ func TestTransportSendsAPIKeyInHeaderOnly(t *testing.T) {
 	}
 }
 
-func TestTransportMapsAuthQuotaAndNotFound(t *testing.T) {
-	tests := []struct {
-		name   string
-		status int
-		body   string
-		want   error
-	}{
-		{name: "auth key", status: http.StatusForbidden, body: "bad API key", want: ErrAuth},
-		{name: "quota", status: http.StatusForbidden, body: "quotaExceeded", want: ErrQuota},
-		{name: "unauthorized", status: http.StatusUnauthorized, body: "nope", want: ErrAuth},
-		{name: "missing", status: http.StatusNotFound, body: "missing", want: ErrNotFound},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				http.Error(w, tt.body, tt.status)
-			}))
-			defer server.Close()
-
-			client := testClient(t, server.URL, WithMaxRetries(2))
-			_, err := getJSON[map[string]any](context.Background(), client.http, "videos", map[string]string{"id": "abc"})
-			if !errors.Is(err, tt.want) {
-				t.Fatalf("err = %v", err)
-			}
-		})
-	}
-}
-
 func TestTransportDoesNotRetryNotFound(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

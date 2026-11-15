@@ -4,11 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+)
+
+const (
+	// maxSuccessBodyBytes caps a 2xx body; a body over the cap is an error,
+	// never a silent truncation.
+	maxSuccessBodyBytes = 8 << 20
+	// maxErrorBodyBytes caps how much of a non-2xx body is read for classification.
+	maxErrorBodyBytes = 64 << 10
 )
 
 type transport struct {
@@ -85,7 +94,12 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 			break
 		}
 
-		body, readErr := io.ReadAll(resp.Body)
+		success := resp.StatusCode >= 200 && resp.StatusCode < 300
+		limit := int64(maxErrorBodyBytes)
+		if success {
+			limit = maxSuccessBodyBytes
+		}
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 		resp.Body.Close()
 		if readErr != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
@@ -101,22 +115,24 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 			break
 		}
 
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			if err := json.Unmarshal(body, dest); err != nil {
-				return err
+		if success {
+			if int64(len(body)) > limit {
+				return fmt.Errorf("lyra: %s response body exceeds %d bytes", path, limit)
 			}
-			return nil
+			return json.Unmarshal(body, dest)
 		}
 
-		if retryable(resp.StatusCode) && attempt < t.maxRetries {
-			lastErr = apiError(resp.StatusCode, string(body))
-			if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {
-				return sleepErr
-			}
-			continue
+		if int64(len(body)) > limit {
+			body = body[:limit]
 		}
-
-		return statusError(resp.StatusCode, string(body), path, params)
+		apiErr := statusError(resp.StatusCode, body, path, params)
+		// Out of retries, the last real HTTP error is returned unchanged.
+		if !retryable(resp.StatusCode, apiErr.Reason) || attempt == t.maxRetries {
+			return apiErr
+		}
+		if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {
+			return sleepErr
+		}
 	}
 
 	message := "Request failed after retries"
@@ -134,10 +150,6 @@ func (t *transport) buildURL(path string, params map[string]string) string {
 	return t.baseURL + "/" + path + "?" + query.Encode()
 }
 
-func retryable(status int) bool {
-	return status == http.StatusTooManyRequests || (status >= 500 && status <= 599)
-}
-
 func sleepBackoff(ctx context.Context, attempt int) error {
 	delay := time.Duration(1<<attempt) * 300 * time.Millisecond
 	timer := time.NewTimer(delay)
@@ -148,19 +160,6 @@ func sleepBackoff(ctx context.Context, attempt int) error {
 	case <-timer.C:
 		return nil
 	}
-}
-
-func statusError(status int, body, path string, params map[string]string) *Error {
-	if status == http.StatusUnauthorized || (status == http.StatusForbidden && strings.Contains(body, "API key")) {
-		return authRejected()
-	}
-	if status == http.StatusForbidden {
-		return quotaExceeded()
-	}
-	if status == http.StatusNotFound {
-		return notFound(resourceForPath(path), resourceID(params, path))
-	}
-	return apiError(status, body)
 }
 
 func resourceForPath(path string) string {
