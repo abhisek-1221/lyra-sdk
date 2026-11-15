@@ -242,3 +242,21 @@ func playlistVideo(id, views, duration string) map[string]any {
 		"contentDetails": map[string]string{"duration": duration},
 	}
 }
+
+func TestPlaylistQueryRejectsUnknownSortFieldBeforeFetching(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	client := testClient(t, server.URL)
+	_, err := client.PlaylistQuery("PLquery").SortBy("view", "desc").Execute(context.Background())
+	if err == nil {
+		t.Fatal("expected an error for unknown sort field")
+	}
+	if calls.Load() != 0 {
+		t.Fatalf("server received %d requests, want 0", calls.Load())
+	}
+}

@@ -2,7 +2,27 @@ package lyra
 
 import (
 	"context"
+	"fmt"
 	"slices"
+)
+
+// SortField is a playlist video attribute that PlaylistQuery.SortBy orders by.
+type SortField string
+
+// Sort fields accepted by PlaylistQuery.SortBy.
+const (
+	SortByDuration SortField = "duration"
+	SortByViews    SortField = "views"
+	SortByLikes    SortField = "likes"
+)
+
+// SortOrder is the direction PlaylistQuery.SortBy orders in.
+type SortOrder string
+
+// Sort orders accepted by PlaylistQuery.SortBy. Any value other than Asc sorts descending.
+const (
+	Asc  SortOrder = "asc"
+	Desc SortOrder = "desc"
 )
 
 // PlaylistQuery starts a filter, sort, and slice over one playlist.
@@ -20,7 +40,7 @@ type PlaylistQuery struct {
 	viewsMin, viewsMax       *int64
 	likesMin, likesMax       *int64
 
-	sortField string
+	sortField SortField
 	sortDesc  bool
 	hasSort   bool
 
@@ -70,11 +90,11 @@ func (q *PlaylistQuery) FilterByLikes(min, max int64) *PlaylistQuery {
 	return q
 }
 
-// SortBy orders videos by "duration", "views", or "likes".
-// order is "asc" or "desc".
-func (q *PlaylistQuery) SortBy(field, order string) *PlaylistQuery {
+// SortBy orders videos by field in the given order.
+// An unknown field makes Execute return an error before any request is sent.
+func (q *PlaylistQuery) SortBy(field SortField, order SortOrder) *PlaylistQuery {
 	q.sortField = field
-	q.sortDesc = order != "asc"
+	q.sortDesc = order != Asc
 	q.hasSort = true
 	return q
 }
@@ -89,6 +109,13 @@ func (q *PlaylistQuery) Between(start, end int) *PlaylistQuery {
 
 // Execute loads the playlist and applies the query.
 func (q *PlaylistQuery) Execute(ctx context.Context) (PlaylistQueryResult, error) {
+	if q.hasSort {
+		switch q.sortField {
+		case SortByDuration, SortByViews, SortByLikes:
+		default:
+			return PlaylistQueryResult{}, fmt.Errorf("lyra-sdk: unknown playlist sort field %q", q.sortField)
+		}
+	}
 	loaded, err := q.client.loadPlaylist(ctx, q.playlistID)
 	if err != nil {
 		return PlaylistQueryResult{}, err
@@ -162,11 +189,11 @@ func (q *PlaylistQuery) applySort(videos []PlaylistVideo) []PlaylistVideo {
 	return sorted
 }
 
-func sortValue(video PlaylistVideo, field string) int64 {
+func sortValue(video PlaylistVideo, field SortField) int64 {
 	switch field {
-	case "duration":
+	case SortByDuration:
 		return int64(video.Duration)
-	case "likes":
+	case SortByLikes:
 		return video.Likes
 	default:
 		return video.Views

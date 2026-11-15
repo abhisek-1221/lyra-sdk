@@ -150,10 +150,10 @@ type CommentQueryResult struct {
 // CommentOptions controls comment thread listing.
 // MaxResults of 0 means no cap. TextFormat defaults to plainText.
 type CommentOptions struct {
-	Order       string
+	Order       CommentOrder
 	MaxResults  int
 	SearchTerms string
-	TextFormat  string
+	TextFormat  TextFormat
 }
 
 // RecentVideo is one upload returned by Client.ChannelVideos.
