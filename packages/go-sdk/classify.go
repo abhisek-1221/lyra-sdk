@@ -78,7 +78,9 @@ func isAuthReason(r string) bool {
 	return false
 }
 
-func isQuotaReason(r string) bool {
+// isQuotaOrRateLimitReason reports whether r means the quota or a rate limit
+// is exhausted.
+func isQuotaOrRateLimitReason(r string) bool {
 	switch r {
 	case "quotaExceeded", "dailyLimitExceeded":
 		return true
@@ -94,6 +96,16 @@ func isNotFoundReason(r string) bool {
 	return strings.HasSuffix(r, "NotFound")
 }
 
+// reasonRules maps reasons to a Kind, highest priority first.
+var reasonRules = []struct {
+	match func(string) bool
+	kind  Kind
+}{
+	{isAuthReason, KindAuth},
+	{isQuotaOrRateLimitReason, KindQuota},
+	{isNotFoundReason, KindNotFound},
+}
+
 // classify maps a status and every reason in the body to a Kind. A 401 is
 // always KindAuth. Otherwise a reason that maps to a specific Kind wins over
 // the status, with priority Auth > Quota (including rate limits) > NotFound;
@@ -102,14 +114,7 @@ func classify(status int, reasons []string) Kind {
 	if status == http.StatusUnauthorized {
 		return KindAuth
 	}
-	for _, rule := range []struct {
-		match func(string) bool
-		kind  Kind
-	}{
-		{isAuthReason, KindAuth},
-		{isQuotaReason, KindQuota},
-		{isNotFoundReason, KindNotFound},
-	} {
+	for _, rule := range reasonRules {
 		if slices.ContainsFunc(reasons, rule.match) {
 			return rule.kind
 		}
