@@ -77,6 +77,6 @@ func (q *CommentQuery) Execute(ctx context.Context) (CommentQueryResult, error) 
 		VideoID:      q.videoID,
 		Threads:      threads,
 		TotalResults: len(threads),
-		Stats:        commentStats(q.videoID, threads),
+		Stats:        SummarizeComments(q.videoID, threads),
 	}, nil
 }

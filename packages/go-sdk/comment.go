@@ -119,13 +119,23 @@ func (c *Client) ChannelComments(ctx context.Context, channelID string, opts Com
 	return c.commentThreads(ctx, "", channelID, opts)
 }
 
-// CommentStats summarizes threads the same way the TypeScript client does.
+// CommentStats summarizes threads.
+//
+// Deprecated: Use SummarizeComments, which needs no Client.
 func (c *Client) CommentStats(videoID string, threads []CommentThread) CommentStats {
-	return commentStats(videoID, threads)
+	return SummarizeComments(videoID, threads)
 }
 
 // FlattenComments returns top-level comments followed by their loaded replies.
+//
+// Deprecated: Use the package function FlattenComments, which needs no Client.
 func (c *Client) FlattenComments(threads []CommentThread) []Comment {
+	return FlattenComments(threads)
+}
+
+// FlattenComments returns each thread's top-level comment followed by its loaded replies,
+// in thread order. It never returns nil.
+func FlattenComments(threads []CommentThread) []Comment {
 	flat := make([]Comment, 0)
 	for _, thread := range threads {
 		flat = append(flat, thread.TopLevelComment)
@@ -268,7 +278,12 @@ func mapThread(item youtube.CommentThread, textFormat TextFormat) CommentThread 
 	}
 }
 
-func commentStats(videoID string, threads []CommentThread) CommentStats {
+// SummarizeComments computes statistics over threads for videoID.
+// TotalComments counts threads. TotalReplies counts loaded replies plus any replies
+// a thread reports but did not load. UniqueAuthors, AvgLikes and MostLikedComment
+// cover the loaded top-level comments and replies. AvgLikes and ReplyRatio are
+// rounded to two decimal places, and on a MostLikedComment tie the comment that comes first in FlattenComments order wins.
+func SummarizeComments(videoID string, threads []CommentThread) CommentStats {
 	var all []Comment
 	totalReplies := 0
 	for _, thread := range threads {

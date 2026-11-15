@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -119,6 +120,15 @@ func TestCommentsHydrateStatsAndQuery(t *testing.T) {
 	flat := client.FlattenComments(threads)
 	if len(flat) != 3 {
 		t.Fatalf("flat = %d", len(flat))
+	}
+	if got := FlattenComments(threads); !reflect.DeepEqual(got, flat) {
+		t.Fatalf("FlattenComments = %+v, method = %+v", got, flat)
+	}
+	if got, want := SummarizeComments("vid", threads), client.CommentStats("vid", threads); !reflect.DeepEqual(got, want) {
+		t.Fatalf("SummarizeComments = %+v, method = %+v", got, want)
+	}
+	if got := SummarizeComments("vid", threads); got.TotalComments != 1 || got.TotalReplies != 2 || got.UniqueAuthors != 1 {
+		t.Fatalf("SummarizeComments = %+v", got)
 	}
 
 	result, err := client.CommentQuery("https://www.youtube.com/watch?v=vid").
