@@ -3,6 +3,7 @@ package lyra
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -22,8 +23,31 @@ func newTransport(apiKey string, cfg config) *transport {
 		apiKey:     apiKey,
 		baseURL:    strings.TrimRight(cfg.baseURL, "/"),
 		maxRetries: cfg.maxRetries,
-		httpClient: cfg.httpClient,
+		httpClient: redirectSafeClient(cfg.httpClient),
 	}
+}
+
+const apiKeyHeader = "X-Goog-Api-Key"
+
+// redirectSafeClient returns a shallow copy of client whose redirect policy
+// drops the API key header when a redirect leaves the original host. The
+// caller's client is left untouched and its CheckRedirect still applies.
+func redirectSafeClient(client *http.Client) *http.Client {
+	safe := *client
+	callerCheck := client.CheckRedirect
+	safe.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) > 0 && req.URL.Host != via[0].URL.Host {
+			req.Header.Del(apiKeyHeader)
+		}
+		if callerCheck != nil {
+			return callerCheck(req, via)
+		}
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		return nil
+	}
+	return &safe
 }
 
 func getJSON[T any](ctx context.Context, t *transport, path string, params map[string]string) (T, error) {
@@ -44,7 +68,7 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if err != nil {
 			return err
 		}
-		req.Header.Set("X-Goog-Api-Key", t.apiKey)
+		req.Header.Set(apiKeyHeader, t.apiKey)
 
 		resp, err := t.httpClient.Do(req)
 		if err != nil {

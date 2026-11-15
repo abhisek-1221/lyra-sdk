@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -252,6 +253,92 @@ func TestTransportErrorDoesNotLeakAPIKey(t *testing.T) {
 	}
 	if calls.Load() != 2 {
 		t.Fatalf("calls = %d, want 2", calls.Load())
+	}
+}
+
+func TestTransportStripsAPIKeyOnCrossHostRedirect(t *testing.T) {
+	var targetCalls atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetCalls.Add(1)
+		if got := r.Header.Get("X-Goog-Api-Key"); got != "" {
+			t.Errorf("redirect target received X-Goog-Api-Key = %q", got)
+		}
+		writeJSON(t, w, videoList("dQw4w9WgXcQ", "Redirected Channel"))
+	}))
+	defer target.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+r.URL.Path+"?"+r.URL.RawQuery, http.StatusFound)
+	}))
+	defer origin.Close()
+
+	client := testClient(t, origin.URL)
+	if _, err := client.Video(context.Background(), "dQw4w9WgXcQ"); err != nil {
+		t.Fatal(err)
+	}
+	if targetCalls.Load() != 1 {
+		t.Fatalf("target calls = %d, want 1", targetCalls.Load())
+	}
+}
+
+func TestTransportKeepsAPIKeyOnSameHostRedirect(t *testing.T) {
+	var movedCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/moved/") {
+			http.Redirect(w, r, "/moved"+r.URL.Path+"?"+r.URL.RawQuery, http.StatusFound)
+			return
+		}
+		movedCalls.Add(1)
+		if got := r.Header.Get("X-Goog-Api-Key"); got != "test-key" {
+			t.Errorf("X-Goog-Api-Key after same-host redirect = %q, want %q", got, "test-key")
+		}
+		writeJSON(t, w, videoList("dQw4w9WgXcQ", "Moved Channel"))
+	}))
+	defer server.Close()
+
+	client := testClient(t, server.URL)
+	if _, err := client.Video(context.Background(), "dQw4w9WgXcQ"); err != nil {
+		t.Fatal(err)
+	}
+	if movedCalls.Load() != 1 {
+		t.Fatalf("moved calls = %d, want 1", movedCalls.Load())
+	}
+}
+
+func TestTransportHonoursCallerCheckRedirect(t *testing.T) {
+	var targetCalls atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetCalls.Add(1)
+		writeJSON(t, w, videoList("dQw4w9WgXcQ", "Redirected Channel"))
+	}))
+	defer target.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+r.URL.Path+"?"+r.URL.RawQuery, http.StatusFound)
+	}))
+	defer origin.Close()
+
+	errRefused := errors.New("redirect refused by caller")
+	var checked atomic.Int32
+	callerCheck := func(*http.Request, []*http.Request) error {
+		checked.Add(1)
+		return errRefused
+	}
+	callerClient := &http.Client{CheckRedirect: callerCheck}
+
+	client := testClient(t, origin.URL, WithHTTPClient(callerClient))
+	_, err := client.Video(context.Background(), "dQw4w9WgXcQ")
+	if !errors.Is(err, errRefused) {
+		t.Fatalf("err = %v, want caller's redirect error", err)
+	}
+	if checked.Load() != 1 {
+		t.Fatalf("caller CheckRedirect calls = %d, want 1", checked.Load())
+	}
+	if targetCalls.Load() != 0 {
+		t.Fatalf("target calls = %d, want 0", targetCalls.Load())
+	}
+	if reflect.ValueOf(callerClient.CheckRedirect).Pointer() != reflect.ValueOf(callerCheck).Pointer() {
+		t.Fatal("caller's http.Client.CheckRedirect was replaced")
 	}
 }
 
