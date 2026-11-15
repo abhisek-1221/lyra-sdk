@@ -164,6 +164,9 @@ func mapVideo(item youtube.Video) Video {
 // parseTime parses an RFC 3339 timestamp, fractional seconds included.
 // Invalid input yields the zero time.
 func parseTime(iso string) time.Time {
-	parsed, _ := parseDate(iso)
+	parsed, err := time.Parse(time.RFC3339, iso)
+	if err != nil {
+		return time.Time{}
+	}
 	return parsed
 }

@@ -77,7 +77,8 @@ func FormatDate(iso string) string {
 }
 
 // parseDate parses an RFC 3339 timestamp and renders it as an en-US long date
-// in UTC. Invalid input yields the zero time and "Invalid Date".
+// in UTC. Invalid input yields the zero time and "Invalid Date". Callers that
+// only need the time use parseTime, which skips the formatting.
 func parseDate(iso string) (time.Time, string) {
 	parsed, err := time.Parse(time.RFC3339, iso)
 	if err != nil {
