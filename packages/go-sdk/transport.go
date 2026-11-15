@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -19,6 +21,19 @@ const (
 	// maxErrorBodyBytes caps how much of a non-2xx body is read for classification.
 	maxErrorBodyBytes = 64 << 10
 )
+
+const (
+	// baseBackoff is the first retry's backoff ceiling; it doubles per attempt.
+	baseBackoff = 300 * time.Millisecond
+	// maxBackoff caps the exponential backoff ceiling.
+	maxBackoff = 10 * time.Second
+	// maxBackoffShift bounds the doubling so the shift can't overflow;
+	// baseBackoff<<6 already exceeds maxBackoff.
+	maxBackoffShift = 6
+)
+
+// maxRetryAfter caps how long a server-requested Retry-After wait may be.
+var maxRetryAfter = 30 * time.Second
 
 type transport struct {
 	apiKey     string
@@ -130,7 +145,13 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if !retry || attempt == t.maxRetries {
 			return apiErr
 		}
-		if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {
+		delay, ok := retryAfter(resp.Header.Get("Retry-After"))
+		if ok {
+			delay = min(delay, maxRetryAfter)
+		} else {
+			delay = backoff(attempt)
+		}
+		if sleepErr := sleep(ctx, delay); sleepErr != nil {
 			return sleepErr
 		}
 	}
@@ -151,7 +172,39 @@ func (t *transport) buildURL(path string, params map[string]string) string {
 }
 
 func sleepBackoff(ctx context.Context, attempt int) error {
-	delay := time.Duration(1<<attempt) * 300 * time.Millisecond
+	return sleep(ctx, backoff(attempt))
+}
+
+// backoff returns a "full jitter" delay: a random duration in [0, base), where
+// base doubles from baseBackoff on each attempt and is capped at maxBackoff.
+func backoff(attempt int) time.Duration {
+	base := maxBackoff
+	if attempt < maxBackoffShift {
+		base = min(baseBackoff<<attempt, maxBackoff)
+	}
+	return rand.N(base)
+}
+
+// retryAfter parses a Retry-After header value: delta-seconds or an HTTP-date.
+func retryAfter(value string) (time.Duration, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+	if secs, err := strconv.Atoi(value); err == nil {
+		if secs < 0 {
+			return 0, false
+		}
+		return time.Duration(secs) * time.Second, true
+	}
+	when, err := http.ParseTime(value)
+	if err != nil {
+		return 0, false
+	}
+	return max(time.Until(when), 0), true
+}
+
+func sleep(ctx context.Context, delay time.Duration) error {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {
