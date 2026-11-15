@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -31,38 +32,83 @@ type googleErrorBody struct {
 	} `json:"error"`
 }
 
-// parseErrorBody returns YouTube's message and first non-empty reason. ok is
-// false when the body is not a Google error envelope.
-func parseErrorBody(body []byte) (message, reason string, ok bool) {
+// parsedError is what classification needs from a Google error envelope.
+type parsedError struct {
+	message string
+	// reason is the most specific reason: the first details[] (ErrorInfo)
+	// reason, else the first errors[] reason.
+	reason string
+	// reasons holds every non-empty reason from details[] and errors[].
+	reasons []string
+}
+
+// parseErrorBody decodes a Google error envelope. ok is false when the body
+// is not one.
+func parseErrorBody(body []byte) (p parsedError, ok bool) {
 	var env googleErrorBody
 	if err := json.Unmarshal(body, &env); err != nil {
-		return "", "", false
+		return parsedError{}, false
 	}
 	e := env.Error
 	if e.Code == 0 && e.Message == "" && e.Status == "" && len(e.Errors) == 0 && len(e.Details) == 0 {
-		return "", "", false
+		return parsedError{}, false
+	}
+	p.message = e.Message
+	for _, item := range e.Details {
+		if item.Reason != "" {
+			p.reasons = append(p.reasons, item.Reason)
+		}
 	}
 	for _, item := range e.Errors {
 		if item.Reason != "" {
-			return e.Message, item.Reason, true
+			p.reasons = append(p.reasons, item.Reason)
 		}
 	}
-	for _, item := range e.Details {
-		if item.Reason != "" {
-			return e.Message, item.Reason, true
-		}
+	if len(p.reasons) > 0 {
+		p.reason = p.reasons[0]
 	}
-	return e.Message, "", true
+	return p, true
 }
 
-// classify maps a status and YouTube reason to a Kind. Reason takes priority
-// over status.
-func classify(status int, reason string) Kind {
-	switch reason {
+func isAuthReason(r string) bool {
+	switch r {
 	case "keyInvalid", "keyExpired", "API_KEY_INVALID", "API_KEY_EXPIRED":
-		return KindAuth
-	case "quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded", "userRateLimitExceeded":
-		return KindQuota
+		return true
+	}
+	return false
+}
+
+func isQuotaReason(r string) bool {
+	switch r {
+	case "quotaExceeded", "dailyLimitExceeded":
+		return true
+	}
+	return isRateLimitReason(r)
+}
+
+func isRateLimitReason(r string) bool {
+	return r == "rateLimitExceeded" || r == "userRateLimitExceeded"
+}
+
+func isNotFoundReason(r string) bool {
+	return strings.HasSuffix(r, "NotFound")
+}
+
+// classify maps a status and every reason in the body to a Kind. A reason
+// that maps to a specific Kind wins over the status, with priority
+// Auth > Quota (including rate limits) > NotFound; otherwise the status decides.
+func classify(status int, reasons []string) Kind {
+	for _, rule := range []struct {
+		match func(string) bool
+		kind  Kind
+	}{
+		{isAuthReason, KindAuth},
+		{isQuotaReason, KindQuota},
+		{isNotFoundReason, KindNotFound},
+	} {
+		if slices.ContainsFunc(reasons, rule.match) {
+			return rule.kind
+		}
 	}
 	switch {
 	case status == http.StatusUnauthorized:
@@ -71,7 +117,7 @@ func classify(status int, reason string) Kind {
 		return KindQuota
 	case status == http.StatusForbidden:
 		return KindForbidden
-	case status == http.StatusNotFound || strings.HasSuffix(reason, "NotFound"):
+	case status == http.StatusNotFound:
 		return KindNotFound
 	default:
 		return KindAPI
@@ -79,25 +125,25 @@ func classify(status int, reason string) Kind {
 }
 
 // retryable reports whether a failed response is worth retrying.
-func retryable(status int, reason string) bool {
-	switch reason {
-	case "rateLimitExceeded", "userRateLimitExceeded":
+func retryable(status int, reasons []string) bool {
+	if slices.ContainsFunc(reasons, isRateLimitReason) {
 		return true
 	}
 	return status == http.StatusTooManyRequests || (status >= 500 && status <= 599)
 }
 
-// statusError builds the *Error for a non-2xx response.
-func statusError(status int, body []byte, path string, params map[string]string) *Error {
-	ytMessage, reason, parsed := parseErrorBody(body)
-	kind := classify(status, reason)
-	e := &Error{Kind: kind, Status: status, Reason: reason}
+// statusError builds the *Error for a non-2xx response and reports whether
+// the request is worth retrying.
+func statusError(status int, body []byte, path string, params map[string]string) (*Error, bool) {
+	p, parsed := parseErrorBody(body)
+	kind := classify(status, p.reasons)
+	e := &Error{Kind: kind, Status: status, Reason: p.reason}
 	if kind == KindNotFound {
 		e.Resource = resourceForPath(path)
 		e.ID = resourceID(params, path)
 	}
 
-	detail := truncate(strings.TrimSpace(ytMessage), maxMessageLen)
+	detail := truncate(strings.TrimSpace(p.message), maxMessageLen)
 	if !parsed && kind == KindAPI {
 		detail = bodySnippet(body)
 	}
@@ -109,7 +155,7 @@ func statusError(status int, body []byte, path string, params map[string]string)
 	default:
 		e.Message = detail
 	}
-	return e
+	return e, retryable(status, p.reasons)
 }
 
 // bodySnippet returns a short, single-line excerpt of a non-JSON error body.

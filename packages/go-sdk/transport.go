@@ -125,9 +125,9 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if int64(len(body)) > limit {
 			body = body[:limit]
 		}
-		apiErr := statusError(resp.StatusCode, body, path, params)
+		apiErr, retry := statusError(resp.StatusCode, body, path, params)
 		// Out of retries, the last real HTTP error is returned unchanged.
-		if !retryable(resp.StatusCode, apiErr.Reason) || attempt == t.maxRetries {
+		if !retry || attempt == t.maxRetries {
 			return apiErr
 		}
 		if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {

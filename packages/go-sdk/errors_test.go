@@ -105,6 +105,14 @@ func TestErrorsClassifiedFromYouTubeReason(t *testing.T) {
 			wantKind: KindAuth, wantReason: "API_KEY_INVALID", wantIs: ErrAuth,
 		},
 		{
+			// Verbatim body YouTube returns for a bad key: the legacy errors[]
+			// reason is the generic badRequest, the ErrorInfo carries the detail.
+			name:     "key invalid with generic legacy reason",
+			status:   http.StatusBadRequest,
+			body:     json.RawMessage(`{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","errors":[{"message":"API key not valid. Please pass a valid API key.","domain":"global","reason":"badRequest"}],"status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"youtube.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"API key not valid. Please pass a valid API key."}]}}`),
+			wantKind: KindAuth, wantReason: "API_KEY_INVALID", wantIs: ErrAuth,
+		},
+		{
 			name:   "unauthorized",
 			status: http.StatusUnauthorized,
 			body: googleError(401, "UNAUTHENTICATED", "authError",
