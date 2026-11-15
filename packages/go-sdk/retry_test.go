@@ -1,8 +1,11 @@
 package lyra
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -97,6 +100,52 @@ func TestRetryAfterHTTPDateIsHonoured(t *testing.T) {
 	}
 	if calls.Load() != 1 {
 		t.Fatalf("calls = %d, want 1", calls.Load())
+	}
+}
+
+// errBody is a response body that fails mid-read, like a dropped connection.
+type errBody struct{}
+
+func (errBody) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+func (errBody) Close() error             { return nil }
+
+func TestRetryAfterIsHonouredWhenBodyReadFails(t *testing.T) {
+	// The first response is a 503 with Retry-After whose body breaks while
+	// being read; the retry must still wait for the header's delay rather
+	// than the sub-300ms jittered backoff.
+	var calls atomic.Int32
+	okBody, err := json.Marshal(videoList("dQw4w9WgXcQ", "Retry Channel"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := testClient(t, "https://example.invalid", WithMaxRetries(1), WithHTTPClient(&http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if calls.Add(1) == 1 {
+				return &http.Response{
+					StatusCode: http.StatusServiceUnavailable,
+					Header:     http.Header{"Retry-After": []string{"1"}},
+					Body:       errBody{},
+					Request:    r,
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewReader(okBody)),
+				Request:    r,
+			}, nil
+		}),
+	}))
+
+	start := time.Now()
+	if _, err := client.Video(context.Background(), "dQw4w9WgXcQ"); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(start); elapsed < 900*time.Millisecond {
+		t.Fatalf("retried after %v, want it to wait for Retry-After (about 1s)", elapsed)
+	}
+	if calls.Load() != 2 {
+		t.Fatalf("calls = %d, want 2", calls.Load())
 	}
 }
 

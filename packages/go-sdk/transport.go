@@ -114,6 +114,9 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if success {
 			limit = maxSuccessBodyBytes
 		}
+		// Read Retry-After from the headers up front so a body that breaks
+		// mid-read still honours the server's requested delay.
+		delay, hasRetryAfter := retryAfter(resp.Header.Get("Retry-After"), t.maxRetryAfter)
 		body, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 		resp.Body.Close()
 		if readErr != nil {
@@ -122,7 +125,10 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 			}
 			lastErr = readErr
 			if attempt < t.maxRetries {
-				if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {
+				if !hasRetryAfter || !retryable(resp.StatusCode, nil) {
+					delay = backoff(attempt)
+				}
+				if sleepErr := sleep(ctx, delay); sleepErr != nil {
 					return sleepErr
 				}
 				continue
@@ -145,8 +151,7 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if !retry || attempt == t.maxRetries {
 			return apiErr
 		}
-		delay, ok := retryAfter(resp.Header.Get("Retry-After"), t.maxRetryAfter)
-		if !ok {
+		if !hasRetryAfter {
 			delay = backoff(attempt)
 		}
 		if sleepErr := sleep(ctx, delay); sleepErr != nil {
