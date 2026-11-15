@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,9 +23,6 @@ func TestNewRejectsEmptyAPIKey(t *testing.T) {
 func TestTransportRetriesThenSucceeds(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("key") != "test-key" {
-			t.Errorf("key = %q", r.URL.Query().Get("key"))
-		}
 		if calls.Add(1) == 1 {
 			http.Error(w, "temporary", http.StatusInternalServerError)
 			return
@@ -44,6 +43,33 @@ func TestTransportRetriesThenSucceeds(t *testing.T) {
 	}
 	if calls.Load() != 2 {
 		t.Fatalf("calls = %d", calls.Load())
+	}
+}
+
+func TestTransportSendsAPIKeyInHeaderOnly(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if got := r.Header.Get("X-Goog-Api-Key"); got != "test-key" {
+			t.Errorf("X-Goog-Api-Key = %q, want %q", got, "test-key")
+		}
+		if r.URL.Query().Has("key") {
+			t.Errorf("request URL carries key query parameter: %s", r.URL.RawQuery)
+		}
+		if calls.Load() == 1 {
+			http.Error(w, "temporary", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(t, w, videoList("dQw4w9WgXcQ", "Header Channel"))
+	}))
+	defer server.Close()
+
+	client := testClient(t, server.URL, WithMaxRetries(1))
+	if _, err := client.Video(context.Background(), "dQw4w9WgXcQ"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 2 {
+		t.Fatalf("calls = %d, want 2", calls.Load())
 	}
 }
 
@@ -109,6 +135,50 @@ func TestTransportContextCancel(t *testing.T) {
 	}
 }
 
+func TestTransportStopsRetryingWhenContextCancelled(t *testing.T) {
+	t.Run("during backoff", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var calls atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			cancel()
+			http.Error(w, "temporary", http.StatusServiceUnavailable)
+		}))
+		defer server.Close()
+
+		client := testClient(t, server.URL, WithMaxRetries(3))
+		_, err := client.Video(ctx, "dQw4w9WgXcQ")
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("err = %v, want context.Canceled", err)
+		}
+		if calls.Load() != 1 {
+			t.Fatalf("calls = %d, want 1", calls.Load())
+		}
+	})
+
+	t.Run("in flight with custom cause", func(t *testing.T) {
+		ctx, cancel := context.WithCancelCause(context.Background())
+		defer cancel(nil)
+		var calls atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			cancel(errors.New("shutting down"))
+			<-r.Context().Done()
+		}))
+		defer server.Close()
+
+		client := testClient(t, server.URL, WithMaxRetries(0))
+		_, err := client.Video(ctx, "dQw4w9WgXcQ")
+		if err != ctx.Err() {
+			t.Fatalf("err = %#v, want ctx.Err() = %v", err, ctx.Err())
+		}
+		if calls.Load() != 1 {
+			t.Fatalf("calls = %d, want 1", calls.Load())
+		}
+	})
+}
+
 func TestTransportKeepsRetryCause(t *testing.T) {
 	sentinel := errors.New("dial failed")
 	client, err := New("test-key", WithMaxRetries(0), WithHTTPClient(&http.Client{
@@ -122,6 +192,35 @@ func TestTransportKeepsRetryCause(t *testing.T) {
 	_, err = getJSON[map[string]any](context.Background(), client.http, "videos", map[string]string{"id": "abc"})
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestTransportErrorDoesNotLeakAPIKey(t *testing.T) {
+	const apiKey = "super-secret-key-123"
+	sentinel := errors.New("connection refused")
+	var calls atomic.Int32
+	client, err := New(apiKey, WithMaxRetries(1), WithHTTPClient(&http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			calls.Add(1)
+			return nil, &url.Error{Op: "Get", URL: r.URL.String(), Err: sentinel}
+		}),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Video(context.Background(), "dQw4w9WgXcQ")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if strings.Contains(err.Error(), apiKey) {
+		t.Fatalf("error leaks API key: %q", err.Error())
+	}
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("err = %v, want it to wrap %v", err, sentinel)
+	}
+	if calls.Load() != 2 {
+		t.Fatalf("calls = %d, want 2", calls.Load())
 	}
 }
 

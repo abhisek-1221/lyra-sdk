@@ -3,7 +3,6 @@ package lyra
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -45,11 +44,12 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if err != nil {
 			return err
 		}
+		req.Header.Set("X-Goog-Api-Key", t.apiKey)
 
 		resp, err := t.httpClient.Do(req)
 		if err != nil {
-			if ctxErr := context.Cause(ctx); ctxErr != nil && errors.Is(err, ctxErr) {
-				return err
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
 			}
 			lastErr = err
 			if attempt < t.maxRetries {
@@ -101,7 +101,6 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 
 func (t *transport) buildURL(path string, params map[string]string) string {
 	query := url.Values{}
-	query.Set("key", t.apiKey)
 	for k, v := range params {
 		query.Set(k, v)
 	}
