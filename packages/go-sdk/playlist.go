@@ -2,7 +2,7 @@ package lyra
 
 import (
 	"context"
-	"strings"
+	"strconv"
 
 	"golang.org/x/sync/errgroup"
 
@@ -22,29 +22,11 @@ func (c *Client) PlaylistVideoIDs(ctx context.Context, urlOrID string) ([]string
 // Playlist fetches metadata, every video id, and full details for those videos.
 // Metadata and id paging start together. Detail requests run in chunks of 50.
 func (c *Client) Playlist(ctx context.Context, urlOrID string) (Playlist, error) {
-	id := resolvePlaylistID(urlOrID)
-
-	var info PlaylistInfo
-	var ids []string
-	group, groupCtx := errgroup.WithContext(ctx)
-	group.Go(func() error {
-		var err error
-		info, err = c.playlistInfo(groupCtx, id)
-		return err
-	})
-	group.Go(func() error {
-		var err error
-		ids, err = c.playlistVideoIDs(groupCtx, id)
-		return err
-	})
-	if err := group.Wait(); err != nil {
-		return Playlist{}, err
-	}
-
-	videos, err := c.playlistVideos(ctx, ids)
+	loaded, err := c.loadPlaylist(ctx, resolvePlaylistID(urlOrID))
 	if err != nil {
 		return Playlist{}, err
 	}
+	info, videos := loaded.info, loaded.videos
 	total := totalDuration(videos)
 	return Playlist{
 		ID:               info.ID,
@@ -56,6 +38,40 @@ func (c *Client) Playlist(ctx context.Context, urlOrID string) (Playlist, error)
 		TotalDurationFmt: FormatDuration(total),
 		Videos:           videos,
 	}, nil
+}
+
+// loadedPlaylist is a playlist's metadata, its video ids in playlist order,
+// and the details of every video that could be fetched.
+type loadedPlaylist struct {
+	info   PlaylistInfo
+	ids    []string
+	videos []PlaylistVideo
+}
+
+// loadPlaylist fetches metadata and video ids in parallel, then the video details.
+func (c *Client) loadPlaylist(ctx context.Context, id string) (loadedPlaylist, error) {
+	var loaded loadedPlaylist
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		var err error
+		loaded.info, err = c.playlistInfo(groupCtx, id)
+		return err
+	})
+	group.Go(func() error {
+		var err error
+		loaded.ids, err = c.playlistVideoIDs(groupCtx, id)
+		return err
+	})
+	if err := group.Wait(); err != nil {
+		return loadedPlaylist{}, err
+	}
+
+	var err error
+	loaded.videos, err = c.playlistVideos(ctx, loaded.ids)
+	if err != nil {
+		return loadedPlaylist{}, err
+	}
+	return loaded, nil
 }
 
 func (c *Client) playlistInfo(ctx context.Context, id string) (PlaylistInfo, error) {
@@ -85,7 +101,7 @@ func (c *Client) playlistVideoIDs(ctx context.Context, playlistID string) ([]str
 		params := map[string]string{
 			"part":       "contentDetails",
 			"playlistId": playlistID,
-			"maxResults": itoa(youtubeMaxResults),
+			"maxResults": strconv.Itoa(youtubeMaxResults),
 		}
 		if pageToken != "" {
 			params["pageToken"] = pageToken
@@ -115,32 +131,14 @@ func (c *Client) playlistVideos(ctx context.Context, ids []string) ([]PlaylistVi
 	if len(ids) == 0 {
 		return []PlaylistVideo{}, nil
 	}
-	chunks := chunkStrings(ids, youtubeMaxResults)
-	lists := make([]youtube.VideoList, len(chunks))
-	group, ctx := errgroup.WithContext(ctx)
-	group.SetLimit(maxParallelChunks)
-	for i, part := range chunks {
-		group.Go(func() error {
-			data, err := getJSON[youtube.VideoList](ctx, c.http, "videos", map[string]string{
-				"part": "snippet,statistics,contentDetails",
-				"id":   strings.Join(part, ","),
-			})
-			if err != nil {
-				return err
-			}
-			lists[i] = data
-			return nil
-		})
-	}
-	if err := group.Wait(); err != nil {
+	items, err := c.fetchVideoItems(ctx, ids, "snippet,statistics,contentDetails")
+	if err != nil {
 		return nil, err
 	}
 
-	byID := make(map[string]PlaylistVideo)
-	for _, list := range lists {
-		for _, item := range list.Items {
-			byID[item.ID] = mapPlaylistVideo(item)
-		}
+	byID := make(map[string]PlaylistVideo, len(items))
+	for _, item := range items {
+		byID[item.ID] = mapPlaylistVideo(item)
 	}
 	videos := make([]PlaylistVideo, 0, len(ids))
 	for _, id := range ids {
