@@ -117,7 +117,7 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 
 		if success {
 			if int64(len(body)) > limit {
-				return fmt.Errorf("lyra: %s response body exceeds %d bytes", path, limit)
+				return fmt.Errorf("lyra-sdk: %s response body exceeds %d bytes", path, limit)
 			}
 			return json.Unmarshal(body, dest)
 		}
