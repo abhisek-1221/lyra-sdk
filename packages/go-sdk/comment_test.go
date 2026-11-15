@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -129,6 +131,90 @@ func TestCommentsHydrateStatsAndQuery(t *testing.T) {
 	}
 	if result.TotalResults != 1 || len(result.Threads[0].Replies) != 2 {
 		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestTypedCommentOptionsSendSameRequestsAsLiterals(t *testing.T) {
+	var mu sync.Mutex
+	var queries []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		queries = append(queries, r.URL.Path+"?"+r.URL.RawQuery)
+		mu.Unlock()
+		writeJSON(t, w, map[string]any{"items": []any{}})
+	}))
+	defer server.Close()
+
+	client := testClient(t, server.URL)
+	ctx := context.Background()
+	record := func(run func() error) string {
+		t.Helper()
+		mu.Lock()
+		queries = nil
+		mu.Unlock()
+		if err := run(); err != nil {
+			t.Fatal(err)
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		return strings.Join(queries, "\n")
+	}
+
+	cases := []struct {
+		name           string
+		typed, literal func() error
+		wantContains   []string
+	}{
+		{
+			name: "CommentQuery",
+			typed: func() error {
+				_, err := client.CommentQuery("vid").Order(OrderTime).TextFormat(TextHTML).Execute(ctx)
+				return err
+			},
+			literal: func() error {
+				_, err := client.CommentQuery("vid").Order("time").TextFormat("html").Execute(ctx)
+				return err
+			},
+			wantContains: []string{"order=time", "textFormat=html"},
+		},
+		{
+			name: "CommentOptions",
+			typed: func() error {
+				_, err := client.Comments(ctx, "vid", CommentOptions{Order: OrderRelevance, TextFormat: TextPlain})
+				return err
+			},
+			literal: func() error {
+				_, err := client.Comments(ctx, "vid", CommentOptions{Order: "relevance", TextFormat: "plainText"})
+				return err
+			},
+			wantContains: []string{"order=relevance", "textFormat=plainText"},
+		},
+		{
+			name: "CommentReplies",
+			typed: func() error {
+				_, err := client.CommentReplies(ctx, "parent", TextHTML)
+				return err
+			},
+			literal: func() error {
+				_, err := client.CommentReplies(ctx, "parent", "html")
+				return err
+			},
+			wantContains: []string{"textFormat=html"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			typed := record(tc.typed)
+			literal := record(tc.literal)
+			if typed != literal {
+				t.Fatalf("typed request %q != literal request %q", typed, literal)
+			}
+			for _, want := range tc.wantContains {
+				if !strings.Contains(typed, want) {
+					t.Fatalf("request %q missing %q", typed, want)
+				}
+			}
+		})
 	}
 }
 

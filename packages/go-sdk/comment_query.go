@@ -14,15 +14,15 @@ func (c *Client) CommentQuery(videoURLOrID string) *CommentQuery {
 type CommentQuery struct {
 	client     *Client
 	videoID    string
-	order      string
+	order      CommentOrder
 	search     string
 	limit      int
-	textFormat string
+	textFormat TextFormat
 	allReplies bool
 }
 
-// Order sets "time" or "relevance".
-func (q *CommentQuery) Order(order string) *CommentQuery {
+// Order sets the thread order, OrderTime or OrderRelevance.
+func (q *CommentQuery) Order(order CommentOrder) *CommentQuery {
 	q.order = order
 	return q
 }
@@ -45,8 +45,8 @@ func (q *CommentQuery) WithAllReplies() *CommentQuery {
 	return q
 }
 
-// TextFormat sets "plainText" or "html".
-func (q *CommentQuery) TextFormat(format string) *CommentQuery {
+// TextFormat sets the comment text format, TextPlain or TextHTML.
+func (q *CommentQuery) TextFormat(format TextFormat) *CommentQuery {
 	q.textFormat = format
 	return q
 }
