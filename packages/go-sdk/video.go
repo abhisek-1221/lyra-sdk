@@ -140,11 +140,7 @@ func mapVideo(item youtube.Video) Video {
 	likes := parseCount(item.Statistics.LikeCount)
 	comments := parseCount(item.Statistics.CommentCount)
 	duration := ParseDuration(item.ContentDetails.Duration)
-	publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
-	published := invalidDate
-	if err == nil {
-		published = formatDate(publishedAt)
-	}
+	publishedAt, published := parseDate(item.Snippet.PublishedAt)
 	return Video{
 		ID:          item.ID,
 		Title:       item.Snippet.Title,
@@ -168,6 +164,6 @@ func mapVideo(item youtube.Video) Video {
 // parseTime parses an RFC 3339 timestamp, fractional seconds included.
 // Invalid input yields the zero time.
 func parseTime(iso string) time.Time {
-	parsed, _ := time.Parse(time.RFC3339, iso)
+	parsed, _ := parseDate(iso)
 	return parsed
 }

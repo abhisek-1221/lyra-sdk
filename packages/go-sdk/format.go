@@ -72,15 +72,18 @@ const invalidDate = "Invalid Date"
 
 // FormatDate renders an RFC3339 timestamp as an en-US long date in UTC.
 func FormatDate(iso string) string {
-	parsed, err := time.Parse(time.RFC3339, iso)
-	if err != nil {
-		return invalidDate
-	}
-	return formatDate(parsed)
+	_, formatted := parseDate(iso)
+	return formatted
 }
 
-func formatDate(t time.Time) string {
-	return t.UTC().Format("January 2, 2006")
+// parseDate parses an RFC 3339 timestamp and renders it as an en-US long date
+// in UTC. Invalid input yields the zero time and "Invalid Date".
+func parseDate(iso string) (time.Time, string) {
+	parsed, err := time.Parse(time.RFC3339, iso)
+	if err != nil {
+		return time.Time{}, invalidDate
+	}
+	return parsed, parsed.UTC().Format("January 2, 2006")
 }
 
 // RelativeTime labels how long ago t was: "3 days ago", "2 hours ago", "1 minute ago".
