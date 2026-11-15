@@ -120,6 +120,14 @@ func TestErrorsClassifiedFromYouTubeReason(t *testing.T) {
 			wantKind: KindAuth, wantReason: "authError", wantIs: ErrAuth,
 		},
 		{
+			// 401 is always auth, whatever reason the body carries.
+			name:   "unauthorized with not-found reason",
+			status: http.StatusUnauthorized,
+			body: googleError(401, "UNAUTHENTICATED", "channelNotFound",
+				"Request had invalid authentication credentials."),
+			wantKind: KindAuth, wantReason: "channelNotFound", wantIs: ErrAuth,
+		},
+		{
 			name:   "video not found",
 			status: http.StatusNotFound,
 			body: googleError(404, "NOT_FOUND", "videoNotFound",

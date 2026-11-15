@@ -94,10 +94,14 @@ func isNotFoundReason(r string) bool {
 	return strings.HasSuffix(r, "NotFound")
 }
 
-// classify maps a status and every reason in the body to a Kind. A reason
-// that maps to a specific Kind wins over the status, with priority
-// Auth > Quota (including rate limits) > NotFound; otherwise the status decides.
+// classify maps a status and every reason in the body to a Kind. A 401 is
+// always KindAuth. Otherwise a reason that maps to a specific Kind wins over
+// the status, with priority Auth > Quota (including rate limits) > NotFound;
+// failing that the status decides.
 func classify(status int, reasons []string) Kind {
+	if status == http.StatusUnauthorized {
+		return KindAuth
+	}
 	for _, rule := range []struct {
 		match func(string) bool
 		kind  Kind
@@ -111,8 +115,6 @@ func classify(status int, reasons []string) Kind {
 		}
 	}
 	switch {
-	case status == http.StatusUnauthorized:
-		return KindAuth
 	case status == http.StatusTooManyRequests:
 		return KindQuota
 	case status == http.StatusForbidden:
