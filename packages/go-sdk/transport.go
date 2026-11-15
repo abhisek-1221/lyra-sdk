@@ -64,6 +64,9 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		body, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if readErr != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
 			lastErr = readErr
 			if attempt < t.maxRetries {
 				if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {

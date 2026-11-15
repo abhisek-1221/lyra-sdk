@@ -177,6 +177,37 @@ func TestTransportStopsRetryingWhenContextCancelled(t *testing.T) {
 			t.Fatalf("calls = %d, want 1", calls.Load())
 		}
 	})
+
+	t.Run("while reading body", func(t *testing.T) {
+		ctx, cancel := context.WithCancelCause(context.Background())
+		defer cancel(nil)
+		var calls atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"items":[`))
+			w.(http.Flusher).Flush()
+			<-r.Context().Done()
+		}))
+		defer server.Close()
+
+		// Cancel only once headers have arrived, so the failure surfaces from
+		// reading the body rather than from the round trip.
+		cancelAfterHeaders := &http.Client{Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			resp, err := http.DefaultTransport.RoundTrip(r)
+			cancel(errors.New("shutting down"))
+			return resp, err
+		})}
+		client := testClient(t, server.URL, WithMaxRetries(0), WithHTTPClient(cancelAfterHeaders))
+		_, err := client.Video(ctx, "dQw4w9WgXcQ")
+		if err != ctx.Err() {
+			t.Fatalf("err = %#v, want ctx.Err() = %v", err, ctx.Err())
+		}
+		if calls.Load() != 1 {
+			t.Fatalf("calls = %d, want 1", calls.Load())
+		}
+	})
 }
 
 func TestTransportKeepsRetryCause(t *testing.T) {
