@@ -1,6 +1,7 @@
 package lyra
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -309,6 +310,32 @@ func TestNonJSONErrorBodyKeepsShortSnippet(t *testing.T) {
 	_, err := client.Video(context.Background(), "dQw4w9WgXcQ")
 	if err == nil || !strings.Contains(err.Error(), "502 Bad Gateway") {
 		t.Fatalf("err = %v, want message with body snippet", err)
+	}
+}
+
+func TestOversizedSuccessBodyIsAnError(t *testing.T) {
+	// A valid video list padded with whitespace past the success cap: cut at
+	// the cap it would still decode, so only an explicit size check fails it.
+	payload, err := json.Marshal(videoList("dQw4w9WgXcQ", "Channel"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(payload)
+		padding := bytes.Repeat([]byte(" "), 64<<10)
+		for written := len(payload); written <= maxSuccessBodyBytes; written += len(padding) {
+			if _, err := w.Write(padding); err != nil {
+				return
+			}
+		}
+	}))
+	defer server.Close()
+	client := testClient(t, server.URL)
+
+	_, err = client.Video(context.Background(), "dQw4w9WgXcQ")
+	if err == nil || !strings.Contains(err.Error(), "lyra-sdk: videos response body exceeds") {
+		t.Fatalf("err = %v, want oversized body error", err)
 	}
 }
 
