@@ -1,16 +1,22 @@
 package lyra
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 const (
 	defaultBaseURL    = "https://www.googleapis.com/youtube/v3"
 	defaultMaxRetries = 2
+	// defaultMaxRetryAfter caps how long a server-requested Retry-After wait may be.
+	defaultMaxRetryAfter = 30 * time.Second
 )
 
 type config struct {
-	baseURL    string
-	maxRetries int
-	httpClient *http.Client
+	baseURL       string
+	maxRetries    int
+	maxRetryAfter time.Duration
+	httpClient    *http.Client
 }
 
 // Option configures a Client.

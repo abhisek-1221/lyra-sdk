@@ -64,16 +64,13 @@ func TestContextDeadlineCutsRetryAfterShort(t *testing.T) {
 }
 
 func TestRetryAfterIsCapped(t *testing.T) {
-	// Lower the cap so the test stays fast; an uncapped hour-long wait would
-	// blow the deadline.
-	saved := maxRetryAfter
-	maxRetryAfter = 50 * time.Millisecond
-	t.Cleanup(func() { maxRetryAfter = saved })
-
 	var calls atomic.Int32
 	server := retryAfterServer(t, http.StatusTooManyRequests, "3600", &calls)
 
 	client := testClient(t, server.URL, WithMaxRetries(1))
+	// Lower this client's cap so the test stays fast; an uncapped hour-long
+	// wait would blow the deadline.
+	client.http.maxRetryAfter = 50 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if _, err := client.Video(ctx, "dQw4w9WgXcQ"); err != nil {

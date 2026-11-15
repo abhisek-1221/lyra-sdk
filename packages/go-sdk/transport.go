@@ -32,22 +32,22 @@ const (
 	maxBackoffShift = 6
 )
 
-// maxRetryAfter caps how long a server-requested Retry-After wait may be.
-var maxRetryAfter = 30 * time.Second
-
 type transport struct {
 	apiKey     string
 	baseURL    string
 	maxRetries int
-	httpClient *http.Client
+	// maxRetryAfter caps how long a server-requested Retry-After wait may be.
+	maxRetryAfter time.Duration
+	httpClient    *http.Client
 }
 
 func newTransport(apiKey string, cfg config) *transport {
 	return &transport{
-		apiKey:     apiKey,
-		baseURL:    strings.TrimRight(cfg.baseURL, "/"),
-		maxRetries: cfg.maxRetries,
-		httpClient: redirectSafeClient(cfg.httpClient),
+		apiKey:        apiKey,
+		baseURL:       strings.TrimRight(cfg.baseURL, "/"),
+		maxRetries:    cfg.maxRetries,
+		maxRetryAfter: cfg.maxRetryAfter,
+		httpClient:    redirectSafeClient(cfg.httpClient),
 	}
 }
 
@@ -147,7 +147,7 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		}
 		delay, ok := retryAfter(resp.Header.Get("Retry-After"))
 		if ok {
-			delay = min(delay, maxRetryAfter)
+			delay = min(delay, t.maxRetryAfter)
 		} else {
 			delay = backoff(attempt)
 		}
