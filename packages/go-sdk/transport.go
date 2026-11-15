@@ -145,10 +145,8 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if !retry || attempt == t.maxRetries {
 			return apiErr
 		}
-		delay, ok := retryAfter(resp.Header.Get("Retry-After"))
-		if ok {
-			delay = min(delay, t.maxRetryAfter)
-		} else {
+		delay, ok := retryAfter(resp.Header.Get("Retry-After"), t.maxRetryAfter)
+		if !ok {
 			delay = backoff(attempt)
 		}
 		if sleepErr := sleep(ctx, delay); sleepErr != nil {
@@ -185,15 +183,21 @@ func backoff(attempt int) time.Duration {
 	return rand.N(base)
 }
 
-// retryAfter parses a Retry-After header value: delta-seconds or an HTTP-date.
-func retryAfter(value string) (time.Duration, bool) {
+// retryAfter parses a Retry-After header value (delta-seconds or an
+// HTTP-date) into a delay no longer than limit.
+func retryAfter(value string, limit time.Duration) (time.Duration, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return 0, false
 	}
-	if secs, err := strconv.Atoi(value); err == nil {
+	if secs, err := strconv.ParseInt(value, 10, 64); err == nil || errors.Is(err, strconv.ErrRange) {
 		if secs < 0 {
 			return 0, false
+		}
+		// Compare before multiplying: a huge value would overflow
+		// time.Duration and wrap negative.
+		if secs > int64(limit/time.Second) {
+			return limit, true
 		}
 		return time.Duration(secs) * time.Second, true
 	}
@@ -201,7 +205,7 @@ func retryAfter(value string) (time.Duration, bool) {
 	if err != nil {
 		return 0, false
 	}
-	return max(time.Until(when), 0), true
+	return min(max(time.Until(when), 0), limit), true
 }
 
 func sleep(ctx context.Context, delay time.Duration) error {

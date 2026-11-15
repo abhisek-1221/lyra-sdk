@@ -99,3 +99,25 @@ func TestRetryAfterHTTPDateIsHonoured(t *testing.T) {
 		t.Fatalf("calls = %d, want 1", calls.Load())
 	}
 }
+
+func TestHugeRetryAfterSecondsWaitsForTheCap(t *testing.T) {
+	// 9223372037s overflows time.Duration when multiplied by time.Second; it
+	// must clamp to the cap rather than wrap negative and retry immediately.
+	var calls atomic.Int32
+	server := retryAfterServer(t, http.StatusTooManyRequests, "9223372037", &calls)
+
+	client := testClient(t, server.URL, WithMaxRetries(1))
+	client.http.maxRetryAfter = 400 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	start := time.Now()
+	if _, err := client.Video(ctx, "dQw4w9WgXcQ"); err != nil {
+		t.Fatalf("err = %v, want the capped wait to retry and succeed", err)
+	}
+	if elapsed := time.Since(start); elapsed < 350*time.Millisecond {
+		t.Fatalf("retried after %v, want it to wait for the capped Retry-After (400ms)", elapsed)
+	}
+	if calls.Load() != 2 {
+		t.Fatalf("calls = %d, want 2", calls.Load())
+	}
+}
