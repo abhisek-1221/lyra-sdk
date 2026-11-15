@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -192,7 +193,7 @@ func TestVideosChunksAndTitles(t *testing.T) {
 
 	ids := make([]string, 51)
 	for i := range ids {
-		ids[i] = "v" + itoa(i)
+		ids[i] = "v" + strconv.Itoa(i)
 	}
 	ids = append(ids, "https://youtu.be/bareShort")
 	client := testClient(t, server.URL)

@@ -68,16 +68,19 @@ func formatCoefficient(scaled float64) string {
 	return english.Sprint(number.Decimal(scaled, number.MinFractionDigits(1), number.MaxFractionDigits(1)))
 }
 
+const invalidDate = "Invalid Date"
+
 // FormatDate renders an RFC3339 timestamp as an en-US long date in UTC.
 func FormatDate(iso string) string {
 	parsed, err := time.Parse(time.RFC3339, iso)
 	if err != nil {
-		parsed, err = time.Parse(time.RFC3339Nano, iso)
+		return invalidDate
 	}
-	if err != nil {
-		return "Invalid Date"
-	}
-	return parsed.UTC().Format("January 2, 2006")
+	return formatDate(parsed)
+}
+
+func formatDate(t time.Time) string {
+	return t.UTC().Format("January 2, 2006")
 }
 
 // RelativeTime labels how long ago t was: "3 days ago", "2 hours ago", "1 minute ago".

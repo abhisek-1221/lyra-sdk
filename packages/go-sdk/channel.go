@@ -2,6 +2,7 @@ package lyra
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/abhisek-1221/lyra-sdk/packages/go-sdk/internal/youtube"
@@ -34,7 +35,7 @@ func (c *Client) ChannelVideos(ctx context.Context, urlOrID string, limit int) (
 	page, err := getJSON[youtube.PlaylistItemList](ctx, c.http, "playlistItems", map[string]string{
 		"part":       "snippet",
 		"playlistId": channel.UploadsPlaylistID,
-		"maxResults": itoa(limit),
+		"maxResults": strconv.Itoa(limit),
 	})
 	if err != nil {
 		return nil, err
@@ -66,11 +67,7 @@ func (c *Client) ChannelVideos(ctx context.Context, urlOrID string, limit int) (
 		stat := byID[videoID]
 		views := parseCount(stat.Statistics.ViewCount)
 		likes := parseCount(stat.Statistics.LikeCount)
-		durationISO := stat.ContentDetails.Duration
-		if durationISO == "" {
-			durationISO = "PT0S"
-		}
-		duration := ParseDuration(durationISO)
+		duration := ParseDuration(stat.ContentDetails.Duration)
 		publishedAt := parseTime(item.Snippet.PublishedAt)
 		recent = append(recent, RecentVideo{
 			ID:          videoID,

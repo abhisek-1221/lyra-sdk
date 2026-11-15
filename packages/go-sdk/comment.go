@@ -3,6 +3,7 @@ package lyra
 import (
 	"context"
 	"math"
+	"strconv"
 
 	"golang.org/x/sync/errgroup"
 
@@ -28,7 +29,7 @@ func (c *Client) CommentReplies(ctx context.Context, parentID, textFormat string
 		params := map[string]string{
 			"part":       "snippet",
 			"parentId":   parentID,
-			"maxResults": itoa(commentPageSize),
+			"maxResults": strconv.Itoa(commentPageSize),
 			"textFormat": format,
 		}
 		if pageToken != "" {
@@ -135,7 +136,7 @@ func (c *Client) commentThreads(ctx context.Context, videoID, channelID string, 
 		}
 		params := map[string]string{
 			"part":       "snippet,replies",
-			"maxResults": itoa(remaining),
+			"maxResults": strconv.Itoa(remaining),
 			"textFormat": format,
 		}
 		if videoID != "" {

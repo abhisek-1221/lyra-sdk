@@ -34,34 +34,13 @@ func (c *Client) Video(ctx context.Context, urlOrID string) (Video, error) {
 // Videos fetches many videos. IDs are split into groups of 50 and requested
 // with at most four calls in flight.
 func (c *Client) Videos(ctx context.Context, urlsOrIDs []string) ([]Video, error) {
-	ids := resolveIDs(urlsOrIDs)
-	chunks := chunkStrings(ids, youtubeMaxResults)
-	lists := make([]youtube.VideoList, len(chunks))
-
-	group, ctx := errgroup.WithContext(ctx)
-	group.SetLimit(maxParallelChunks)
-	for i, part := range chunks {
-		group.Go(func() error {
-			data, err := getJSON[youtube.VideoList](ctx, c.http, "videos", map[string]string{
-				"part": "snippet,statistics,contentDetails",
-				"id":   strings.Join(part, ","),
-			})
-			if err != nil {
-				return err
-			}
-			lists[i] = data
-			return nil
-		})
-	}
-	if err := group.Wait(); err != nil {
+	items, err := c.fetchVideoItems(ctx, resolveIDs(urlsOrIDs), "snippet,statistics,contentDetails")
+	if err != nil {
 		return nil, err
 	}
-
-	videos := make([]Video, 0)
-	for _, list := range lists {
-		for _, item := range list.Items {
-			videos = append(videos, mapVideo(item))
-		}
+	videos := make([]Video, 0, len(items))
+	for _, item := range items {
+		videos = append(videos, mapVideo(item))
 	}
 	return videos, nil
 }
@@ -85,16 +64,35 @@ func (c *Client) VideoTitle(ctx context.Context, urlOrID string) (string, error)
 // VideoTitles returns titles keyed by video id. Missing ids map to "Video {id}".
 func (c *Client) VideoTitles(ctx context.Context, urlsOrIDs []string) (map[string]string, error) {
 	ids := resolveIDs(urlsOrIDs)
+	items, err := c.fetchVideoItems(ctx, ids, "snippet")
+	if err != nil {
+		return nil, err
+	}
+	titles := make(map[string]string, len(ids))
+	for _, item := range items {
+		titles[item.ID] = item.Snippet.Title
+	}
+	for _, id := range ids {
+		if _, ok := titles[id]; !ok {
+			titles[id] = "Video " + id
+		}
+	}
+	return titles, nil
+}
+
+// fetchVideoItems requests details for ids in chunks of 50 with at most four
+// requests in flight. Items come back in input-chunk order.
+func (c *Client) fetchVideoItems(ctx context.Context, ids []string, part string) ([]youtube.Video, error) {
 	chunks := chunkStrings(ids, youtubeMaxResults)
 	lists := make([]youtube.VideoList, len(chunks))
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(maxParallelChunks)
-	for i, part := range chunks {
+	for i, chunk := range chunks {
 		group.Go(func() error {
 			data, err := getJSON[youtube.VideoList](ctx, c.http, "videos", map[string]string{
-				"part": "snippet",
-				"id":   strings.Join(part, ","),
+				"part": part,
+				"id":   strings.Join(chunk, ","),
 			})
 			if err != nil {
 				return err
@@ -107,18 +105,11 @@ func (c *Client) VideoTitles(ctx context.Context, urlsOrIDs []string) (map[strin
 		return nil, err
 	}
 
-	titles := make(map[string]string, len(ids))
+	var items []youtube.Video
 	for _, list := range lists {
-		for _, item := range list.Items {
-			titles[item.ID] = item.Snippet.Title
-		}
+		items = append(items, list.Items...)
 	}
-	for _, id := range ids {
-		if _, ok := titles[id]; !ok {
-			titles[id] = "Video " + id
-		}
-	}
-	return titles, nil
+	return items, nil
 }
 
 func resolveIDs(urlsOrIDs []string) []string {
@@ -149,7 +140,11 @@ func mapVideo(item youtube.Video) Video {
 	likes := parseCount(item.Statistics.LikeCount)
 	comments := parseCount(item.Statistics.CommentCount)
 	duration := ParseDuration(item.ContentDetails.Duration)
-	publishedAt := parseTime(item.Snippet.PublishedAt)
+	publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
+	published := invalidDate
+	if err == nil {
+		published = formatDate(publishedAt)
+	}
 	return Video{
 		ID:          item.ID,
 		Title:       item.Snippet.Title,
@@ -164,19 +159,15 @@ func mapVideo(item youtube.Video) Video {
 		CommentsFmt: FormatNumber(comments),
 		Duration:    duration,
 		DurationFmt: FormatDurationClock(duration),
-		Published:   FormatDate(item.Snippet.PublishedAt),
+		Published:   published,
 		PublishedAt: publishedAt,
 		Thumbnails:  mapThumbnails(item.Snippet.Thumbnails),
 	}
 }
 
+// parseTime parses an RFC 3339 timestamp, fractional seconds included.
+// Invalid input yields the zero time.
 func parseTime(iso string) time.Time {
-	parsed, err := time.Parse(time.RFC3339, iso)
-	if err != nil {
-		parsed, err = time.Parse(time.RFC3339Nano, iso)
-	}
-	if err != nil {
-		return time.Time{}
-	}
+	parsed, _ := time.Parse(time.RFC3339, iso)
 	return parsed
 }
