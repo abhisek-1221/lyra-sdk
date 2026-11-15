@@ -112,7 +112,7 @@ func main() {
 
 	top, err := client.PlaylistQuery(playlist.ID).
 		FilterByViews(1000, 0).
-		SortBy(lyra.SortByViews, lyra.Desc).
+		SortBy("views", "desc").
 		Between(1, 3).
 		Execute(ctx)
 	if err != nil {
