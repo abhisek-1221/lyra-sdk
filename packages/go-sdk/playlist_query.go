@@ -3,8 +3,6 @@ package lyra
 import (
 	"context"
 	"slices"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // PlaylistQuery starts a filter, sort, and slice over one playlist.
@@ -91,29 +89,12 @@ func (q *PlaylistQuery) Between(start, end int) *PlaylistQuery {
 
 // Execute loads the playlist and applies the query.
 func (q *PlaylistQuery) Execute(ctx context.Context) (PlaylistQueryResult, error) {
-	var info PlaylistInfo
-	var ids []string
-	group, groupCtx := errgroup.WithContext(ctx)
-	group.Go(func() error {
-		var err error
-		info, err = q.client.playlistInfo(groupCtx, q.playlistID)
-		return err
-	})
-	group.Go(func() error {
-		var err error
-		ids, err = q.client.playlistVideoIDs(groupCtx, q.playlistID)
-		return err
-	})
-	if err := group.Wait(); err != nil {
-		return PlaylistQueryResult{}, err
-	}
-
-	videos, err := q.client.playlistVideos(ctx, ids)
+	loaded, err := q.client.loadPlaylist(ctx, q.playlistID)
 	if err != nil {
 		return PlaylistQueryResult{}, err
 	}
-	original := len(ids)
-	videos = q.applyFilters(videos)
+	info := loaded.info
+	videos := q.applyFilters(loaded.videos)
 	videos = q.applySort(videos)
 	videos = q.applyRange(videos)
 	total := totalDuration(videos)
@@ -124,7 +105,7 @@ func (q *PlaylistQuery) Execute(ctx context.Context) (PlaylistQueryResult, error
 		Thumbnails:       info.Thumbnails,
 		Videos:           videos,
 		VideoCount:       len(videos),
-		OriginalCount:    original,
+		OriginalCount:    len(loaded.ids),
 		TotalDuration:    total,
 		TotalDurationFmt: FormatDuration(total),
 	}, nil

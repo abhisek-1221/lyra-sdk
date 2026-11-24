@@ -1,3 +1,4 @@
+// Package youtube holds the YouTube Data API v3 response shapes the client decodes.
 package youtube
 
 // Thumbnail is a YouTube image resource.

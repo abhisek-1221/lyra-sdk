@@ -2,6 +2,7 @@ package lyra
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -30,16 +31,16 @@ func FormatDuration(totalSeconds int) string {
 
 	var parts []string
 	if days > 0 {
-		parts = append(parts, itoa(days)+"d")
+		parts = append(parts, strconv.Itoa(days)+"d")
 	}
 	if hours > 0 {
-		parts = append(parts, itoa(hours)+"h")
+		parts = append(parts, strconv.Itoa(hours)+"h")
 	}
 	if minutes > 0 {
-		parts = append(parts, itoa(minutes)+"m")
+		parts = append(parts, strconv.Itoa(minutes)+"m")
 	}
 	if seconds > 0 || len(parts) == 0 {
-		parts = append(parts, itoa(seconds)+"s")
+		parts = append(parts, strconv.Itoa(seconds)+"s")
 	}
 	return strings.Join(parts, " ")
 }
@@ -53,28 +54,14 @@ func FormatDurationClock(totalSeconds int) string {
 	minutes := (totalSeconds % 3600) / 60
 	seconds := totalSeconds % 60
 	if hours > 0 {
-		return itoa(hours) + ":" + pad2(minutes) + ":" + pad2(seconds)
+		return strconv.Itoa(hours) + ":" + pad2(minutes) + ":" + pad2(seconds)
 	}
-	return itoa(minutes) + ":" + pad2(seconds)
+	return strconv.Itoa(minutes) + ":" + pad2(seconds)
 }
 
 func pad2(n int) string {
 	if n < 10 {
-		return "0" + itoa(n)
+		return "0" + strconv.Itoa(n)
 	}
-	return itoa(n)
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
+	return strconv.Itoa(n)
 }
