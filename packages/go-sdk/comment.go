@@ -15,13 +15,32 @@ const (
 	replyFetchConcurrency = 5
 )
 
+// CommentOrder is the order YouTube returns comment threads in.
+type CommentOrder string
+
+// Comment orders accepted by CommentOptions.Order and CommentQuery.Order.
+const (
+	OrderTime      CommentOrder = "time"
+	OrderRelevance CommentOrder = "relevance"
+)
+
+// TextFormat is the format of comment text returned by YouTube.
+type TextFormat string
+
+// Text formats accepted by CommentOptions.TextFormat, CommentQuery.TextFormat and Client.CommentReplies.
+// The zero value means TextPlain.
+const (
+	TextPlain TextFormat = "plainText"
+	TextHTML  TextFormat = "html"
+)
+
 // Comments lists comment threads for a video. Pages stay sequential.
 func (c *Client) Comments(ctx context.Context, videoURLOrID string, opts CommentOptions) ([]CommentThread, error) {
 	return c.commentThreads(ctx, resolveVideoID(videoURLOrID), "", opts)
 }
 
 // CommentReplies lists every reply to a comment. Pages stay sequential.
-func (c *Client) CommentReplies(ctx context.Context, parentID, textFormat string) ([]Comment, error) {
+func (c *Client) CommentReplies(ctx context.Context, parentID string, textFormat TextFormat) ([]Comment, error) {
 	format := normalizeTextFormat(textFormat)
 	var comments []Comment
 	pageToken := ""
@@ -30,7 +49,7 @@ func (c *Client) CommentReplies(ctx context.Context, parentID, textFormat string
 			"part":       "snippet",
 			"parentId":   parentID,
 			"maxResults": strconv.Itoa(commentPageSize),
-			"textFormat": format,
+			"textFormat": string(format),
 		}
 		if pageToken != "" {
 			params["pageToken"] = pageToken
@@ -74,7 +93,7 @@ func (c *Client) TopComments(ctx context.Context, videoURLOrID string, limit int
 		limit = commentPageSize
 	}
 	threads, err := c.Comments(ctx, videoURLOrID, CommentOptions{
-		Order:      "relevance",
+		Order:      OrderRelevance,
 		MaxResults: limit,
 	})
 	if err != nil {
@@ -90,7 +109,7 @@ func (c *Client) TopComments(ctx context.Context, videoURLOrID string, limit int
 func (c *Client) SearchComments(ctx context.Context, videoURLOrID, query string, opts CommentOptions) ([]CommentThread, error) {
 	opts.SearchTerms = query
 	if opts.TextFormat == "" {
-		opts.TextFormat = "plainText"
+		opts.TextFormat = TextPlain
 	}
 	return c.Comments(ctx, videoURLOrID, opts)
 }
@@ -100,13 +119,23 @@ func (c *Client) ChannelComments(ctx context.Context, channelID string, opts Com
 	return c.commentThreads(ctx, "", channelID, opts)
 }
 
-// CommentStats summarizes threads the same way the TypeScript client does.
+// CommentStats summarizes threads.
+//
+// Deprecated: Use SummarizeComments, which needs no Client.
 func (c *Client) CommentStats(videoID string, threads []CommentThread) CommentStats {
-	return commentStats(videoID, threads)
+	return SummarizeComments(videoID, threads)
 }
 
 // FlattenComments returns top-level comments followed by their loaded replies.
+//
+// Deprecated: Use the package function FlattenComments, which needs no Client.
 func (c *Client) FlattenComments(threads []CommentThread) []Comment {
+	return FlattenComments(threads)
+}
+
+// FlattenComments returns each thread's top-level comment followed by its loaded replies,
+// in thread order. It never returns nil.
+func FlattenComments(threads []CommentThread) []Comment {
 	flat := make([]Comment, 0)
 	for _, thread := range threads {
 		flat = append(flat, thread.TopLevelComment)
@@ -137,7 +166,7 @@ func (c *Client) commentThreads(ctx context.Context, videoID, channelID string, 
 		params := map[string]string{
 			"part":       "snippet,replies",
 			"maxResults": strconv.Itoa(remaining),
-			"textFormat": format,
+			"textFormat": string(format),
 		}
 		if videoID != "" {
 			params["videoId"] = videoID
@@ -146,7 +175,7 @@ func (c *Client) commentThreads(ctx context.Context, videoID, channelID string, 
 			params["allThreadsRelatedToChannelId"] = channelID
 		}
 		if opts.Order != "" {
-			params["order"] = opts.Order
+			params["order"] = string(opts.Order)
 		}
 		if opts.SearchTerms != "" {
 			params["searchTerms"] = opts.SearchTerms
@@ -178,7 +207,7 @@ func (c *Client) commentThreads(ctx context.Context, videoID, channelID string, 
 	return threads, nil
 }
 
-func (c *Client) hydrateMissingReplies(ctx context.Context, threads []CommentThread, textFormat string) ([]CommentThread, error) {
+func (c *Client) hydrateMissingReplies(ctx context.Context, threads []CommentThread, textFormat TextFormat) ([]CommentThread, error) {
 	type job struct {
 		index int
 		id    string
@@ -211,9 +240,9 @@ func (c *Client) hydrateMissingReplies(ctx context.Context, threads []CommentThr
 	return updated, nil
 }
 
-func mapComment(item youtube.Comment, textFormat string) Comment {
+func mapComment(item youtube.Comment, textFormat TextFormat) Comment {
 	text := item.Snippet.TextDisplay
-	if textFormat != "html" {
+	if textFormat != TextHTML {
 		if item.Snippet.TextOriginal != "" {
 			text = item.Snippet.TextOriginal
 		}
@@ -232,7 +261,7 @@ func mapComment(item youtube.Comment, textFormat string) Comment {
 	}
 }
 
-func mapThread(item youtube.CommentThread, textFormat string) CommentThread {
+func mapThread(item youtube.CommentThread, textFormat TextFormat) CommentThread {
 	replies := make([]Comment, 0, len(item.Replies.Comments))
 	for _, reply := range item.Replies.Comments {
 		replies = append(replies, mapComment(reply, textFormat))
@@ -249,7 +278,12 @@ func mapThread(item youtube.CommentThread, textFormat string) CommentThread {
 	}
 }
 
-func commentStats(videoID string, threads []CommentThread) CommentStats {
+// SummarizeComments computes statistics over threads for videoID.
+// TotalComments counts threads. TotalReplies counts loaded replies plus any replies
+// a thread reports but did not load. UniqueAuthors, AvgLikes and MostLikedComment
+// cover the loaded top-level comments and replies. AvgLikes and ReplyRatio are
+// rounded to two decimal places, and on a MostLikedComment tie the comment that comes first in FlattenComments order wins.
+func SummarizeComments(videoID string, threads []CommentThread) CommentStats {
 	var all []Comment
 	totalReplies := 0
 	for _, thread := range threads {
@@ -289,9 +323,9 @@ func commentStats(videoID string, threads []CommentThread) CommentStats {
 	return stats
 }
 
-func normalizeTextFormat(format string) string {
+func normalizeTextFormat(format TextFormat) TextFormat {
 	if format == "" {
-		return "plainText"
+		return TextPlain
 	}
 	return format
 }
