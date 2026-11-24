@@ -18,9 +18,10 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 	}
 
 	cfg := config{
-		baseURL:    defaultBaseURL,
-		maxRetries: defaultMaxRetries,
-		httpClient: http.DefaultClient,
+		baseURL:       defaultBaseURL,
+		maxRetries:    defaultMaxRetries,
+		maxRetryAfter: defaultMaxRetryAfter,
+		httpClient:    http.DefaultClient,
 	}
 	for _, opt := range opts {
 		opt(&cfg)

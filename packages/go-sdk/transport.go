@@ -4,27 +4,74 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	// maxSuccessBodyBytes caps a 2xx body; a body over the cap is an error,
+	// never a silent truncation.
+	maxSuccessBodyBytes = 8 << 20
+	// maxErrorBodyBytes caps how much of a non-2xx body is read for classification.
+	maxErrorBodyBytes = 64 << 10
+)
+
+const (
+	// baseBackoff is the first retry's backoff ceiling; it doubles per attempt.
+	baseBackoff = 300 * time.Millisecond
+	// maxBackoff caps the exponential backoff ceiling.
+	maxBackoff = 10 * time.Second
+	// maxBackoffShift bounds the doubling so the shift can't overflow;
+	// baseBackoff<<6 already exceeds maxBackoff.
+	maxBackoffShift = 6
 )
 
 type transport struct {
 	apiKey     string
 	baseURL    string
 	maxRetries int
-	httpClient *http.Client
+	// maxRetryAfter caps how long a server-requested Retry-After wait may be.
+	maxRetryAfter time.Duration
+	httpClient    *http.Client
 }
 
 func newTransport(apiKey string, cfg config) *transport {
 	return &transport{
-		apiKey:     apiKey,
-		baseURL:    strings.TrimRight(cfg.baseURL, "/"),
-		maxRetries: cfg.maxRetries,
-		httpClient: cfg.httpClient,
+		apiKey:        apiKey,
+		baseURL:       strings.TrimRight(cfg.baseURL, "/"),
+		maxRetries:    cfg.maxRetries,
+		maxRetryAfter: cfg.maxRetryAfter,
+		httpClient:    redirectSafeClient(cfg.httpClient),
 	}
+}
+
+const apiKeyHeader = "X-Goog-Api-Key"
+
+// redirectSafeClient returns a shallow copy of client whose redirect policy
+// drops the API key header when a redirect leaves the original host. The
+// caller's client is left untouched and its CheckRedirect still applies.
+func redirectSafeClient(client *http.Client) *http.Client {
+	safe := *client
+	callerCheck := client.CheckRedirect
+	safe.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) > 0 && req.URL.Host != via[0].URL.Host {
+			req.Header.Del(apiKeyHeader)
+		}
+		if callerCheck != nil {
+			return callerCheck(req, via)
+		}
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		return nil
+	}
+	return &safe
 }
 
 func getJSON[T any](ctx context.Context, t *transport, path string, params map[string]string) (T, error) {
@@ -45,11 +92,12 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 		if err != nil {
 			return err
 		}
+		req.Header.Set(apiKeyHeader, t.apiKey)
 
 		resp, err := t.httpClient.Do(req)
 		if err != nil {
-			if ctxErr := context.Cause(ctx); ctxErr != nil && errors.Is(err, ctxErr) {
-				return err
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
 			}
 			lastErr = err
 			if attempt < t.maxRetries {
@@ -61,12 +109,26 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 			break
 		}
 
-		body, readErr := io.ReadAll(resp.Body)
+		success := resp.StatusCode >= 200 && resp.StatusCode < 300
+		limit := int64(maxErrorBodyBytes)
+		if success {
+			limit = maxSuccessBodyBytes
+		}
+		// Read Retry-After from the headers up front so a body that breaks
+		// mid-read still honours the server's requested delay.
+		delay, hasRetryAfter := retryAfter(resp.Header.Get("Retry-After"), t.maxRetryAfter)
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 		resp.Body.Close()
 		if readErr != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
 			lastErr = readErr
 			if attempt < t.maxRetries {
-				if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {
+				if !hasRetryAfter || !retryable(resp.StatusCode, nil) {
+					delay = backoff(attempt)
+				}
+				if sleepErr := sleep(ctx, delay); sleepErr != nil {
 					return sleepErr
 				}
 				continue
@@ -74,22 +136,27 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 			break
 		}
 
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			if err := json.Unmarshal(body, dest); err != nil {
-				return err
+		if success {
+			if int64(len(body)) > limit {
+				return fmt.Errorf("lyra-sdk: %s response body exceeds %d bytes", path, limit)
 			}
-			return nil
+			return json.Unmarshal(body, dest)
 		}
 
-		if retryable(resp.StatusCode) && attempt < t.maxRetries {
-			lastErr = apiError(resp.StatusCode, string(body))
-			if sleepErr := sleepBackoff(ctx, attempt); sleepErr != nil {
-				return sleepErr
-			}
-			continue
+		if int64(len(body)) > limit {
+			body = body[:limit]
 		}
-
-		return statusError(resp.StatusCode, string(body), path, params)
+		apiErr, retry := statusError(resp.StatusCode, body, path, params)
+		// Out of retries, the last real HTTP error is returned unchanged.
+		if !retry || attempt == t.maxRetries {
+			return apiErr
+		}
+		if !hasRetryAfter {
+			delay = backoff(attempt)
+		}
+		if sleepErr := sleep(ctx, delay); sleepErr != nil {
+			return sleepErr
+		}
 	}
 
 	message := "Request failed after retries"
@@ -101,19 +168,52 @@ func (t *transport) get(ctx context.Context, path string, params map[string]stri
 
 func (t *transport) buildURL(path string, params map[string]string) string {
 	query := url.Values{}
-	query.Set("key", t.apiKey)
 	for k, v := range params {
 		query.Set(k, v)
 	}
 	return t.baseURL + "/" + path + "?" + query.Encode()
 }
 
-func retryable(status int) bool {
-	return status == http.StatusTooManyRequests || (status >= 500 && status <= 599)
+func sleepBackoff(ctx context.Context, attempt int) error {
+	return sleep(ctx, backoff(attempt))
 }
 
-func sleepBackoff(ctx context.Context, attempt int) error {
-	delay := time.Duration(1<<attempt) * 300 * time.Millisecond
+// backoff returns a "full jitter" delay: a random duration in [0, base), where
+// base doubles from baseBackoff on each attempt and is capped at maxBackoff.
+func backoff(attempt int) time.Duration {
+	base := maxBackoff
+	if attempt < maxBackoffShift {
+		base = min(baseBackoff<<attempt, maxBackoff)
+	}
+	return rand.N(base)
+}
+
+// retryAfter parses a Retry-After header value (delta-seconds or an
+// HTTP-date) into a delay no longer than limit.
+func retryAfter(value string, limit time.Duration) (time.Duration, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+	if secs, err := strconv.ParseInt(value, 10, 64); err == nil || errors.Is(err, strconv.ErrRange) {
+		if secs < 0 {
+			return 0, false
+		}
+		// Compare before multiplying: a huge value would overflow
+		// time.Duration and wrap negative.
+		if secs > int64(limit/time.Second) {
+			return limit, true
+		}
+		return time.Duration(secs) * time.Second, true
+	}
+	when, err := http.ParseTime(value)
+	if err != nil {
+		return 0, false
+	}
+	return min(max(time.Until(when), 0), limit), true
+}
+
+func sleep(ctx context.Context, delay time.Duration) error {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {
@@ -122,19 +222,6 @@ func sleepBackoff(ctx context.Context, attempt int) error {
 	case <-timer.C:
 		return nil
 	}
-}
-
-func statusError(status int, body, path string, params map[string]string) *Error {
-	if status == http.StatusUnauthorized || (status == http.StatusForbidden && strings.Contains(body, "API key")) {
-		return authRejected()
-	}
-	if status == http.StatusForbidden {
-		return quotaExceeded()
-	}
-	if status == http.StatusNotFound {
-		return notFound(resourceForPath(path), resourceID(params, path))
-	}
-	return apiError(status, body)
 }
 
 func resourceForPath(path string) string {
